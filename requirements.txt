@@ -1,0 +1,7 @@
+numpy
+py
+py3gpp
+cocotb
+cocotb-test
+pytest
+pytest-parallel
