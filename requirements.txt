@@ -1,8 +1,10 @@
 numpy
 scipy
+matplotlib
 py
-py3gpp
 cocotb
 cocotb-test
 pytest
 pytest-parallel
+py3gpp
+sigmf

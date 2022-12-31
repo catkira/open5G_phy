@@ -12,7 +12,7 @@ module PSS_correlator
     input                                       reset_ni,
     input   wire    signed [IN_DW-1:0]          s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
-    output  reg     [OUT_DW-1:0]                m_axis_out_tdata,
+    output  reg            [OUT_DW-1:0]         m_axis_out_tdata,
     output  reg                                 m_axis_out_tvalid
 );
 
@@ -22,7 +22,7 @@ initial begin
     for (integer i=0; i<10; i=i+1) begin
         tap_re = PSS_LOCAL[i*32+:16];
         tap_im = PSS_LOCAL[i*32+16+:16];
-        $display("PSS_LOCAL[%d] = %d + j%d", i, tap_re, tap_im);
+        // $display("PSS_LOCAL[%d] = %d + j%d", i, tap_re, tap_im);
     end
 end
 
@@ -49,7 +49,9 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff
                 in_re[i+1] <= in_re[i];
                 in_im[i+1] <= in_im[i];
             end
-            // $display("in[0] = %d + j%d", in_re[0], in_re[0]);
+            // $display("in[0] = %d + j%d", in_re[0], in_im[0]);
+            // $display("in[1] = %d + j%d", in_re[1], in_im[1]);
+            // $display("in[2] = %d + j%d", in_re[2], in_im[2]);
             valid <= 1'b1;
         end else begin
             valid <= '0;
@@ -65,7 +67,7 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff
     end
 end
 
-reg signed [15:0] sum_im, sum_re;
+reg signed [OUT_DW-2:0] sum_im, sum_re;
 always_comb begin
     sum_im = '0;
     sum_re = '0;
@@ -73,7 +75,7 @@ always_comb begin
         tap_re = PSS_LOCAL[i*32+:16];
         tap_im = PSS_LOCAL[i*32+16+:16];        
         sum_im = sum_im + in_re[i] * tap_im + in_im[i] * tap_re;
-        sum_re = sum_re - in_im[i] * tap_im + in_re[i] * tap_re;
+        sum_re = sum_re + in_re[i] * tap_re - in_im[i] * tap_im;
     end
 end
 

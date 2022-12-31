@@ -4,7 +4,6 @@ import os
 import pytest
 import logging
 import importlib
-import sys
 import matplotlib.pyplot as plt
 
 import cocotb
@@ -62,16 +61,14 @@ class TB(object):
 async def simple_test(dut):
     handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
     waveform = handle.read_samples()
-    print(len(waveform))
-    waveform = scipy.signal.decimate(waveform, 8, ftype='fir')
-    print(len(waveform))
+    waveform = scipy.signal.decimate(waveform, 16, ftype='fir')
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform *= 2**15
+    waveform *= 2**7
 
     tb = TB(dut)
     await tb.cycle_reset()
 
-    num_items = 1000
+    num_items = 500
     i = 0
     in_counter = 0
     received = np.empty(num_items, int)
@@ -79,6 +76,7 @@ async def simple_test(dut):
         await RisingEdge(dut.clk_i)
         # dut.s_axis_in_tdata.value = 1 + (2<<16)
         dut.s_axis_in_tdata.value = ((int(waveform[in_counter].imag)&0xFFFF)<<16) + ((int(waveform[in_counter].real))&0xFFFF)
+        #dut.s_axis_in_tdata.value = (((in_counter)&0xFFFF)<<16) + ((- in_counter)&0xFFFF)
         dut.s_axis_in_tvalid.value = 1
         in_counter += 1
 
@@ -87,8 +85,11 @@ async def simple_test(dut):
             received[i] = dut.m_axis_out_tdata.value.integer
             i  += 1
 
-    plt.plot(np.sqrt(received))
-    plt.show()
+    # plt.plot(np.sqrt(received))
+    # plt.show()
+    ssb_start = np.argmax(received)
+    assert ssb_start == 412
+    assert received[ssb_start] == 845006905
 
 def test():
     dut = 'PSS_correlator'
@@ -100,21 +101,21 @@ def test():
     ]
     includes = []
 
-    PSS_LEN = 127
+    PSS_LEN = 128
     parameters = {}
     parameters['IN_DW'] = 32
-    parameters['OUT_DW'] = 16
+    parameters['OUT_DW'] = 32
     parameters['PSS_LEN'] = PSS_LEN
 
     # imaginary part is in upper 16 Bit
-    #taps = np.zeros(PSS_LEN, 'complex')
-    taps = np.fft.ifft(py3gpp.nrPSS(2)) * np.sqrt(PSS_LEN) * 2**15
-    taps[0] = 1 + 1j*10
-    taps[1] = -2 - 1j*20
+    PSS = np.zeros(128, 'complex')
+    PSS[0:-1] = py3gpp.nrPSS(2)
+    taps = np.fft.ifft(np.fft.fftshift(PSS))
+    taps /= max(taps.real.max(), taps.imag.max())
+    taps *= 2**7
     parameters['PSS_LOCAL'] = 0
     for i in range(len(taps)):
         parameters['PSS_LOCAL'] += ((int(np.imag(taps[i]))&0xFFFF) << (32*i + 16)) + ((int(np.real(taps[i]))&0xFFFF) << (32*i))
-    sys.set_int_max_str_digits(100000)        
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     parameters_no_taps = parameters.copy()
     del parameters_no_taps['PSS_LOCAL']
