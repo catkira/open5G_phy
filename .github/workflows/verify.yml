@@ -20,4 +20,4 @@ jobs:
         sudo apt install -y --no-install-recommends iverilog
     - name: Verify with cocotb & icarus
       run: |
-        pytest -v --workers 10 tests/test_PSS_correlator.py
+        pytest -v -rA --workers 10 tests/test_PSS_correlator.py
