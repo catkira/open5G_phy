@@ -1,0 +1,20 @@
+{
+  "annotations": [],
+  "captures": [
+    {
+      "core:datetime": "2022-10-21T11:40:51.727Z",
+      "core:frequency": 763000000.0,
+      "core:length": 43171840,
+      "sdrangel:sample_rate": 30720000
+    }
+  ],
+  "global": {
+    "core:author": "SDRangel",
+    "core:datatype": "ci32_le",
+    "core:description": "SDRangel SigMF I/Q recording file",
+    "core:hw": "BladeRF2",
+    "core:recorder": "SDRangel",
+    "core:sample_rate": 30720000.0,
+    "core:version": "0.0.2"
+  }
+}

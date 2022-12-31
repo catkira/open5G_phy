@@ -1,4 +1,5 @@
 numpy
+scipy
 py
 py3gpp
 cocotb
