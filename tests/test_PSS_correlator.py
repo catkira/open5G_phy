@@ -61,6 +61,11 @@ async def simple_test(dut):
     i = 0
     while i < num_items:
         await RisingEdge(dut.clk_i)
+        dut.s_axis_in_tdata.value = 1
+        dut.s_axis_in_tvalid.value = 1
+
+        if dut.m_axis_out_tvalid == 1:
+            print(dut.m_axis_out_tdata)
         i  += 1
 
 def test():
@@ -74,6 +79,10 @@ def test():
     includes = []
 
     parameters = {}
+    parameters['IN_DW'] = 32
+    parameters['OUT_DW'] = 16
+    parameters['PSS_LEN'] = 127
+    parameters['PSS_LOCAL'] = 1 + (2<<32) + (3<<64) + (4<<(32*3))
 
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     sim_build="sim_build/" + "_".join(("{}={}".format(*i) for i in parameters.items()))
