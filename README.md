@@ -8,6 +8,9 @@ Implemented so far:<br>
 TODO:
 * optimized PSS correlator like described here: https://ieeexplore.ieee.org/document/8641097
 * peak detector
+* SSS detector
+* channel estimator
+* SSB demodulator
 
 # Tests
 ```
