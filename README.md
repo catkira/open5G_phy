@@ -6,6 +6,8 @@ HDL code for 5G SSB synchronization
 
 # Tests
 Install iverilog.
+
 Run 'pytest'.
+
 See the .github/workflows/verify.yml for more details.
 
