@@ -5,7 +5,9 @@ module PSS_correlator
     parameter IN_DW = 32,          // input data width
     parameter OUT_DW = 16,         // output data width
     parameter PSS_LEN = 127,
+    /* verilator lint_off WIDTH */
     parameter [32*(PSS_LEN)-1:0] PSS_LOCAL = {PSS_LEN{32'b0}}
+    /* verilator lint_on WIDTH */
 )
 (
     input                                       clk_i,
