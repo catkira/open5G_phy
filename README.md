@@ -5,7 +5,7 @@ HDL code for 5G SSB synchronization
 
 
 # Tests
-```shell
+```
   sudo apt install iverilog
   pip install -e requirements.txt
   pytest
