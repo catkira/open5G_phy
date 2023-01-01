@@ -92,8 +92,8 @@ async def simple_test(dut):
     plt.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
     plt.show()
     print(f'max correlation is {received[ssb_start]} at {ssb_start}')
-    assert ssb_start == 412 or ssb_start == 482 # TODO why does github CI give 482 ???
-    assert received[ssb_start] == 924586225 or received[ssb_start] == 4132042938
+    assert ssb_start == 412
+    assert received[ssb_start] == 924586225
     assert len(received) == num_items
 
 def test():
