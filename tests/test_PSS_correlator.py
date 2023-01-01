@@ -24,6 +24,10 @@ rtl_dir = os.path.abspath(os.path.join(tests_dir, '..', 'hdl'))
 class TB(object):
     def __init__(self, dut):
         self.dut = dut
+        self.IN_DW = int(dut.IN_DW.value)
+        self.OUT_DW = int(dut.OUT_DW.value)
+        self.PSS_LEN = int(dut.PSS_LEN.value)
+        self.PSS_LOCAL = int(dut.PSS_LOCAL.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -33,7 +37,7 @@ class TB(object):
         spec = importlib.util.spec_from_file_location('PSS_correlator', model_dir)
         foo = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(foo)
-        self.model = foo.Model() 
+        self.model = foo.Model(self.IN_DW, self.OUT_DW, self.PSS_LEN, self.PSS_LOCAL) 
 
         cocotb.start_soon(Clock(self.dut.clk_i, CLK_PERIOD_NS, units='ns').start())
         cocotb.start_soon(self.model_clk(CLK_PERIOD_NS, 'ns'))
@@ -63,7 +67,7 @@ async def simple_test(dut):
     waveform = handle.read_samples()
     waveform = scipy.signal.decimate(waveform, 16, ftype='fir')
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform *= 2**7
+    waveform *= 2**5
 
     tb = TB(dut)
     await tb.cycle_reset()
@@ -83,12 +87,13 @@ async def simple_test(dut):
             received[i] = dut.m_axis_out_tdata.value.integer
             i  += 1
 
-    # plt.plot(np.sqrt(received))
-    # plt.show()
     ssb_start = np.argmax(received)
+    plt.plot(np.sqrt(received))
+    plt.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
+    plt.show()
     print(f'max correlation is {received[ssb_start]} at {ssb_start}')
     assert ssb_start == 412 or ssb_start == 482 # TODO why does github CI give 482 ???
-    assert received[ssb_start] == 845006905 or received[ssb_start] == 4132042938
+    assert received[ssb_start] == 924586225 or received[ssb_start] == 4132042938
     assert len(received) == num_items
 
 def test():
@@ -112,7 +117,7 @@ def test():
     PSS[0:-1] = py3gpp.nrPSS(2)
     taps = np.fft.ifft(np.fft.fftshift(PSS))
     taps /= max(taps.real.max(), taps.imag.max())
-    taps *= 2**7
+    taps *= 2**5
     parameters['PSS_LOCAL'] = 0
     for i in range(len(taps)):
         parameters['PSS_LOCAL'] += ((int(np.imag(taps[i]))&0xFFFF) << (32*i + 16)) + ((int(np.real(taps[i]))&0xFFFF) << (32*i))
@@ -129,7 +134,8 @@ def test():
         parameters=parameters,
         sim_build=sim_build,
         extra_env=extra_env,
-        testcase='simple_test'
+        testcase='simple_test',
+        force_compile=True
     )
 
 if __name__ == '__main__':
