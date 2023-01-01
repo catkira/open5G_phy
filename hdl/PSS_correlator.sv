@@ -16,9 +16,20 @@ module PSS_correlator
     output  reg                                 m_axis_out_tvalid
 );
 
+localparam REQUIRED_OUT_DW = IN_DW + 1 + $clog2(PSS_LEN);
+localparam POSSIBLE_IN_DW = OUT_DW - $clog2(PSS_LEN) - 1;
+
+wire signed [POSSIBLE_IN_DW/2 - 1:0] axis_in_re, axis_in_im;
+assign axis_in_re = s_axis_in_tdata[15-:POSSIBLE_IN_DW/2];
+assign axis_in_im = s_axis_in_tdata[31-:POSSIBLE_IN_DW/2];
+
 reg signed [15:0] tap_re, tap_im;
 
 initial begin
+    if (REQUIRED_OUT_DW > OUT_DW) begin
+        $display("Truncating inputs from %d bits to %d bits to prevent overflows", IN_DW, POSSIBLE_IN_DW);
+        $display("OUT_DW should be at least bits %d wide, to prevent truncation!", REQUIRED_OUT_DW);
+    end
     for (integer i=0; i<10; i=i+1) begin
         tap_re = PSS_LOCAL[i*32+:16];
         tap_im = PSS_LOCAL[i*32+16+:16];
@@ -43,15 +54,12 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff
     end
     else begin
         if (s_axis_in_tvalid) begin
-            in_re[0] <= s_axis_in_tdata[15:0];
-            in_im[0] <= s_axis_in_tdata[31:16];
+            in_re[0] <= axis_in_re;
+            in_im[0] <= axis_in_im;
             for (integer i=0; i<PSS_LEN; i++) begin
                 in_re[i+1] <= in_re[i];
                 in_im[i+1] <= in_im[i];
             end
-            // $display("in[0] = %d + j%d", in_re[0], in_im[0]);
-            // $display("in[1] = %d + j%d", in_re[1], in_im[1]);
-            // $display("in[2] = %d + j%d", in_re[2], in_im[2]);
             valid <= 1'b1;
         end else begin
             valid <= '0;
