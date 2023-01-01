@@ -3,7 +3,7 @@
 # 5G_SSB_sync
 HDL code for 5G SSB synchronization.<br>
 Implemented so far:<br>
-* pss correlation
+* PSS correlator
 
 
 # Tests
