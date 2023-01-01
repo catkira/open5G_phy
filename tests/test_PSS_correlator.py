@@ -28,6 +28,7 @@ class TB(object):
         self.IN_DW = int(dut.IN_DW.value)
         self.OUT_DW = int(dut.OUT_DW.value)
         self.PSS_LEN = int(dut.PSS_LEN.value)
+        print(dut.PSS_LOCAL.value)
         self.PSS_LOCAL = int(dut.PSS_LOCAL.value)
 
         self.log = logging.getLogger('cocotb.tb')
