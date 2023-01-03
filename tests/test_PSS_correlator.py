@@ -68,7 +68,7 @@ async def simple_test(dut):
     waveform = handle.read_samples()
     waveform = scipy.signal.decimate(waveform, 16, ftype='fir')
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform *= 2**7
+    waveform *= 2**15
 
     tb = TB(dut)
     await tb.cycle_reset()
@@ -95,7 +95,7 @@ async def simple_test(dut):
         plt.show()
     print(f'max correlation is {received[ssb_start]} at {ssb_start}')
     assert ssb_start == 412
-    assert received[ssb_start] == 1074853970
+    assert received[ssb_start] == 2160505576
     assert len(received) == num_items
 
 def test():
@@ -119,7 +119,9 @@ def test():
     PSS[0:-1] = py3gpp.nrPSS(2)
     taps = np.fft.ifft(np.fft.fftshift(PSS))
     taps /= max(taps.real.max(), taps.imag.max())
-    taps *= 2**7
+    taps *= 2**15
+    # for i in range(10):
+    #     print(f'taps[{i}] = {taps[i]}')
     parameters['PSS_LOCAL'] = 0
     for i in range(len(taps)):
         parameters['PSS_LOCAL'] += ((int(np.imag(taps[i]))&0xFFFF) << (32*i + 16)) + ((int(np.real(taps[i]))&0xFFFF) << (32*i))
