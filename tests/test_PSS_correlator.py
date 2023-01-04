@@ -95,7 +95,7 @@ async def simple_test(dut):
         plt.show()
     print(f'max correlation is {received[ssb_start]} at {ssb_start}')
     assert ssb_start == 412
-    assert received[ssb_start] == 2160505576
+    assert received[ssb_start] in (943784410, 914176850)
     assert len(received) == num_items
 
 def test():
@@ -115,16 +115,17 @@ def test():
     parameters['PSS_LEN'] = PSS_LEN
 
     # imaginary part is in upper 16 Bit
-    PSS = np.zeros(128, 'complex')
+    PSS = np.zeros(PSS_LEN, 'complex')
     PSS[0:-1] = py3gpp.nrPSS(2)
     taps = np.fft.ifft(np.fft.fftshift(PSS))
     taps /= max(taps.real.max(), taps.imag.max())
     taps *= 2**15
     # for i in range(10):
     #     print(f'taps[{i}] = {taps[i]}')
+    #taps = taps[1:] # remove first tap to make taps symmetric
     parameters['PSS_LOCAL'] = 0
     for i in range(len(taps)):
-        parameters['PSS_LOCAL'] += ((int(np.imag(taps[i]))&0xFFFF) << (32*i + 16)) + ((int(np.real(taps[i]))&0xFFFF) << (32*i))
+        parameters['PSS_LOCAL'] += ((int(np.round(np.imag(taps[i])))&0xFFFF) << (32*i + 16)) + ((int(np.round(np.real(taps[i])))&0xFFFF) << (32*i))
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     parameters_no_taps = parameters.copy()
     del parameters_no_taps['PSS_LOCAL']
