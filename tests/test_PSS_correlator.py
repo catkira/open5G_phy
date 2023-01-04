@@ -66,9 +66,11 @@ class TB(object):
 async def simple_test(dut):
     handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
     waveform = handle.read_samples()
+    waveform /= max(waveform.real.max(), waveform.imag.max())    
     waveform = scipy.signal.decimate(waveform, 16, ftype='fir')
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform *= 2**15
+    waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)    
 
     tb = TB(dut)
     await tb.cycle_reset()
@@ -79,7 +81,7 @@ async def simple_test(dut):
     received = np.empty(num_items, int)
     while i < num_items:
         await RisingEdge(dut.clk_i)
-        dut.s_axis_in_tdata.value = ((int(waveform[in_counter].imag)&0xFFFF)<<16) + ((int(waveform[in_counter].real))&0xFFFF)
+        dut.s_axis_in_tdata.value = (((int(waveform[in_counter].imag)&0xFFFF)<<16) + ((int(waveform[in_counter].real))&0xFFFF))&0xFFFFFFFF
         dut.s_axis_in_tvalid.value = 1
         in_counter += 1
 
@@ -94,8 +96,8 @@ async def simple_test(dut):
         plt.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
         plt.show()
     print(f'max correlation is {received[ssb_start]} at {ssb_start}')
-    assert ssb_start == 412
-    assert received[ssb_start] in (943784410, 914176850)
+    assert ssb_start == 411
+    assert received[ssb_start] in (946753562, 913375922)
     assert len(received) == num_items
 
 def test():
