@@ -17,6 +17,10 @@ jobs:
     - name: Install dependencies
       run: |
         pip3 install -r requirements.txt
+        #pip3 uninstall cocotb
+        git clone https://github.com/catkira/cocotb.git
+        cd cocotb
+        pip3 install -e .
         sudo apt install -y --no-install-recommends iverilog
     - name: Verify with cocotb & icarus
       run: |

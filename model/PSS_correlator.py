@@ -43,8 +43,8 @@ class Model:
             self.taps[i] =   ((_twos_comp(((PSS_LOCAL>>(32*i)) & 0xFFFF), 16) + round_bits) >> self.trunc_taps) \
                            + 1j*((_twos_comp(((PSS_LOCAL>>(32*i+16)) & 0xFFFF), 16) + round_bits) >> self.trunc_taps)
     
-        for i in range(PSS_LEN):
-            print(f'taps[{i}] = {self.taps[i]}')
+        # for i in range(PSS_LEN):
+        #     print(f'taps[{i}] = {self.taps[i]}')
 
         self.reset()
 
