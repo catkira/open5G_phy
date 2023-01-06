@@ -97,7 +97,7 @@ async def simple_test(dut):
         plt.show()
     print(f'max correlation is {received[ssb_start]} at {ssb_start}')
     assert ssb_start == 411
-    assert received[ssb_start] in (946753562, 913375922)
+    assert received[ssb_start] in (3752930484, 3612728960)
     assert len(received) == num_items
 
 def test():
