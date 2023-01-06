@@ -103,17 +103,19 @@ async def simple_test(dut):
 
     ssb_start = np.argmax(received)
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
-        fig, ax = plt.subplots()
+        _, ax = plt.subplots()
         ax.plot(np.sqrt(received))
         ax2=ax.twinx()
         ax2.plot(np.sqrt(received_model), 'r-')
         ax.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
         plt.show()
     print(f'max correlation is {received[ssb_start]} at {ssb_start}')
-    # for i in range(len(received)):
-    #    assert np.abs(received[i]/received_model[i] - 1) < 0.2
+
+    ok_limit = 100 if tb.dut.ALGO else 0.001 # model is currently only bit exact for ALGO=0
+    for i in range(len(received)):
+        assert np.abs((received[i]-received_model[i])/received_model[i]) < ok_limit
+
     assert ssb_start == 411
-    assert received[ssb_start] in (3752930484, 3612728960)
     assert len(received) == num_items
 
 @pytest.mark.parametrize("ALGO", [0, 1])

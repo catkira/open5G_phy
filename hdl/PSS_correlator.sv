@@ -49,14 +49,14 @@ initial begin
         $display("Truncating inputs from %d bits to %d bits to prevent overflows", IN_DW, POSSIBLE_IN_DW);
         $display("OUT_DW should be at least bits %d wide, to prevent truncation!", REQUIRED_OUT_DW);
     end
-    for (integer i = 0; i < 128; i = i + 1) begin
-        // tap_re = PSS_LOCAL[i*TAP_DW+TAP_DW/2-1-:IN_OP_DW];
-        // tap_im = PSS_LOCAL[i*TAP_DW+TAP_DW-1-:IN_OP_DW];
-        // $display("PSS_LOCAL[%d] = %d + j%d", i, tap_re, tap_im);
-        // tap_re = PSS_LOCAL[(PSS_LEN-i-1)*TAP_DW+TAP_DW/2-1-:IN_OP_DW];
-        // tap_im = PSS_LOCAL[(PSS_LEN-i-1)*TAP_DW+TAP_DW-1-:IN_OP_DW];
-        // $display("PSS_LOCAL[%d] = %d + j%d", PSS_LEN-i-1, tap_re, tap_im);
-    end
+    // for (integer i = 0; i < 128; i = i + 1) begin
+    //     tap_re = PSS_LOCAL[i*TAP_DW+TAP_DW/2-1-:TAP_OP_DW];
+    //     tap_im = PSS_LOCAL[i*TAP_DW+TAP_DW-1-:TAP_OP_DW];
+    //     $display("PSS_LOCAL[%d] = %d + j%d", i, tap_re, tap_im);
+    //     tap_re = PSS_LOCAL[(PSS_LEN-i-1)*TAP_DW+TAP_DW/2-1-:TAP_OP_DW];
+    //     tap_im = PSS_LOCAL[(PSS_LEN-i-1)*TAP_DW+TAP_DW-1-:TAP_OP_DW];
+    //     $display("PSS_LOCAL[%d] = %d + j%d", PSS_LEN-i-1, tap_re, tap_im);
+    // end
 end
 
 wire signed [OUT_DW:0] filter_result; // OUT_DW +1 bits
@@ -101,12 +101,24 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                 // simplification by taking into account that PSS is 
                 // complex conjugate centrally symetric in time-domain
                 
-                // first tap has no symmetric pair, so it has to be calculated as before
-                tap_re = PSS_LOCAL[TAP_DW / 2 - 1 -: TAP_OP_DW];
-                tap_im = PSS_LOCAL[TAP_DW     - 1 -: TAP_OP_DW];
-                sum_im = sum_im + in_re[0] * tap_im + in_im[0] * tap_re;
-                sum_re = sum_re + in_re[0] * tap_re - in_im[0] * tap_im;
-                for (integer i = 1; i < PSS_LEN / 2; i++) begin
+                integer i = 0;
+                if (0) begin
+                    // tap[0] and tap[64] symmetric pair, so it has to be calculated as before
+                    // another source for error is that the taps are not perfectly symmetric,
+                    // when truncation is used, because rounding is not implemented in that case
+                    // these 2 taps can also be discarded for simplicity
+                    tap_re =  PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
+                    tap_im = -PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
+                    sum_re = sum_re + in_re[i] * tap_re - in_im[i] * tap_im;
+                    sum_im = sum_im + in_re[i] * tap_im + in_im[i] * tap_re;
+                    i = 64;
+                    tap_re =  PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
+                    tap_im = -PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
+                    sum_re = sum_re + in_re[i] * tap_re - in_im[i] * tap_im;
+                    sum_im = sum_im + in_re[i] * tap_im + in_im[i] * tap_re;
+                end
+
+                for (i = 1; i < PSS_LEN / 2; i++) begin
                     tap_re = PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
                     tap_im = PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];
                     sum_re = sum_re + (in_re[i] + in_re[PSS_LEN - i]) * tap_re
