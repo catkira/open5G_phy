@@ -8,7 +8,8 @@ module PSS_correlator
     parameter IN_DW = 32,          // input data width
     parameter OUT_DW = 32,         // output data width
     parameter PSS_LEN = 127,
-    parameter [32 * PSS_LEN - 1 : 0] PSS_LOCAL = {PSS_LEN{32'b0}}
+    parameter [32 * PSS_LEN - 1 : 0] PSS_LOCAL = {PSS_LEN{32'b0}},
+    parameter ALGO = 1
 )
 (
     input                                       clk_i,
@@ -87,7 +88,7 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
         if (valid) begin
             sum_im = '0;
             sum_re = '0;
-            if (0) begin
+            if (ALGO == 0) begin
                 // 4*PSS_LEN multiplications
                 for (integer i = 0; i < PSS_LEN; i++) begin            
                     tap_re =  PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];

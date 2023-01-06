@@ -29,6 +29,7 @@ class TB(object):
         self.OUT_DW = int(dut.OUT_DW.value)
         self.PSS_LEN = int(dut.PSS_LEN.value)
         self.PSS_LOCAL = int(dut.PSS_LOCAL.value)
+        self.ALGO = int(dut.ALGO.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -38,7 +39,7 @@ class TB(object):
         spec = importlib.util.spec_from_file_location('PSS_correlator', model_dir)
         foo = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(foo)
-        self.model = foo.Model(self.IN_DW, self.OUT_DW, self.PSS_LEN, self.PSS_LOCAL) 
+        self.model = foo.Model(self.IN_DW, self.OUT_DW, self.PSS_LEN, self.PSS_LOCAL, self.ALGO) 
 
         cocotb.start_soon(Clock(self.dut.clk_i, CLK_PERIOD_NS, units='ns').start())
         cocotb.start_soon(self.model_clk(CLK_PERIOD_NS, 'ns'))
@@ -76,31 +77,47 @@ async def simple_test(dut):
     await tb.cycle_reset()
 
     num_items = 500
-    i = 0
+    rx_counter = 0
+    rx_counter_model = 0
     in_counter = 0
     received = np.empty(num_items, int)
-    while i < num_items:
+    received_model = np.empty(num_items, int)
+    while rx_counter < num_items:
         await RisingEdge(dut.clk_i)
-        dut.s_axis_in_tdata.value = (((int(waveform[in_counter].imag)&0xFFFF)<<16) + ((int(waveform[in_counter].real))&0xFFFF))&0xFFFFFFFF
+        data = (((int(waveform[in_counter].imag)&0xFFFF)<<16) + ((int(waveform[in_counter].real))&0xFFFF))&0xFFFFFFFF
+        dut.s_axis_in_tdata.value = data
         dut.s_axis_in_tvalid.value = 1
+        tb.model.set_data(data)
         in_counter += 1
 
         if dut.m_axis_out_tvalid == 1:
             # print(dut.m_axis_out_tdata.value.integer)
-            received[i] = dut.m_axis_out_tdata.value.integer
-            i  += 1
+            received[rx_counter] = dut.m_axis_out_tdata.value.integer
+            # print(f'rx hdl {received[rx_counter]}')
+            rx_counter  += 1
+
+        if tb.model.data_valid() and rx_counter_model < num_items:
+            received_model[rx_counter_model] = tb.model.get_data()
+            # print(f'rx mod {received_model[rx_counter_model]}')
+            rx_counter_model += 1
 
     ssb_start = np.argmax(received)
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
-        plt.plot(np.sqrt(received))
-        plt.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
+        fig, ax = plt.subplots()
+        ax.plot(np.sqrt(received))
+        ax2=ax.twinx()
+        ax2.plot(np.sqrt(received_model), 'r-')
+        ax.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
         plt.show()
     print(f'max correlation is {received[ssb_start]} at {ssb_start}')
+    # for i in range(len(received)):
+    #    assert np.abs(received[i]/received_model[i] - 1) < 0.2
     assert ssb_start == 411
     assert received[ssb_start] in (3752930484, 3612728960)
     assert len(received) == num_items
 
-def test():
+@pytest.mark.parametrize("ALGO", [0, 1])
+def test(ALGO):
     dut = 'PSS_correlator'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -115,6 +132,7 @@ def test():
     parameters['IN_DW'] = 32
     parameters['OUT_DW'] = 32
     parameters['PSS_LEN'] = PSS_LEN
+    parameters['ALGO'] = ALGO
 
     # imaginary part is in upper 16 Bit
     PSS = np.zeros(PSS_LEN, 'complex')
