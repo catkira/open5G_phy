@@ -1,5 +1,8 @@
 // It's best to not use truncation inside this module, because 
 // truncation is only implemented rudimentally without rounding
+// Furthermore truncation truncates inputs and taps equally,
+// which is not always desired !
+
 
 `timescale 1ns / 1ns
 
@@ -7,8 +10,9 @@ module PSS_correlator
 #(
     parameter IN_DW = 32,          // input data width
     parameter OUT_DW = 32,         // output data width
-    parameter PSS_LEN = 127,
-    parameter [32 * PSS_LEN - 1 : 0] PSS_LOCAL = {PSS_LEN{32'b0}},
+    parameter TAP_DW = 32,
+    parameter PSS_LEN = 128,
+    parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
     parameter ALGO = 1
 )
 (
@@ -20,9 +24,8 @@ module PSS_correlator
     output  reg                                 m_axis_out_tvalid
 );
 
-localparam TAP_DW = 32;
 localparam POSSIBLE_IN_DW = OUT_DW 
-                            - ($clog2(PSS_LEN) + 1) * 2  // $clog2(PSS_LEN)*2 bits for additions
+                            - ($clog2(PSS_LEN) + 1) * 2      // $clog2(PSS_LEN)*4 bits for additions
                             - 1                          // 1 bit for addition when calculating abs();
                             - 2;                         // 2 bits for conversions from signed -> unsigned
 localparam REQUIRED_OUT_DW = IN_DW - POSSIBLE_IN_DW + OUT_DW;
@@ -33,8 +36,8 @@ localparam TAP_OP_DW = TRUNCATE ? POSSIBLE_IN_DW / 2 + POSSIBLE_IN_DW % 2 : TAP_
 // give TAP_OP_DW one more digit that IN_OP_DW if POSSIBLE_IN_DW is an odd number
 
 wire signed [IN_OP_DW - 1 : 0] axis_in_re, axis_in_im;
-assign axis_in_re = s_axis_in_tdata[15 -: IN_OP_DW];
-assign axis_in_im = s_axis_in_tdata[31 -: IN_OP_DW];
+assign axis_in_re = s_axis_in_tdata[IN_DW / 2 - 1 -: IN_OP_DW];
+assign axis_in_im = s_axis_in_tdata[IN_DW - 1     -: IN_OP_DW];
 
 reg signed [TAP_OP_DW - 1 : 0] tap_re, tap_im;
 

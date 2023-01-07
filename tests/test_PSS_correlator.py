@@ -27,6 +27,7 @@ class TB(object):
         self.dut = dut
         self.IN_DW = int(dut.IN_DW.value)
         self.OUT_DW = int(dut.OUT_DW.value)
+        self.TAP_DW = int(dut.TAP_DW.value)
         self.PSS_LEN = int(dut.PSS_LEN.value)
         self.PSS_LOCAL = int(dut.PSS_LOCAL.value)
         self.ALGO = int(dut.ALGO.value)
@@ -39,7 +40,7 @@ class TB(object):
         spec = importlib.util.spec_from_file_location('PSS_correlator', model_dir)
         foo = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(foo)
-        self.model = foo.Model(self.IN_DW, self.OUT_DW, self.PSS_LEN, self.PSS_LOCAL, self.ALGO) 
+        self.model = foo.Model(self.IN_DW, self.OUT_DW, self.TAP_DW, self.PSS_LEN, self.PSS_LOCAL, self.ALGO) 
 
         cocotb.start_soon(Clock(self.dut.clk_i, CLK_PERIOD_NS, units='ns').start())
         cocotb.start_soon(self.model_clk(CLK_PERIOD_NS, 'ns'))
@@ -84,7 +85,8 @@ async def simple_test(dut):
     received_model = np.empty(num_items, int)
     while rx_counter < num_items:
         await RisingEdge(dut.clk_i)
-        data = (((int(waveform[in_counter].imag)&0xFFFF)<<16) + ((int(waveform[in_counter].real))&0xFFFF))&0xFFFFFFFF
+        data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
+              + ((int(waveform[in_counter].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
         dut.s_axis_in_tdata.value = data
         dut.s_axis_in_tvalid.value = 1
         tb.model.set_data(data)
@@ -118,8 +120,12 @@ async def simple_test(dut):
     assert ssb_start == 411
     assert len(received) == num_items
 
+# bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
 @pytest.mark.parametrize("ALGO", [0, 1])
-def test(ALGO):
+@pytest.mark.parametrize("IN_DW", [30, 32])
+@pytest.mark.parametrize("OUT_DW", [24, 32])
+@pytest.mark.parametrize("TAP_DW", [24, 32])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO):
     dut = 'PSS_correlator'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -131,8 +137,9 @@ def test(ALGO):
 
     PSS_LEN = 128
     parameters = {}
-    parameters['IN_DW'] = 32
-    parameters['OUT_DW'] = 32
+    parameters['IN_DW'] = IN_DW
+    parameters['OUT_DW'] = OUT_DW
+    parameters['TAP_DW'] = TAP_DW
     parameters['PSS_LEN'] = PSS_LEN
     parameters['ALGO'] = ALGO
 
@@ -141,13 +148,14 @@ def test(ALGO):
     PSS[0:-1] = py3gpp.nrPSS(2)
     taps = np.fft.ifft(np.fft.fftshift(PSS))
     taps /= max(taps.real.max(), taps.imag.max())
-    taps *= 2**15
+    taps *= 2 ** (TAP_DW // 2 - 1)
     # for i in range(10):
     #     print(f'taps[{i}] = {taps[i]}')
     #taps = taps[1:] # remove first tap to make taps symmetric
     parameters['PSS_LOCAL'] = 0
     for i in range(len(taps)):
-        parameters['PSS_LOCAL'] += ((int(np.round(np.imag(taps[i])))&0xFFFF) << (32*i + 16)) + ((int(np.round(np.real(taps[i])))&0xFFFF) << (32*i))
+        parameters['PSS_LOCAL'] += ((int(np.round(np.imag(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i + TAP_DW // 2)) \
+                                 + ((int(np.round(np.real(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     parameters_no_taps = parameters.copy()
     del parameters_no_taps['PSS_LOCAL']
@@ -166,4 +174,4 @@ def test(ALGO):
     )
 
 if __name__ == '__main__':
-    test()
+    pass

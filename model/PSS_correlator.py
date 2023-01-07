@@ -7,19 +7,18 @@ def _twos_comp(val, bits):
     return int(val)
 
 class Model:
-    def __init__(self, IN_DW, OUT_DW, PSS_LEN, PSS_LOCAL, ALGO, TRUNCATE_INPUTS=True):
+    def __init__(self, IN_DW, OUT_DW, TAP_DW, PSS_LEN, PSS_LOCAL, ALGO, TRUNCATE_INPUTS=True):
         self.PSS_LEN = int(PSS_LEN)
         self.OUT_DW = int(OUT_DW)
+        self.TAP_DW = int(TAP_DW)
         self.IN_DW = int(IN_DW)
         self.TRUNCATE_INPUTS = int(TRUNCATE_INPUTS)
-        self.TAP_DW = 32
-        self.POSSIBLE_IN_DW = int(self.OUT_DW \
-                        - (np.ceil(np.log2(self.PSS_LEN)+1)) * 2  - 3)
-        self.IN_OP_DW = self.POSSIBLE_IN_DW//2
-        self.TAP_OP_DW = self.POSSIBLE_IN_DW//2 + self.POSSIBLE_IN_DW%2
+        self.POSSIBLE_IN_DW = int(self.OUT_DW - (np.ceil(np.log2(self.PSS_LEN) + 1)) * 2  - 3)
+        self.IN_OP_DW = self.POSSIBLE_IN_DW // 2
+        self.TAP_OP_DW = self.POSSIBLE_IN_DW // 2 + self.POSSIBLE_IN_DW%2
         if self.TRUNCATE_INPUTS:
-            self.trunc_taps = self.TAP_DW//2 - self.TAP_OP_DW
-            self.trunc_in = self.IN_DW//2 - self.IN_OP_DW
+            self.trunc_taps = self.TAP_DW // 2 - self.TAP_OP_DW
+            self.trunc_in = self.IN_DW // 2 - self.IN_OP_DW
         else:
             self.trunc_taps = 0
             self.trunc_in = 0
@@ -40,8 +39,8 @@ class Model:
             round_bits = 0
 
         for i in range(PSS_LEN):
-            self.taps[i] =   ((_twos_comp(((PSS_LOCAL>>(32*i)) & 0xFFFF), 16) + round_bits) >> self.trunc_taps) \
-                           + 1j*((_twos_comp(((PSS_LOCAL>>(32*i+16)) & 0xFFFF), 16) + round_bits) >> self.trunc_taps)
+            self.taps[i] = ((   _twos_comp(((PSS_LOCAL>>(self.TAP_DW * i)) & (2 ** (self.TAP_DW // 2) - 1)),               self.TAP_DW//2) + round_bits) >> self.trunc_taps) \
+                         + 1j*((_twos_comp(((PSS_LOCAL>>(self.TAP_DW * i + self.TAP_DW)) & ((2 ** self.TAP_DW // 2) - 1)), self.TAP_DW//2) + round_bits) >> self.trunc_taps)
     
         # for i in range(PSS_LEN):
         #     print(f'taps[{i}] = {self.taps[i]}')
@@ -59,8 +58,8 @@ class Model:
             self.in_buffer = None
 
     def set_data(self, data_in):
-        self.in_buffer = (_twos_comp((data_in & 0xFFFF), self.IN_DW//2) >> self.trunc_in) \
-                         + 1j*(_twos_comp(((data_in>>(self.IN_DW//2)) & 0xFFFF), self.IN_DW//2) >> self.trunc_in)
+        self.in_buffer = (     _twos_comp((data_in & (2 ** (self.IN_DW // 2) - 1)),                        self.IN_DW // 2) >> self.trunc_in) \
+                         + 1j*(_twos_comp(((data_in >> (self.IN_DW // 2)) & (2 ** (self.IN_DW // 2) - 1)), self.IN_DW // 2) >> self.trunc_in)
 
     def reset(self):
         self.in_pipeline = np.zeros(self.PSS_LEN, 'complex')
