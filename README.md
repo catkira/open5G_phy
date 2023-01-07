@@ -16,7 +16,9 @@ TODO:
 ```
   sudo apt install iverilog
   pip install -e requirements.txt
-  pytest
+  git clone https://github.com/catkira/cocotb.git
+  cd cocotb && pip install -e . && cd ..
+  pytest --workers 8
 ```
 
 
