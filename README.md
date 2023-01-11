@@ -3,11 +3,12 @@
 # 5G_SSB_sync
 HDL code for 5G SSB synchronization.<br>
 Implemented so far:<br>
+* Decimator (uses my CIC core)
 * PSS correlator
+* Peak detector
 
 TODO:
 * optimized PSS correlator like described here: https://ieeexplore.ieee.org/document/8641097
-* peak detector
 * SSS detector
 * channel estimator
 * SSB demodulator
