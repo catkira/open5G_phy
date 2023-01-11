@@ -1,0 +1,3 @@
+[submodule "submodules/CIC"]
+	path = submodules/CIC
+	url = https://github.com/catkira/CIC
