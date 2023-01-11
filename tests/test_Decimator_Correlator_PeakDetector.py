@@ -78,7 +78,7 @@ async def simple_test(dut):
     handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
     waveform = handle.read_samples()
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform = scipy.signal.decimate(waveform, 16, ftype='fir')
+    waveform = scipy.signal.decimate(waveform, 16//2, ftype='fir')
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform *= 2**15
     waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
@@ -86,11 +86,12 @@ async def simple_test(dut):
     tb = TB(dut)
     await tb.cycle_reset()
 
-    num_items = 500
+    num_items = 1000
     rx_counter = 0
     rx_counter_model = 0
     in_counter = 0
     received = np.empty(num_items, int)
+    received_correlator = []
     received_model = np.empty(num_items, int)
     while rx_counter < num_items:
         await RisingEdge(dut.clk_i)
@@ -100,6 +101,11 @@ async def simple_test(dut):
         dut.s_axis_in_tvalid.value = 1
         tb.PSS_correlator_model.set_data(data)
         in_counter += 1
+
+        # print(f'{dut.m_axis_cic_tvalid.value.integer} + {dut.m_axis_cic_tdata.value.integer}')
+
+        if dut.m_axis_correlator_debug_tvalid == 1:
+            received_correlator.append(dut.m_axis_correlator_debug_tdata.value.integer)
 
         #if dut.m_axis_out_tvalid == 1:
             # print(dut.m_axis_out_tdata.value.integer)
@@ -118,13 +124,13 @@ async def simple_test(dut):
     peak_pos = np.argmax(received)
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         _, ax = plt.subplots()
-        ax.plot(np.sqrt(received))
+        ax.plot(np.sqrt(received_correlator))
         # ax2=ax.twinx()
         # ax2.plot(np.sqrt(received_model), 'r-')
         # ax.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
         plt.show()
     print(f'highest peak at {peak_pos}')
-    assert peak_pos == 415
+    assert peak_pos == 838
 
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
@@ -134,16 +140,22 @@ async def simple_test(dut):
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
-    dut = 'PSS_correlator_with_peak_detector'
+    dut = 'Decimator_Correlator_PeakDetector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
 
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
-        os.path.join(rtl_dir, 'PSS_correlator.sv')
+        os.path.join(rtl_dir, 'PSS_correlator.sv'),
+        os.path.join(rtl_dir, 'CIC/cic_d.sv'),
+        os.path.join(rtl_dir, 'CIC/comb.sv'),
+        os.path.join(rtl_dir, 'CIC/downsampler.sv'),
+        os.path.join(rtl_dir, 'CIC/integrator.sv')
     ]
-    includes = []
+    includes = [
+        os.path.join(rtl_dir, 'CIC')
+    ]
 
     PSS_LEN = 128
     parameters = {}

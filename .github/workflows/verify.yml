@@ -8,7 +8,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-
+      with:
+        submodules: recursive
     - name: Set up Python "3.10"
       uses: actions/setup-python@v3
       with:
