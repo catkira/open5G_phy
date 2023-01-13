@@ -1,0 +1,78 @@
+// Coefficient memory
+// ----------------------------------------------
+//   Stage:               128
+//   Bits per coefficient: 21
+//   NWide:                 1 Normal FFT, one sample per cycle
+//   Offset:                0 (Ignored)
+//   Inv:               False -- This is a forward FFT
+//
+//
+// Each line contains a coefficient.  The real portion
+// of the coefficient is in the upper 21 bits, whereas
+// the lower 21 bits contain the imaginary portion
+//
+//
+10000000000
+0ffb11f9b82
+0fec47f3743
+0fd3abed37f
+0fb14de7074
+0f8541e0e60
+0f4fa1dad7f
+0f1091d4e0d
+0ec837cf044
+0e76bfc945e
+0e1c5bc3a94
+0db943be31e
+0d4db5b8e31
+0cd9f1b3c02
+0c5e41aecc3
+0bdaf1aa0a6
+0b5051a57d8
+0abeb5a1288
+0a267b9d0e0
+0987fd99308
+08e39f95926
+0839c59235f
+078ad98f1d3
+06d7458c4a1
+061f7989be5
+0563e7877b8
+04a50385830
+03e34183d60
+031f198275a
+0259038162b
+01917b809dd
+00c8fd80278
+00000180000
+3f370580278
+3e6e87809dd
+3da6ff8162b
+3ce0e98275a
+3c1cc183d60
+3b5aff85830
+3a9c1b877b8
+39e08989be5
+3928bd8c4a1
+3875298f1d3
+37c63d9235f
+371c6395926
+36780599308
+35d9879d0e0
+35414da1288
+34afb1a57d8
+342511aa0a6
+33a1c1aecc3
+332611b3c02
+32b24db8e31
+3246bfbe31e
+31e3a7c3a94
+318943c945e
+3137cbcf044
+30ef71d4e0d
+30b061dad7f
+307ac1e0e60
+304eb5e7074
+302c57ed37f
+3013bbf3743
+3004f1f9b82
