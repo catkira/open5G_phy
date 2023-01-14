@@ -6,12 +6,13 @@ Implemented so far:<br>
 * Decimator (uses my CIC core)
 * PSS correlator
 * Peak detector
+* SSS Demodulator
 
 TODO:
 * optimized PSS correlator like described here: https://ieeexplore.ieee.org/document/8641097
 * SSS detector
 * channel estimator
-* SSB demodulator
+* PBCH demodulator
 
 # Tests
 ```
