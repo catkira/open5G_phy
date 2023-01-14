@@ -6,7 +6,7 @@ Implemented so far:<br>
 * Decimator (uses my CIC core)
 * PSS correlator
 * Peak detector
-* SSS Demodulator
+* SSS Demodulator (uses ZipCPU's FFT core)
 
 TODO:
 * optimized PSS correlator like described here: https://ieeexplore.ieee.org/document/8641097
