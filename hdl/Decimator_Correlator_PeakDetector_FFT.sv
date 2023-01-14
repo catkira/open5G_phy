@@ -33,6 +33,10 @@ wire                 m_axis_cic_tvalid;
 assign m_axis_cic_debug_tdata = m_axis_cic_tdata;
 assign m_axis_cic_debug_tvalid = m_axis_cic_tvalid;
 
+initial begin
+    $display($sformatf("LUT_PATH = %s",`LUT_PATH));
+end
+
 cic_d #(
     .INP_DW(IN_DW/2),
     .OUT_DW(IN_DW/2),

@@ -41,7 +41,7 @@ class TB(object):
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
 
-        tests_dir = os.path.abspath(os.path.dirname(__file__))
+        # tests_dir = os.path.abspath(os.path.dirname(__file__))
         model_file = os.path.abspath(os.path.join(tests_dir, '../model/PSS_correlator.py'))
         spec = importlib.util.spec_from_file_location('PSS_correlator', model_file)
         foo = importlib.util.module_from_spec(spec)
@@ -184,8 +184,9 @@ async def simple_test(dut):
         sss = py3gpp.nrSSS(i)
         corr[i] = np.abs(np.vdot(sss, received_SSS))
     detected_NID1 = np.argmax(corr)
-    plt.plot(corr)
-    plt.show()
+    if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
+        plt.plot(corr)
+        plt.show()
     assert detected_NID1 == 209
 
 
@@ -258,7 +259,8 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
         sim_build=sim_build,
         extra_env=extra_env,
         testcase='simple_test',
-        force_compile=True
+        force_compile=True,
+        compile_args = ['-DLUT_PATH=\"' + rtl_dir + '/fft-core/\"']
     )
 
 if __name__ == '__main__':

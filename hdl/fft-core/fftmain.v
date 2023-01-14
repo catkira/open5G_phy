@@ -108,7 +108,7 @@ module fftmain(i_clk, i_reset, i_ce,
 		.BFLYSHIFT(0),
 		.OPT_HWMPY(0),
 		.CKPCE(1),
-		.COEFFILE("/mnt/d/git/5G_SSB_sync/hdl/fft-core/cmem_256.hex")
+		.COEFFILE("cmem_256.hex")
 		// }}}
 	) stage_256(
 		// {{{
@@ -134,7 +134,7 @@ module fftmain(i_clk, i_reset, i_ce,
 		.BFLYSHIFT(0),
 		.OPT_HWMPY(0),
 		.CKPCE(1),
-		.COEFFILE("/mnt/d/git/5G_SSB_sync/hdl/fft-core/cmem_128.hex")
+		.COEFFILE("cmem_128.hex")
 		// }}}
 	) stage_128(
 		// {{{
@@ -159,7 +159,7 @@ module fftmain(i_clk, i_reset, i_ce,
 		.BFLYSHIFT(0),
 		.OPT_HWMPY(0),
 		.CKPCE(1),
-		.COEFFILE("/mnt/d/git/5G_SSB_sync/hdl/fft-core/cmem_64.hex")
+		.COEFFILE("cmem_64.hex")
 		// }}}
 	) stage_64(
 		// {{{
@@ -184,7 +184,7 @@ module fftmain(i_clk, i_reset, i_ce,
 		.BFLYSHIFT(0),
 		.OPT_HWMPY(0),
 		.CKPCE(1),
-		.COEFFILE("/mnt/d/git/5G_SSB_sync/hdl/fft-core/cmem_32.hex")
+		.COEFFILE("cmem_32.hex")
 		// }}}
 	) stage_32(
 		// {{{
@@ -209,7 +209,7 @@ module fftmain(i_clk, i_reset, i_ce,
 		.BFLYSHIFT(0),
 		.OPT_HWMPY(0),
 		.CKPCE(1),
-		.COEFFILE("/mnt/d/git/5G_SSB_sync/hdl/fft-core/cmem_16.hex")
+		.COEFFILE("cmem_16.hex")
 		// }}}
 	) stage_16(
 		// {{{
@@ -234,7 +234,7 @@ module fftmain(i_clk, i_reset, i_ce,
 		.BFLYSHIFT(0),
 		.OPT_HWMPY(0),
 		.CKPCE(1),
-		.COEFFILE("/mnt/d/git/5G_SSB_sync/hdl/fft-core/cmem_8.hex")
+		.COEFFILE("cmem_8.hex")
 		// }}}
 	) stage_8(
 		// {{{

@@ -128,7 +128,10 @@ module	fftstage #(
 `ifdef	FORMAL
 // Let the formal tool pick the coefficients
 `else
-	initial	$readmemh(COEFFILE,cmem);
+	initial	begin
+        $display($sformatf("reading %s%s", `LUT_PATH, COEFFILE));
+        $readmemh($sformatf("%s%s", `LUT_PATH, COEFFILE), cmem);
+    end
 
 `endif
 
