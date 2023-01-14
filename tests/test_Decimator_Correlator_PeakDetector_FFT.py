@@ -91,18 +91,19 @@ async def simple_test(dut):
     tb = TB(dut)
     await tb.cycle_reset()
 
-    num_items = 2000
+    num_items = 2100
     rx_counter = 0
-    rx_counter_model = 0
     in_counter = 0
     received = np.empty(num_items, int)
     received_correlator = []
-    received_model = np.empty(num_items, int)
     received_fft = []
     received_fft_ideal = []
     fft_started = False
     wait_cycles = 0
-    SSS_delay = 256 + 2*18 - 15
+    CP_LEN = 18
+    FFT_SIZE = 256
+    DETECTOR_LATENCY = 15
+    SSS_delay = FFT_SIZE + 2*CP_LEN - DETECTOR_LATENCY
     FFT_OUT_DW = 42
     while rx_counter < num_items:
         await RisingEdge(dut.clk_i)
@@ -123,53 +124,69 @@ async def simple_test(dut):
 
         if dut.sync_wait_counter.value.integer != 0:
             print(f'{rx_counter}: wait_counter = {dut.sync_wait_counter.value.integer}')
-        
-        if dut.fft_sync_debug_o == 1:
-            print(f'{rx_counter}: start FFT')
-            print(f'fft_sync_debug_o {dut.fft_sync_debug_o.value.integer}')
-            fft_started = True
 
         if dut.peak_detected_debug_o.value.integer == 1 or wait_cycles > 0:
             if wait_cycles < SSS_delay:
                 wait_cycles += 1
-            elif len(received_fft_ideal) < 256:
+            elif len(received_fft_ideal) < FFT_SIZE:
                 received_fft_ideal.append(waveform[in_counter])
 
-        if len(received_fft) == 256 and fft_started:
-            print(f'{rx_counter}: end fft')
-            fft_started = False
-        
-        #print(f'fft_sync_debug_o {dut.fft_sync_debug_o}')
-        if fft_started and (len(received_fft) < 256):
+        # receive FFT data from hdl
+
+        if dut.fft_sync_debug_o == 1 and len(received_fft) == 0:
+            print(f'{rx_counter}: start FFT')
+            print(f'fft_sync_debug_o {dut.fft_sync_debug_o.value.integer}')
+            fft_started = True
+
+        if fft_started:
             print(f'{rx_counter}: fft_result_debug_o {dut.fft_result_debug_o.value}')
             received_fft.append(1j*_twos_comp(dut.fft_result_debug_o.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
+            if len(received_fft) == FFT_SIZE:
+                print(f'{rx_counter}: end fft')
+                fft_started = False
 
     peak_pos = np.argmax(received)
+    SSS_START = 64
+    SSS_LEN = 127
+    received_SSS = np.fft.fftshift(received_fft)[SSS_START:][:SSS_LEN]
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
-        ax1 = plt.subplot(4, 2, 1)
-        ax1.plot(np.abs(np.fft.fftshift(np.fft.fft(received_fft_ideal))))
+        ax = plt.subplot(4, 2, 1)
+        ax.plot(np.abs(np.fft.fftshift(np.fft.fft(received_fft_ideal))))
         ax = plt.subplot(4, 2, 2)
-        ax.plot(np.real(np.fft.fftshift(np.fft.fft(received_fft_ideal))[64:][:127]),
-            np.imag(np.fft.fftshift(np.fft.fft(received_fft_ideal))[64:][:127]), '.')
+        ax.plot(np.abs(np.fft.fftshift(np.fft.fft(received_fft_ideal))[SSS_START:][:SSS_LEN]))
+        ax = plt.subplot(4, 2, 3)
+        ax.plot(np.real(np.fft.fftshift(np.fft.fft(received_fft_ideal))[SSS_START:][:SSS_LEN]), 'r-')
+        ax = ax.twinx()
+        ax.plot(np.imag(np.fft.fftshift(np.fft.fft(received_fft_ideal))[SSS_START:][:SSS_LEN]), 'b-')
+        ax = plt.subplot(4, 2, 4)
+        ax.plot(np.real(np.fft.fftshift(np.fft.fft(received_fft_ideal))[SSS_START:][:SSS_LEN]),
+            np.imag(np.fft.fftshift(np.fft.fft(received_fft_ideal))[SSS_START:][:SSS_LEN]), '.')
 
-        ax2 = plt.subplot(4, 2, 3)
-        ax2.plot(np.abs(np.fft.fftshift(received_fft)))
-        ax3 = plt.subplot(4, 2, 5)
-        ax3.plot(np.abs(np.fft.fftshift(received_fft)[64:][:127]))
-        ax4 = plt.subplot(4, 2, 7)
-        ax4.plot(np.real(np.fft.fftshift(received_fft)[64:][:127]), 'r-')
-        ax42 = ax4.twinx()
-        ax42.plot(np.imag(np.fft.fftshift(received_fft)[64:][:127]), 'b-')
-        ax5 = plt.subplot(4, 2, 8)
-        ax5.plot(np.real(np.fft.fftshift(received_fft)[64:][:127]),
-            np.imag(np.fft.fftshift(received_fft)[64:][:127]), '.')
+        ax = plt.subplot(4, 2, 5)
+        ax.plot(np.abs(np.fft.fftshift(received_fft)))
+        ax = plt.subplot(4, 2, 6)
+        ax.plot(np.abs(received_SSS))
+        ax = plt.subplot(4, 2, 7)
+        ax.plot(np.real(received_SSS), 'r-')
+        ax = ax.twinx()
+        ax.plot(np.imag(received_SSS), 'b-')
+        ax = plt.subplot(4, 2, 8)
+        ax.plot(np.real(received_SSS),
+            np.imag(received_SSS), '.')
         plt.show()
 
     print(f'highest peak at {peak_pos}')
     assert peak_pos == 838
-    assert len(received_fft) == 256
-    assert False
+    assert len(received_fft) == FFT_SIZE
+    corr = np.zeros(335)
+    for i in range(335):
+        sss = py3gpp.nrSSS(i)
+        corr[i] = np.abs(np.vdot(sss, received_SSS))
+    detected_NID1 = np.argmax(corr)
+    plt.plot(corr)
+    plt.show()
+    assert detected_NID1 == 209
 
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
@@ -224,8 +241,9 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
     taps *= 2 ** (TAP_DW // 2 - 1)
     parameters['PSS_LOCAL'] = 0
     for i in range(len(taps)):
-        parameters['PSS_LOCAL'] += ((int(np.round(np.imag(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i + TAP_DW // 2)) \
-                                 + ((int(np.round(np.real(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
+        parameters['PSS_LOCAL'] += \
+            ((int(np.round(np.imag(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i + TAP_DW // 2)) \
+            + ((int(np.round(np.real(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     parameters_no_taps = parameters.copy()
     del parameters_no_taps['PSS_LOCAL']
