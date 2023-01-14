@@ -102,7 +102,8 @@ async def simple_test(dut):
     received_fft_ideal = []
     fft_started = False
     wait_cycles = 0
-    SSS_delay = 256 + 2*9 - 5
+    SSS_delay = 256 + 2*18 - 15
+    FFT_OUT_DW = 42
     while rx_counter < num_items:
         await RisingEdge(dut.clk_i)
         data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
@@ -112,29 +113,20 @@ async def simple_test(dut):
         tb.PSS_correlator_model.set_data(data)
         in_counter += 1
 
-        # print(f'{dut.m_axis_cic_tvalid.value.integer} + {dut.m_axis_cic_tdata.value.integer}')
-
         if dut.m_axis_correlator_debug_tvalid == 1:
             received_correlator.append(dut.m_axis_correlator_debug_tdata.value.integer)
 
-        #if dut.m_axis_out_tvalid == 1:
-            # print(dut.m_axis_out_tdata.value.integer)
-         #   received[rx_counter] = dut.m_axis_out_tdata.value.integer
-            # print(f'rx hdl {received[rx_counter]}')
-          #  rx_counter  += 1
         received[rx_counter] = dut.peak_detected_debug_o.value.integer
         rx_counter += 1
-        # print(dut.peak_detected_o.value.integer)
+        if dut.peak_detected_debug_o.value.integer == 1:
+            print(f'{rx_counter}: peak detected')
 
-        # if tb.model.data_valid() and rx_counter_model < num_items:
-        #     received_model[rx_counter_model] = tb.model.get_data()
-        #     # print(f'rx mod {received_model[rx_counter_model]}')
-        #     rx_counter_model += 1
-
+        if dut.sync_wait_counter.value.integer != 0:
+            print(f'{rx_counter}: wait_counter = {dut.sync_wait_counter.value.integer}')
         
         if dut.fft_sync_debug_o == 1:
-            print('start FFT')
-            print(f'fft_sync_debug_o {dut.fft_sync_debug_o}')
+            print(f'{rx_counter}: start FFT')
+            print(f'fft_sync_debug_o {dut.fft_sync_debug_o.value.integer}')
             fft_started = True
 
         if dut.peak_detected_debug_o.value.integer == 1 or wait_cycles > 0:
@@ -144,37 +136,39 @@ async def simple_test(dut):
                 received_fft_ideal.append(waveform[in_counter])
 
         if len(received_fft) == 256 and fft_started:
-            print('end fft')
+            print(f'{rx_counter}: end fft')
             fft_started = False
         
-        print(f'fft_sync_debug_o {dut.fft_sync_debug_o}')
+        #print(f'fft_sync_debug_o {dut.fft_sync_debug_o}')
         if fft_started and (len(received_fft) < 256):
-            print(f'fft_result_debug_o {dut.fft_result_debug_o}')
-            received_fft.append(1j*_twos_comp(dut.fft_result_debug_o.value.integer & (2**19 - 1), 19)
-                + _twos_comp((dut.fft_result_debug_o.value.integer>>19) & (2**19 - 1), 19))
+            print(f'{rx_counter}: fft_result_debug_o {dut.fft_result_debug_o.value}')
+            received_fft.append(1j*_twos_comp(dut.fft_result_debug_o.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+                + _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
     peak_pos = np.argmax(received)
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         ax1 = plt.subplot(4, 2, 1)
         ax1.plot(np.abs(np.fft.fftshift(np.fft.fft(received_fft_ideal))))
         ax = plt.subplot(4, 2, 2)
-        ax.plot(np.real(np.fft.fftshift(np.fft.fft(received_fft_ideal))[63:][:128]),
-            np.imag(np.fft.fftshift(np.fft.fft(received_fft_ideal))[63:][:128]), '.')
+        ax.plot(np.real(np.fft.fftshift(np.fft.fft(received_fft_ideal))[64:][:127]),
+            np.imag(np.fft.fftshift(np.fft.fft(received_fft_ideal))[64:][:127]), '.')
 
         ax2 = plt.subplot(4, 2, 3)
         ax2.plot(np.abs(np.fft.fftshift(received_fft)))
         ax3 = plt.subplot(4, 2, 5)
-        ax3.plot(np.abs(np.fft.fftshift(received_fft)[64:][:128]))
+        ax3.plot(np.abs(np.fft.fftshift(received_fft)[64:][:127]))
         ax4 = plt.subplot(4, 2, 7)
-        ax4.plot(np.real(np.fft.fftshift(received_fft)[64:][:128]), 'r-')
+        ax4.plot(np.real(np.fft.fftshift(received_fft)[64:][:127]), 'r-')
         ax42 = ax4.twinx()
-        ax42.plot(np.imag(np.fft.fftshift(received_fft)[64:][:128]), 'b-')
+        ax42.plot(np.imag(np.fft.fftshift(received_fft)[64:][:127]), 'b-')
         ax5 = plt.subplot(4, 2, 8)
-        ax5.plot(np.real(np.fft.fftshift(received_fft)[64:][:128]), np.imag(np.fft.fftshift(received_fft)[64:][:128]), '.')
+        ax5.plot(np.real(np.fft.fftshift(received_fft)[64:][:127]),
+            np.imag(np.fft.fftshift(received_fft)[64:][:127]), '.')
         plt.show()
 
     print(f'highest peak at {peak_pos}')
     assert peak_pos == 838
+    assert len(received_fft) == 256
     assert False
 
 

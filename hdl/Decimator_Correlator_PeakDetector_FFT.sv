@@ -9,7 +9,7 @@ module Decimator_Correlator_PeakDetector_FFT
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
     parameter ALGO = 1,
     parameter WINDOW_LEN = 8,
-    localparam FFT_OUT_DW = IN_DW + 6
+    localparam FFT_OUT_DW = 42
 )
 (
     input                                       clk_i,
@@ -24,7 +24,8 @@ module Decimator_Correlator_PeakDetector_FFT
     output  wire                                m_axis_correlator_debug_tvalid,
     output  reg                                 peak_detected_debug_o,
     output  wire            [FFT_OUT_DW-1:0]    fft_result_debug_o,
-    output  wire                                fft_sync_debug_o
+    output  wire                                fft_sync_debug_o,
+    output  wire            [15:0]              sync_wait_counter_debug_o
 );
 
 wire [IN_DW - 1 : 0] m_axis_cic_tdata;
@@ -108,13 +109,16 @@ assign fft_result_debug_o = fft_result;
 assign fft_sync_debug_o = fft_sync;
 
 reg [15:0] sync_wait_counter;
-localparam CP_LEN = 9;
-localparam DETECTION_DELAY = 10;
+assign sync_wait_counter_debug_o = sync_wait_counter;
+localparam CP_LEN = 18;
+localparam DETECTION_DELAY = 13;
 localparam WAIT_CYCLES = 256 + 2*CP_LEN - DETECTION_DELAY;
-always_ff @(clk_i) begin
-    if (!reset_ni || peak_detected) begin
-        sync_wait_counter <= 0;
-    end else if (sync_wait_counter < WAIT_CYCLES) begin
+always_ff @(posedge clk_i) begin
+    if (!reset_ni) begin
+        sync_wait_counter <= 'b0;
+    end else if (peak_detected && sync_wait_counter == 0) begin
+        sync_wait_counter <= sync_wait_counter + 1'b1;
+    end else if ((sync_wait_counter < WAIT_CYCLES) && (sync_wait_counter > 0)) begin
         sync_wait_counter <= sync_wait_counter + 1'b1;
     end
 end

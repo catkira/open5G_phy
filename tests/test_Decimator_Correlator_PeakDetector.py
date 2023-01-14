@@ -86,7 +86,7 @@ async def simple_test(dut):
     tb = TB(dut)
     await tb.cycle_reset()
 
-    num_items = 1000
+    num_items = 2000
     rx_counter = 0
     rx_counter_model = 0
     in_counter = 0
@@ -123,11 +123,9 @@ async def simple_test(dut):
 
     peak_pos = np.argmax(received)
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
-        _, ax = plt.subplots()
-        ax.plot(np.sqrt(received_correlator))
-        # ax2=ax.twinx()
-        # ax2.plot(np.sqrt(received_model), 'r-')
-        # ax.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
+        _, (ax1, ax2) = plt.subplots(2,1)
+        ax1.plot(np.sqrt(received_correlator))
+        ax2.plot(received)
         plt.show()
     print(f'highest peak at {peak_pos}')
     assert peak_pos == 838
