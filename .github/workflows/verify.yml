@@ -25,4 +25,4 @@ jobs:
         sudo apt install -y --no-install-recommends iverilog
     - name: Verify with cocotb & icarus
       run: |
-        pytest -v -rA --workers 10 tests/*.py
+        pytest -v --workers 10 tests/*.py

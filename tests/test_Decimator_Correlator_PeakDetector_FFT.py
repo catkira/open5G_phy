@@ -119,11 +119,11 @@ async def simple_test(dut):
 
         received[rx_counter] = dut.peak_detected_debug_o.value.integer
         rx_counter += 1
-        if dut.peak_detected_debug_o.value.integer == 1:
-            print(f'{rx_counter}: peak detected')
+        # if dut.peak_detected_debug_o.value.integer == 1:
+        #     print(f'{rx_counter}: peak detected')
 
-        if dut.sync_wait_counter.value.integer != 0:
-            print(f'{rx_counter}: wait_counter = {dut.sync_wait_counter.value.integer}')
+        # if dut.sync_wait_counter.value.integer != 0:
+        #     print(f'{rx_counter}: wait_counter = {dut.sync_wait_counter.value.integer}')
 
         if dut.peak_detected_debug_o.value.integer == 1 or wait_cycles > 0:
             if wait_cycles < SSS_delay:
@@ -135,11 +135,11 @@ async def simple_test(dut):
 
         if dut.fft_sync_debug_o == 1 and len(received_fft) == 0:
             print(f'{rx_counter}: start FFT')
-            print(f'fft_sync_debug_o {dut.fft_sync_debug_o.value.integer}')
+            # print(f'fft_sync_debug_o {dut.fft_sync_debug_o.value.integer}')
             fft_started = True
 
         if fft_started:
-            print(f'{rx_counter}: fft_result_debug_o {dut.fft_result_debug_o.value}')
+            # print(f'{rx_counter}: fft_result_debug_o {dut.fft_result_debug_o.value}')
             received_fft.append(1j*_twos_comp(dut.fft_result_debug_o.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
             if len(received_fft) == FFT_SIZE:
