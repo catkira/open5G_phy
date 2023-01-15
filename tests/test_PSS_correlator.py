@@ -114,9 +114,13 @@ async def simple_test(dut):
         plt.show()
     print(f'max correlation is {received[ssb_start]} at {ssb_start}')
 
-    ok_limit = 1000 if tb.dut.ALGO else 0.001 # model is currently only bit exact for ALGO=0
-    for i in range(len(received)):
-        assert np.abs((received[i] - received_model[i]) / received[i]) < ok_limit
+    ok_limit = 0.001
+    if tb.dut.ALGO == 0:
+        for i in range(len(received)):
+            assert np.abs((received[i] - received_model[i]) / received[i]) < ok_limit
+    else:
+        # there is not yet a model for ALGO=1
+        pass
 
     assert ssb_start == 411
     assert len(received) == num_items
@@ -176,4 +180,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
     )
 
 if __name__ == '__main__':
-    test(32, 24, 32, 1, 7500)
+    test(32, 24, 24, 1, 0000)
