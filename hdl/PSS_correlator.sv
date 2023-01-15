@@ -9,7 +9,7 @@
 module PSS_correlator
 #(
     parameter IN_DW = 32,          // input data width
-    parameter OUT_DW = 32,         // output data width
+    parameter OUT_DW = 24,         // output data width
     parameter TAP_DW = 32,
     parameter PSS_LEN = 128,
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
@@ -31,8 +31,8 @@ localparam POSSIBLE_IN_DW = OUT_DW
 localparam REQUIRED_OUT_DW = IN_DW - POSSIBLE_IN_DW + OUT_DW;
 localparam TRUNCATE = POSSIBLE_IN_DW < IN_DW;
 
-localparam IN_OP_DW  = TRUNCATE ? POSSIBLE_IN_DW / 2 : IN_DW / 2;                        // truncated data width of input signal
-localparam TAP_OP_DW = TRUNCATE ? POSSIBLE_IN_DW / 2 + POSSIBLE_IN_DW % 2 : TAP_DW / 2;  // truncated data width of filter taps
+localparam IN_OP_DW  = TRUNCATE ? POSSIBLE_IN_DW / 2 : IN_DW / 2;                          // truncated data width of input signal
+localparam TAP_OP_DW = TRUNCATE ? POSSIBLE_IN_DW / 2 + (POSSIBLE_IN_DW % 2) : TAP_DW / 2;  // truncated data width of filter taps
 // give TAP_OP_DW one more digit that IN_OP_DW if POSSIBLE_IN_DW is an odd number
 
 wire signed [IN_OP_DW - 1 : 0] axis_in_re, axis_in_im;
@@ -62,7 +62,7 @@ initial begin
     end
 end
 
-wire signed [OUT_DW:0] filter_result; // OUT_DW +1 bits
+wire signed [OUT_DW : 0] filter_result; // OUT_DW +1 bits
 assign filter_result = sum_im * sum_im + sum_re * sum_re;
 
 always @(posedge clk_i) begin // cannot use $display inside always_ff with iverilog
@@ -77,11 +77,11 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
     end
     else begin
         if (s_axis_in_tvalid) begin
-            in_re[PSS_LEN-1] <= axis_in_re;
-            in_im[PSS_LEN-1] <= axis_in_im;
-            for (integer i = 0; i < (PSS_LEN-1); i++) begin
-                in_re[PSS_LEN - 2 - i] <= in_re[PSS_LEN - 1 - i];
-                in_im[PSS_LEN - 2 - i] <= in_im[PSS_LEN - 1 - i];
+            in_re[0] <= axis_in_re;
+            in_im[0] <= axis_in_im;
+            for (integer i = 0; i < (PSS_LEN - 1); i++) begin
+                in_re[i + 1] <= in_re[i];
+                in_im[i + 1] <= in_im[i];
             end
             valid <= 1'b1;
         end else begin
@@ -94,8 +94,8 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
             if (ALGO == 0) begin
                 // 4*PSS_LEN multiplications
                 for (integer i = 0; i < PSS_LEN; i++) begin            
-                    tap_re =  PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
-                    tap_im = -PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
+                    tap_re = PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
+                    tap_im = PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
                     sum_re = sum_re + in_re[i] * tap_re - in_im[i] * tap_im;
                     sum_im = sum_im + in_re[i] * tap_im + in_im[i] * tap_re;
                 end
@@ -111,12 +111,12 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                     // when truncation is used, because rounding is not implemented in that case
                     // these 2 taps can also be discarded for simplicity
                     tap_re =  PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
-                    tap_im = -PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
+                    tap_im =  PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
                     sum_re = sum_re + in_re[i] * tap_re - in_im[i] * tap_im;
                     sum_im = sum_im + in_re[i] * tap_im + in_im[i] * tap_re;
                     i = 64;
                     tap_re =  PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
-                    tap_im = -PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
+                    tap_im =  PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
                     sum_re = sum_re + in_re[i] * tap_re - in_im[i] * tap_im;
                     sum_im = sum_im + in_re[i] * tap_im + in_im[i] * tap_re;
                 end
@@ -124,10 +124,10 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                 for (i = 1; i < PSS_LEN / 2; i++) begin
                     tap_re = PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
                     tap_im = PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];
-                    sum_re = sum_re + (in_re[i] + in_re[PSS_LEN - i]) * tap_re
-                                    + (in_im[i] - in_im[PSS_LEN - i]) * tap_im;
-                    sum_im = sum_im + (in_im[i] + in_im[PSS_LEN - i]) * tap_re
-                                    - (in_re[i] - in_re[PSS_LEN - i]) * tap_im;
+                    sum_re = sum_re + (in_re[PSS_LEN - i] + in_re[i]) * tap_re
+                                    + (in_im[PSS_LEN - i] - in_im[i]) * tap_im;
+                    sum_im = sum_im + (in_im[PSS_LEN - i] + in_im[i]) * tap_re
+                                    - (in_re[PSS_LEN - i] - in_re[i]) * tap_im;
                 end
             end            
             m_axis_out_tdata <= filter_result[OUT_DW - 1 : 0];   //  cast from signed to unsigned

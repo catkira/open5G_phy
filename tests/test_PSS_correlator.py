@@ -95,14 +95,13 @@ async def simple_test(dut):
         in_counter += 1
 
         if dut.m_axis_out_tvalid == 1:
-            # print(dut.m_axis_out_tdata.value.integer)
             received[rx_counter] = dut.m_axis_out_tdata.value.integer
-            # print(f'rx hdl {received[rx_counter]}')
+            # print(f'{rx_counter}: rx hdl {received[rx_counter]}')
             rx_counter  += 1
 
         if tb.model.data_valid() and rx_counter_model < num_items:
             received_model[rx_counter_model] = tb.model.get_data()
-            # print(f'rx mod {received_model[rx_counter_model]}')
+            # print(f'{rx_counter_model}: rx mod {received_model[rx_counter_model]}')
             rx_counter_model += 1
 
     ssb_start = np.argmax(received)
@@ -116,17 +115,14 @@ async def simple_test(dut):
 
     print(f'max model-hdl difference is {max(np.abs(received - received_model))}')
     if tb.ALGO == 0:
-        if tb.OUT_DW == 32:
-            ok_limit = 0.001
-        else:
-            ok_limit = 10 # TODO: make model match hdl code better
+        ok_limit = 0.0001
         for i in range(len(received)):
             assert np.abs((received[i] - received_model[i]) / received[i]) < ok_limit
     else:
         # there is not yet a model for ALGO=1
         pass
 
-    assert ssb_start == 411
+    assert ssb_start == 412
     assert len(received) == num_items
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
@@ -185,4 +181,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(32, 24, 32, 0, 7500)
+    test(32, 24, 32, 1, 7500)

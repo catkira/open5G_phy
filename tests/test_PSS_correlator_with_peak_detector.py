@@ -124,7 +124,7 @@ async def simple_test(dut):
         # ax.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
         plt.show()
     print(f'highest peak at {peak_pos}')
-    assert peak_pos == 415
+    assert peak_pos == 416
 
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !

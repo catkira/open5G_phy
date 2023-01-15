@@ -177,7 +177,7 @@ async def simple_test(dut):
         plt.show()
 
     print(f'highest peak at {peak_pos}')
-    assert peak_pos == 838
+    assert peak_pos == 840
     assert len(received_fft) == FFT_SIZE
     corr = np.zeros(335)
     for i in range(335):

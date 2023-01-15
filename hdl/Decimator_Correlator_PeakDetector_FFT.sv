@@ -115,7 +115,7 @@ assign fft_sync_debug_o = fft_sync;
 reg [15:0] sync_wait_counter;
 assign sync_wait_counter_debug_o = sync_wait_counter;
 localparam CP_LEN = 18;
-localparam DETECTION_DELAY = 13;
+localparam DETECTION_DELAY = 15;
 localparam WAIT_CYCLES = 256 + 2*CP_LEN - DETECTION_DELAY;
 always_ff @(posedge clk_i) begin
     if (!reset_ni) begin

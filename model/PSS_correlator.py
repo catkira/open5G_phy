@@ -15,7 +15,7 @@ class Model:
         self.TRUNCATE_INPUTS = int(TRUNCATE_INPUTS)
         self.POSSIBLE_IN_DW = int(self.OUT_DW - (np.ceil(np.log2(self.PSS_LEN) + 1)) * 2  - 3)
         self.IN_OP_DW = self.POSSIBLE_IN_DW // 2
-        self.TAP_OP_DW = self.POSSIBLE_IN_DW // 2 + self.POSSIBLE_IN_DW % 2
+        self.TAP_OP_DW = self.POSSIBLE_IN_DW // 2 + (self.POSSIBLE_IN_DW % 2)
         if self.TRUNCATE_INPUTS:
             self.trunc_taps = self.TAP_DW // 2 - self.TAP_OP_DW
             self.trunc_in = self.IN_DW // 2 - self.IN_OP_DW
@@ -52,12 +52,29 @@ class Model:
     def tick(self):
         self.in_pipeline[1:] = self.in_pipeline[:-1]
         self.valid[1:] = self.valid[:-1]
+        self.result[1:] = self.result[:-1]
         self.valid[0] = False
 
         if self.in_buffer is not None:
             self.in_pipeline[0] = self.in_buffer
             self.valid[0] = True
             self.in_buffer = None
+
+            result_re = 0
+            result_im = 0
+            for i in range(self.PSS_LEN):
+                # bit growth inside this loop is ceil(log2(PSS_LEN)) + IN_DW/2 for result_re and result_im
+                result_re += (  int(self.taps[i].real) * int(self.in_pipeline[i].real) \
+                                - int(self.taps[i].imag) * int(self.in_pipeline[i].imag))
+                result_im += (  int(self.taps[i].real) * int(self.in_pipeline[i].imag) \
+                                + int(self.taps[i].imag) * int(self.in_pipeline[i].real))
+            # bit growth self.IN_DW/2 + 1
+            result_abs = result_re ** 2 + result_im ** 2
+            # output is unsigned, therefore needs 1 bit less
+            if self.TRUNCATE_INPUTS:
+                self.result[0] =  result_abs & (2 ** self.OUT_DW - 1)
+            else:
+                self.result[0] = (result_abs >> int(np.ceil(np.log2(self.PSS_LEN)) - 1 + self.IN_DW)) & (2 ** self.OUT_DW - 1)
 
     def set_data(self, data_in):
         self.in_buffer = (     _twos_comp((data_in & (2 ** (self.IN_DW // 2) - 1)),                        self.IN_DW // 2) >> self.trunc_in) \
@@ -66,24 +83,12 @@ class Model:
     def reset(self):
         self.in_pipeline = np.zeros(self.PSS_LEN, 'complex')
         self.in_buffer = None
-        self.valid = np.zeros(1, bool)
+        pipeline_stages = 3
+        self.valid = np.zeros(pipeline_stages, bool)
+        self.result = np.zeros(pipeline_stages)
 
     def data_valid(self):
         return self.valid[-1]
 
     def get_data(self):
-        result_re = 0
-        result_im = 0
-        for i in range(self.PSS_LEN):
-            # bit growth inside this loop is ceil(log2(PSS_LEN)) + IN_DW/2 for result_re and result_im
-            result_re += (  int(self.taps[i].real) * int(self.in_pipeline[self.PSS_LEN - i - 1].real) \
-                            + int(self.taps[i].imag) * int(self.in_pipeline[self.PSS_LEN - i - 1].imag))
-            result_im += (  int(self.taps[i].real) * int(self.in_pipeline[self.PSS_LEN - i - 1].imag) \
-                            - int(self.taps[i].imag) * int(self.in_pipeline[self.PSS_LEN - i - 1].real))
-        # bit growth self.IN_DW/2 + 1
-        result_abs = result_re ** 2 + result_im ** 2
-        # output is unsigned, therefore needs 1 bit less
-        if self.TRUNCATE_INPUTS:
-            return result_abs & (2 ** self.OUT_DW - 1)
-        else:
-            return (result_abs >> int(np.ceil(np.log2(self.PSS_LEN)) - 1 + self.IN_DW)) & (2 ** self.OUT_DW - 1)
+        return self.result[-1]
