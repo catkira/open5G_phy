@@ -15,7 +15,7 @@ class Model:
         self.TRUNCATE_INPUTS = int(TRUNCATE_INPUTS)
         self.POSSIBLE_IN_DW = int(self.OUT_DW - (np.ceil(np.log2(self.PSS_LEN) + 1)) * 2  - 3)
         self.IN_OP_DW = self.POSSIBLE_IN_DW // 2
-        self.TAP_OP_DW = self.POSSIBLE_IN_DW // 2 + self.POSSIBLE_IN_DW%2
+        self.TAP_OP_DW = self.POSSIBLE_IN_DW // 2 + self.POSSIBLE_IN_DW % 2
         if self.TRUNCATE_INPUTS:
             self.trunc_taps = self.TAP_DW // 2 - self.TAP_OP_DW
             self.trunc_in = self.IN_DW // 2 - self.IN_OP_DW
@@ -39,9 +39,11 @@ class Model:
             round_bits = 0
 
         for i in range(PSS_LEN):
-            self.taps[i] = ((   _twos_comp(((PSS_LOCAL>>(self.TAP_DW * i)) & (2 ** (self.TAP_DW // 2) - 1)),               self.TAP_DW//2) + round_bits) >> self.trunc_taps) \
-                         + 1j*((_twos_comp(((PSS_LOCAL>>(self.TAP_DW * i + self.TAP_DW)) & ((2 ** self.TAP_DW // 2) - 1)), self.TAP_DW//2) + round_bits) >> self.trunc_taps)
-    
+            self.taps[i] = ((   _twos_comp(((PSS_LOCAL >> (self.TAP_DW * i))                    & (2 ** (self.TAP_DW // 2) - 1)),
+                            self.TAP_DW // 2) + round_bits) >> self.trunc_taps) \
+                         + 1j*((_twos_comp(((PSS_LOCAL >> (self.TAP_DW * i + self.TAP_DW // 2)) & (2 ** (self.TAP_DW // 2) - 1)),
+                            self.TAP_DW // 2) + round_bits) >> self.trunc_taps)
+
         # for i in range(PSS_LEN):
         #     print(f'taps[{i}] = {self.taps[i]}')
 
@@ -51,7 +53,7 @@ class Model:
         self.in_pipeline[1:] = self.in_pipeline[:-1]
         self.valid[1:] = self.valid[:-1]
         self.valid[0] = False
-        
+
         if self.in_buffer is not None:
             self.in_pipeline[0] = self.in_buffer
             self.valid[0] = True
@@ -65,7 +67,7 @@ class Model:
         self.in_pipeline = np.zeros(self.PSS_LEN, 'complex')
         self.in_buffer = None
         self.valid = np.zeros(1, bool)
-    
+
     def data_valid(self):
         return self.valid[-1]
 

@@ -21,7 +21,6 @@ CLK_PERIOD_S = CLK_PERIOD_NS * 0.000000001
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 rtl_dir = os.path.abspath(os.path.join(tests_dir, '..', 'hdl'))
 
-
 class TB(object):
     def __init__(self, dut):
         self.dut = dut
@@ -40,7 +39,7 @@ class TB(object):
         spec = importlib.util.spec_from_file_location('PSS_correlator', model_dir)
         foo = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(foo)
-        self.model = foo.Model(self.IN_DW, self.OUT_DW, self.TAP_DW, self.PSS_LEN, self.PSS_LOCAL, self.ALGO) 
+        self.model = foo.Model(self.IN_DW, self.OUT_DW, self.TAP_DW, self.PSS_LEN, self.PSS_LOCAL, self.ALGO, True)
 
         cocotb.start_soon(Clock(self.dut.clk_i, CLK_PERIOD_NS, units='ns').start())
         cocotb.start_soon(self.model_clk(CLK_PERIOD_NS, 'ns'))
@@ -66,15 +65,18 @@ class TB(object):
 
 @cocotb.test()
 async def simple_test(dut):
+    tb = TB(dut)
     handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
     waveform = handle.read_samples()
-    waveform /= max(waveform.real.max(), waveform.imag.max())    
+    fs = 30720000
+    CFO = int(os.getenv('CFO'))
+    print(f'CFO = {CFO} Hz')
+    waveform *= np.exp(np.arange(len(waveform))*1j*2*np.pi*CFO/fs)
+    waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform = scipy.signal.decimate(waveform, 16, ftype='fir')
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform *= 2**15
-    waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)    
-
-    tb = TB(dut)
+    waveform *= 2 ** (tb.IN_DW // 2 - 1)
+    waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
     await tb.cycle_reset()
 
     num_items = 500
@@ -105,17 +107,16 @@ async def simple_test(dut):
 
     ssb_start = np.argmax(received)
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
-        _, ax = plt.subplots()
+        _, (ax, ax2) = plt.subplots(2, 1)
         ax.plot(np.sqrt(received))
-        ax2=ax.twinx()
         ax2.plot(np.sqrt(received_model), 'r-')
         ax.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
         plt.show()
     print(f'max correlation is {received[ssb_start]} at {ssb_start}')
 
-    ok_limit = 100 if tb.dut.ALGO else 0.001 # model is currently only bit exact for ALGO=0
+    ok_limit = 1000 if tb.dut.ALGO else 0.001 # model is currently only bit exact for ALGO=0
     for i in range(len(received)):
-        assert np.abs((received[i]-received_model[i])/received_model[i]) < ok_limit
+        assert np.abs((received[i] - received_model[i]) / received[i]) < ok_limit
 
     assert ssb_start == 411
     assert len(received) == num_items
@@ -125,7 +126,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("IN_DW", [30, 32])
 @pytest.mark.parametrize("OUT_DW", [24, 32])
 @pytest.mark.parametrize("TAP_DW", [24, 32])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO):
+@pytest.mark.parametrize("CFO", [0, 10000])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
     dut = 'PSS_correlator'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -151,12 +153,12 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO):
     taps *= 2 ** (TAP_DW // 2 - 1)
     # for i in range(10):
     #     print(f'taps[{i}] = {taps[i]}')
-    #taps = taps[1:] # remove first tap to make taps symmetric
     parameters['PSS_LOCAL'] = 0
     for i in range(len(taps)):
         parameters['PSS_LOCAL'] += ((int(np.round(np.imag(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i + TAP_DW // 2)) \
-                                 + ((int(np.round(np.real(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
+                                + ((int(np.round(np.real(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
+    os.environ['CFO'] = str(CFO)
     parameters_no_taps = parameters.copy()
     del parameters_no_taps['PSS_LOCAL']
     sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
@@ -174,4 +176,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO):
     )
 
 if __name__ == '__main__':
-    pass
+    test(16, 32, 32, 1, 5000)

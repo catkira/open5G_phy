@@ -52,14 +52,14 @@ initial begin
         $display("Truncating inputs from %d bits to %d bits to prevent overflows", IN_DW, POSSIBLE_IN_DW);
         $display("OUT_DW should be at least bits %d wide, to prevent truncation!", REQUIRED_OUT_DW);
     end
-    // for (integer i = 0; i < 128; i = i + 1) begin
-    //     tap_re = PSS_LOCAL[i*TAP_DW+TAP_DW/2-1-:TAP_OP_DW];
-    //     tap_im = PSS_LOCAL[i*TAP_DW+TAP_DW-1-:TAP_OP_DW];
-    //     $display("PSS_LOCAL[%d] = %d + j%d", i, tap_re, tap_im);
-    //     tap_re = PSS_LOCAL[(PSS_LEN-i-1)*TAP_DW+TAP_DW/2-1-:TAP_OP_DW];
-    //     tap_im = PSS_LOCAL[(PSS_LEN-i-1)*TAP_DW+TAP_DW-1-:TAP_OP_DW];
-    //     $display("PSS_LOCAL[%d] = %d + j%d", PSS_LEN-i-1, tap_re, tap_im);
-    // end
+    for (integer i = 0; i < PSS_LEN; i = i + 1) begin
+        // tap_re = PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
+        // tap_im = PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];
+        // $display("PSS_LOCAL[%d] = %d + j%d", i, tap_re, tap_im);
+        // tap_re = PSS_LOCAL[(PSS_LEN-i-1)*TAP_DW+TAP_DW/2-1-:TAP_OP_DW];
+        // tap_im = PSS_LOCAL[(PSS_LEN-i-1)*TAP_DW+TAP_DW-1-:TAP_OP_DW];
+        // $display("PSS_LOCAL[%d] = %d + j%d", PSS_LEN-i-1, tap_re, tap_im);
+    end
 end
 
 wire signed [OUT_DW:0] filter_result; // OUT_DW +1 bits
