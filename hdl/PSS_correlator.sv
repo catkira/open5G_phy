@@ -25,7 +25,7 @@ module PSS_correlator
 );
 
 localparam POSSIBLE_IN_DW = OUT_DW 
-                            - ($clog2(PSS_LEN) + 1) * 2      // $clog2(PSS_LEN)*4 bits for additions
+                            - ($clog2(PSS_LEN) + 1) * 2  // $clog2(PSS_LEN)*4 bits for additions
                             - 1                          // 1 bit for addition when calculating abs();
                             - 2;                         // 2 bits for conversions from signed -> unsigned
 localparam REQUIRED_OUT_DW = IN_DW - POSSIBLE_IN_DW + OUT_DW;
@@ -44,7 +44,7 @@ reg signed [TAP_OP_DW - 1 : 0] tap_re, tap_im;
 reg signed [IN_OP_DW - 1 : 0] in_re [0 : PSS_LEN - 1];
 reg signed [IN_OP_DW - 1 : 0] in_im [0 : PSS_LEN - 1];
 reg valid;
-reg signed [OUT_DW : 0] sum_im, sum_re;
+reg signed [OUT_DW / 2 : 0] sum_im, sum_re;
 
 initial begin
     if (TRUNCATE) begin
