@@ -75,15 +75,15 @@ class TB(object):
 
 @cocotb.test()
 async def simple_test(dut):
+    tb = TB(dut)
     handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
     waveform = handle.read_samples()
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform = scipy.signal.decimate(waveform, 16, ftype='fir')
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform *= 2**15
+    waveform *= 2 ** (tb.IN_DW // 2 - 1)
     waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
 
-    tb = TB(dut)
     await tb.cycle_reset()
 
     num_items = 500
