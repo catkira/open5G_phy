@@ -176,4 +176,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
     )
 
 if __name__ == '__main__':
-    test(16, 32, 32, 0, 5000)
+    test(32, 24, 32, 1, 7500)
