@@ -3,10 +3,10 @@
 # 5G_SSB_sync
 HDL code for 5G SSB synchronization.<br>
 Implemented so far:<br>
-* Decimator (uses my CIC core)
-* PSS correlator
-* Peak detector
-* SSS Demodulator (uses ZipCPU's FFT core)
+* Decimator which uses my [CIC core](https://github.com/catkira/CIC)
+* PSS correlator still very simple
+* Peak detector still very simple
+* SSS Demodulator which uses [ZipCPU's FFT core](https://github.com/ZipCPU/dblclockfft)
 
 TODO:
 * optimized PSS correlator like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
