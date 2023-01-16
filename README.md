@@ -9,7 +9,8 @@ Implemented so far:<br>
 * SSS Demodulator (uses ZipCPU's FFT core)
 
 TODO:
-* optimized PSS correlator like described here: https://ieeexplore.ieee.org/document/8641097
+* optimized PSS correlator like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
+  (I think the one in frequency domain is better, because it can handle large CFOs)
 * SSS detector
 * channel estimator
 * PBCH demodulator
