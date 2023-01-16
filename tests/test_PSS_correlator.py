@@ -75,7 +75,7 @@ async def simple_test(dut):
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform = scipy.signal.decimate(waveform, 16, ftype='fir')
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform *= 2 ** (tb.IN_DW // 2 - 1)
+    waveform *= 2 ** (tb.IN_DW // 2 - 1) - 1
     waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
     await tb.cycle_reset()
 
@@ -154,13 +154,13 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
     PSS[0:-1] = py3gpp.nrPSS(2)
     taps = np.fft.ifft(np.fft.fftshift(PSS))
     taps /= max(taps.real.max(), taps.imag.max())
-    taps *= 2 ** (TAP_DW // 2 - 1)
+    taps *= 2 ** (TAP_DW // 2 - 1) - 1
     # for i in range(10):
     #     print(f'taps[{i}] = {taps[i]}')
     parameters['PSS_LOCAL'] = 0
     for i in range(len(taps)):
-        parameters['PSS_LOCAL'] += ((int(np.round(np.imag(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i + TAP_DW // 2)) \
-                                +  ((int(np.round(np.real(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
+        parameters['PSS_LOCAL'] += ((int(np.imag(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i + TAP_DW // 2)) \
+                                +  ((int(np.real(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     os.environ['CFO'] = str(CFO)
     parameters_no_taps = parameters.copy()
@@ -181,4 +181,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(32, 24, 32, 1, 7500)
+    test(32, 24, 32, 0, 7500)
