@@ -99,6 +99,8 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                     sum_re = sum_re + in_re[i] * tap_re - in_im[i] * tap_im;
                     sum_im = sum_im + in_re[i] * tap_im + in_im[i] * tap_re;
                 end
+                $display("%d", sum_re);
+
             end else begin
                 // 2*PSS_LEN multiplications
                 // simplification by taking into account that PSS is 

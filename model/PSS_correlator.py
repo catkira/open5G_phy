@@ -68,11 +68,12 @@ class Model:
                                 - int(self.taps[i].imag) * int(self.in_pipeline[i].imag))
                 result_im += (  int(self.taps[i].real) * int(self.in_pipeline[i].imag) \
                                 + int(self.taps[i].imag) * int(self.in_pipeline[i].real))
+            print(result_re)
             # bit growth self.IN_DW/2 + 1
             result_abs = result_re ** 2 + result_im ** 2
             # output is unsigned, therefore needs 1 bit less
             if self.TRUNCATE_INPUTS:
-                self.result[0] =  result_abs & (2 ** self.OUT_DW - 1)
+                self.result[0] =  result_abs# & (2 ** self.OUT_DW - 1)
             else:
                 self.result[0] = (result_abs >> int(np.ceil(np.log2(self.PSS_LEN)) - 1 + self.IN_DW)) & (2 ** self.OUT_DW - 1)
 

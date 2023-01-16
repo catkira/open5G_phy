@@ -101,7 +101,7 @@ async def simple_test(dut):
 
         if tb.model.data_valid() and rx_counter_model < num_items:
             received_model[rx_counter_model] = tb.model.get_data()
-            # print(f'{rx_counter_model}: rx mod {received_model[rx_counter_model]}')
+            print(f'{rx_counter_model}: rx mod {received_model[rx_counter_model]}')
             rx_counter_model += 1
 
     ssb_start = np.argmax(received)
@@ -181,4 +181,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(32, 24, 32, 0, 7500)
+    test(30, 32, 24, 0, 0000)
