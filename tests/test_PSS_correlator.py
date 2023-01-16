@@ -39,7 +39,7 @@ class TB(object):
         spec = importlib.util.spec_from_file_location('PSS_correlator', model_dir)
         foo = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(foo)
-        self.model = foo.Model(self.IN_DW, self.OUT_DW, self.TAP_DW, self.PSS_LEN, self.PSS_LOCAL, self.ALGO, True)
+        self.model = foo.Model(self.IN_DW, self.OUT_DW, self.TAP_DW, self.PSS_LEN, self.PSS_LOCAL, self.ALGO)
 
         cocotb.start_soon(Clock(self.dut.clk_i, CLK_PERIOD_NS, units='ns').start())
         cocotb.start_soon(self.model_clk(CLK_PERIOD_NS, 'ns'))
@@ -101,12 +101,14 @@ async def simple_test(dut):
 
         if tb.model.data_valid() and rx_counter_model < num_items:
             received_model[rx_counter_model] = tb.model.get_data()
-            print(f'{rx_counter_model}: rx mod {received_model[rx_counter_model]}')
+            # print(f'{rx_counter_model}: rx mod {received_model[rx_counter_model]}')
             rx_counter_model += 1
 
     ssb_start = np.argmax(received)
+    print(f'max model {max(received_model)} max hdl {max(received)}')
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         _, (ax, ax2) = plt.subplots(2, 1)
+        print(f'{type(received.dtype)} {type(received_model.dtype)}')
         ax.plot(np.sqrt(received))
         ax2.plot(np.sqrt(received_model), 'r-')
         ax.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
@@ -115,9 +117,11 @@ async def simple_test(dut):
 
     print(f'max model-hdl difference is {max(np.abs(received - received_model))}')
     if tb.ALGO == 0:
-        ok_limit = 0.0001
+        #ok_limit = 0.0001
+        #for i in range(len(received)):
+        #    assert np.abs((received[i] - received_model[i]) / received[i]) < ok_limit
         for i in range(len(received)):
-            assert np.abs((received[i] - received_model[i]) / received[i]) < ok_limit
+            assert received[i] == received_model[i]
     else:
         # there is not yet a model for ALGO=1
         pass
@@ -181,4 +185,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(30, 32, 24, 0, 0000)
+    test(30, 32, 24, 0, 10000)

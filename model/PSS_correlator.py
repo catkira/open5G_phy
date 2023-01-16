@@ -7,21 +7,14 @@ def _twos_comp(val, bits):
     return int(val)
 
 class Model:
-    def __init__(self, IN_DW, OUT_DW, TAP_DW, PSS_LEN, PSS_LOCAL, ALGO, TRUNCATE_INPUTS=True):
+    def __init__(self, IN_DW, OUT_DW, TAP_DW, PSS_LEN, PSS_LOCAL, ALGO):
         self.PSS_LEN = int(PSS_LEN)
         self.OUT_DW = int(OUT_DW)
         self.TAP_DW = int(TAP_DW)
         self.IN_DW = int(IN_DW)
-        self.TRUNCATE_INPUTS = int(TRUNCATE_INPUTS)
         self.POSSIBLE_IN_DW = int(self.OUT_DW - (np.ceil(np.log2(self.PSS_LEN) + 1)) * 2  - 3)
         self.IN_OP_DW = self.POSSIBLE_IN_DW // 2
         self.TAP_OP_DW = self.POSSIBLE_IN_DW // 2 + (self.POSSIBLE_IN_DW % 2)
-        if self.TRUNCATE_INPUTS:
-            self.trunc_taps = self.TAP_DW // 2 - self.TAP_OP_DW
-            self.trunc_in = self.IN_DW // 2 - self.IN_OP_DW
-        else:
-            self.trunc_taps = 0
-            self.trunc_in = 0
 
         # print(f'model IN_DW = {IN_DW}')
         # print(f'model OUT_DW = {OUT_DW}')
@@ -39,10 +32,10 @@ class Model:
             round_bits = 0
 
         for i in range(PSS_LEN):
-            self.taps[i] = ((   _twos_comp(((PSS_LOCAL >> (self.TAP_DW * i))                    & (2 ** (self.TAP_DW // 2) - 1)),
-                            self.TAP_DW // 2) + round_bits) >> self.trunc_taps) \
-                         + 1j*((_twos_comp(((PSS_LOCAL >> (self.TAP_DW * i + self.TAP_DW // 2)) & (2 ** (self.TAP_DW // 2) - 1)),
-                            self.TAP_DW // 2) + round_bits) >> self.trunc_taps)
+            self.taps[i] =    _twos_comp(((PSS_LOCAL >> (self.TAP_DW * i))                    & (2 ** (self.TAP_DW // 2) - 1)),
+                            self.TAP_DW // 2) \
+                         + 1j*_twos_comp(((PSS_LOCAL >> (self.TAP_DW * i + self.TAP_DW // 2)) & (2 ** (self.TAP_DW // 2) - 1)),
+                            self.TAP_DW // 2)
 
         # for i in range(PSS_LEN):
         #     print(f'taps[{i}] = {self.taps[i]}')
@@ -68,18 +61,12 @@ class Model:
                                 - int(self.taps[i].imag) * int(self.in_pipeline[i].imag))
                 result_im += (  int(self.taps[i].real) * int(self.in_pipeline[i].imag) \
                                 + int(self.taps[i].imag) * int(self.in_pipeline[i].real))
-            print(result_re)
-            # bit growth self.IN_DW/2 + 1
             result_abs = result_re ** 2 + result_im ** 2
-            # output is unsigned, therefore needs 1 bit less
-            if self.TRUNCATE_INPUTS:
-                self.result[0] =  result_abs# & (2 ** self.OUT_DW - 1)
-            else:
-                self.result[0] = (result_abs >> int(np.ceil(np.log2(self.PSS_LEN)) - 1 + self.IN_DW)) & (2 ** self.OUT_DW - 1)
+            self.result[0] = (result_abs >> int(2 * np.ceil(np.log2(self.PSS_LEN)) + self.IN_DW + self.TAP_DW + 2 - self.OUT_DW)) & (2 ** self.OUT_DW - 1)
 
     def set_data(self, data_in):
-        self.in_buffer = (     _twos_comp((data_in & (2 ** (self.IN_DW // 2) - 1)),                        self.IN_DW // 2) >> self.trunc_in) \
-                         + 1j*(_twos_comp(((data_in >> (self.IN_DW // 2)) & (2 ** (self.IN_DW // 2) - 1)), self.IN_DW // 2) >> self.trunc_in)
+        self.in_buffer =      _twos_comp((data_in & (2 ** (self.IN_DW // 2) - 1)),                        self.IN_DW // 2) \
+                         + 1j*_twos_comp(((data_in >> (self.IN_DW // 2)) & (2 ** (self.IN_DW // 2) - 1)), self.IN_DW // 2)
 
     def reset(self):
         self.in_pipeline = np.zeros(self.PSS_LEN, 'complex')

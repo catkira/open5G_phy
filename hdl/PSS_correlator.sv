@@ -24,16 +24,10 @@ module PSS_correlator
     output  reg                                 m_axis_out_tvalid
 );
 
-localparam POSSIBLE_IN_DW = OUT_DW 
-                            - ($clog2(PSS_LEN) + 1) * 2  // $clog2(PSS_LEN)*4 bits for additions
-                            - 1                          // 1 bit for addition when calculating abs();
-                            - 2;                         // 2 bits for conversions from signed -> unsigned
-localparam REQUIRED_OUT_DW = IN_DW - POSSIBLE_IN_DW + OUT_DW;
-localparam TRUNCATE = POSSIBLE_IN_DW < IN_DW;
+localparam REQUIRED_OUT_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) + 1;
 
-localparam IN_OP_DW  = TRUNCATE ? POSSIBLE_IN_DW / 2 : IN_DW / 2;                          // truncated data width of input signal
-localparam TAP_OP_DW = TRUNCATE ? POSSIBLE_IN_DW / 2 + (POSSIBLE_IN_DW % 2) : TAP_DW / 2;  // truncated data width of filter taps
-// give TAP_OP_DW one more digit that IN_OP_DW if POSSIBLE_IN_DW is an odd number
+localparam IN_OP_DW  = IN_DW / 2;
+localparam TAP_OP_DW = TAP_DW / 2;
 
 wire signed [IN_OP_DW - 1 : 0] axis_in_re, axis_in_im;
 assign axis_in_re = s_axis_in_tdata[IN_DW / 2 - 1 -: IN_OP_DW];
@@ -44,14 +38,9 @@ reg signed [TAP_OP_DW - 1 : 0] tap_re, tap_im;
 reg signed [IN_OP_DW - 1 : 0] in_re [0 : PSS_LEN - 1];
 reg signed [IN_OP_DW - 1 : 0] in_im [0 : PSS_LEN - 1];
 reg valid;
-reg signed [OUT_DW / 2 : 0] sum_im, sum_re;
+reg signed [REQUIRED_OUT_DW / 2 : 0] sum_im, sum_re;
 
 initial begin
-    if (TRUNCATE) begin
-        $display("IN_DW = %d, OUT_DW = %d, IN_OP_DW = %d", IN_DW, OUT_DW, IN_OP_DW);
-        $display("Truncating inputs from %d bits to %d bits to prevent overflows", IN_DW, POSSIBLE_IN_DW);
-        $display("OUT_DW should be at least bits %d wide, to prevent truncation!", REQUIRED_OUT_DW);
-    end
     for (integer i = 0; i < PSS_LEN; i = i + 1) begin
         // tap_re = PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
         // tap_im = PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];
@@ -62,7 +51,7 @@ initial begin
     end
 end
 
-wire signed [OUT_DW : 0] filter_result; // OUT_DW +1 bits
+wire signed [REQUIRED_OUT_DW - 1 : 0] filter_result;
 assign filter_result = sum_im * sum_im + sum_re * sum_re;
 
 always @(posedge clk_i) begin // cannot use $display inside always_ff with iverilog
@@ -99,8 +88,6 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                     sum_re = sum_re + in_re[i] * tap_re - in_im[i] * tap_im;
                     sum_im = sum_im + in_re[i] * tap_im + in_im[i] * tap_re;
                 end
-                $display("%d", sum_re);
-
             end else begin
                 // 2*PSS_LEN multiplications
                 // simplification by taking into account that PSS is 
@@ -131,8 +118,9 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                     sum_im = sum_im + (in_im[PSS_LEN - i] + in_im[i]) * tap_re
                                     - (in_re[PSS_LEN - i] - in_re[i]) * tap_im;
                 end
-            end            
-            m_axis_out_tdata <= filter_result[OUT_DW - 1 : 0];   //  cast from signed to unsigned
+            end
+            // cast from signed to unsigned, therefore throw away highest bit
+            m_axis_out_tdata <= filter_result[REQUIRED_OUT_DW - 2 -: OUT_DW];
             m_axis_out_tvalid <= '1;
         end else begin
             m_axis_out_tdata <= '0;

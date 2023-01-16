@@ -1,4 +1,4 @@
-name: Verify
+name: CI
 
 on: [push]
 
