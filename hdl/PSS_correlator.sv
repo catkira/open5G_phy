@@ -1,8 +1,5 @@
 // It's best to not use truncation inside this module, because 
 // truncation is only implemented rudimentally without rounding
-// Furthermore truncation truncates inputs and taps equally,
-// which is not always desired !
-
 
 `timescale 1ns / 1ns
 

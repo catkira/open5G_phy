@@ -1,0 +1,118 @@
+`timescale 1ns / 1ns
+
+module PSS_correlator_mr
+#(
+    parameter IN_DW = 32,          // input data width
+    parameter OUT_DW = 24,         // output data width
+    parameter TAP_DW = 32,
+    parameter PSS_LEN = 128,
+    parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
+    parameter ALGO = 1,
+    parameter MULT_REUSE = 2
+)
+(
+    input                                       clk_i,
+    input                                       reset_ni,
+    input   wire           [IN_DW-1:0]          s_axis_in_tdata,
+    input                                       s_axis_in_tvalid,
+    output  reg            [OUT_DW-1:0]         m_axis_out_tdata,
+    output  reg                                 m_axis_out_tvalid
+);
+
+localparam REQUIRED_OUT_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) + 1;
+
+localparam IN_OP_DW  = IN_DW / 2;
+localparam TAP_OP_DW = TAP_DW / 2;
+
+localparam REQ_MULTS = PSS_LEN % MULT_REUSE != 0 ? PSS_LEN / MULT_REUSE + 1 : PSS_LEN / MULT_REUSE;
+
+wire signed [IN_OP_DW - 1 : 0] axis_in_re, axis_in_im;
+assign axis_in_re = s_axis_in_tdata[IN_DW / 2 - 1 -: IN_OP_DW];
+assign axis_in_im = s_axis_in_tdata[IN_DW - 1     -: IN_OP_DW];
+
+reg signed [TAP_OP_DW - 1 : 0] tap_re, tap_im;
+
+reg signed [IN_OP_DW - 1 : 0] in_re [0 : PSS_LEN - 1];
+reg signed [IN_OP_DW - 1 : 0] in_im [0 : PSS_LEN - 1];
+reg valid;
+reg signed [REQUIRED_OUT_DW / 2 : 0] sum_im, sum_re;
+
+
+
+wire signed [REQUIRED_OUT_DW - 1 : 0] filter_result;
+assign filter_result = sum_im * sum_im + sum_re * sum_re;
+
+genvar i_g;
+for (i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
+    localparam MULT_REUSE_CUR = i_g < (REQ_MULTS - 1) ? MULT_REUSE : PSS_LEN % MULT_REUSE;
+    reg [$clog2(MULT_REUSE_CUR) + 4 : 0] idx = '0;
+    reg signed [REQUIRED_OUT_DW / 2 : 0] out_buf_re, out_buf_im;
+    reg ready;
+    always @(posedge clk_i) begin
+        if ((!valid && (idx == 0))|| !reset_ni) begin
+            idx <= '0;
+            out_buf_re <= '0;
+            out_buf_im <= '0;
+            ready <= '0;
+        end else if (idx < MULT_REUSE_CUR) begin
+            integer pos = i_g*MULT_REUSE + idx;
+            tap_re = PSS_LOCAL[pos * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
+            tap_im = PSS_LOCAL[pos * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
+            out_buf_re <= out_buf_re + in_re[pos] * tap_re - in_im[pos] * tap_im;
+            out_buf_im <= out_buf_im + in_re[pos] * tap_im + in_im[pos] * tap_re;
+            idx <= idx + 1;
+            ready <= '0;
+        end else begin
+            ready <= '1;
+            idx <= '0;
+        end
+    end
+end
+
+always @(posedge clk_i) begin // cannot use $display inside always_ff with iverilog
+    if (!reset_ni) begin
+        m_axis_out_tdata <= '0;
+        m_axis_out_tvalid <= '0;
+        valid <= '0;
+        for (integer i = 0; i < PSS_LEN; i++) begin
+            in_re[i] <= '0;
+            in_im[i] <= '0;
+        end        
+    end
+    else begin
+        if (s_axis_in_tvalid) begin
+            in_re[0] <= axis_in_re;
+            in_im[0] <= axis_in_im;
+            for (integer i = 0; i < (PSS_LEN - 1); i++) begin
+                in_re[i + 1] <= in_re[i];
+                in_im[i + 1] <= in_im[i];
+            end
+            valid <= 1'b1;
+        end else begin
+            valid <= '0;
+        end
+
+        if (mult[0].ready) begin
+            // cast from signed to unsigned, therefore throw away highest bit
+            sum_re = '0;
+            sum_im = '0;
+            sum_re = sum_re + mult[0].out_buf_re + mult[1].out_buf_re + mult[2].out_buf_re;
+            sum_im = sum_im + mult[0].out_buf_im + mult[1].out_buf_im + mult[2].out_buf_im;
+            m_axis_out_tdata <= filter_result[REQUIRED_OUT_DW - 2 -: OUT_DW];
+            m_axis_out_tvalid <= '1;
+        end else begin
+            m_axis_out_tdata <= '0;
+            m_axis_out_tvalid <= '0;
+        end
+    end
+end
+
+`ifdef COCOTB_SIM
+initial begin
+  $dumpfile ("PSS_correlator_mr.vcd");
+  $dumpvars (0, PSS_correlator_mr);
+  // #1;
+end
+`endif
+
+endmodule
