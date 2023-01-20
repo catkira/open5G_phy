@@ -43,12 +43,12 @@ class Model:
         self.reset()
 
     def tick(self):
-        self.in_pipeline[1:] = self.in_pipeline[:-1]
         self.valid[1:] = self.valid[:-1]
         self.result[1:] = self.result[:-1]
         self.valid[0] = False
 
         if self.in_buffer is not None:
+            self.in_pipeline[1:] = self.in_pipeline[:-1]
             self.in_pipeline[0] = self.in_buffer
             self.valid[0] = True
             self.in_buffer = None

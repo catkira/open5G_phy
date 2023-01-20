@@ -30,6 +30,7 @@ class TB(object):
         self.PSS_LEN = int(dut.PSS_LEN.value)
         self.PSS_LOCAL = int(dut.PSS_LOCAL.value)
         self.ALGO = int(dut.ALGO.value)
+        self.MULT_REUSE = int(dut.MULT_REUSE.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -141,7 +142,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("OUT_DW", [24, 32])
 @pytest.mark.parametrize("TAP_DW", [24, 32])
 @pytest.mark.parametrize("CFO", [0, 7500])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
+@pytest.mark.parametrize("MULT_REUSE", [1, 4])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
     dut = 'PSS_correlator_mr'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -158,6 +160,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
     parameters['TAP_DW'] = TAP_DW
     parameters['PSS_LEN'] = PSS_LEN
     parameters['ALGO'] = ALGO
+    parameters['MULT_REUSE'] = MULT_REUSE
 
     # imaginary part is in upper 16 Bit
     PSS = np.zeros(PSS_LEN, 'complex')
@@ -191,4 +194,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(30, 32, 24, 0, 0)
+    test(30, 32, 24, 0, 0, 7)

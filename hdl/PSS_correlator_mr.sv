@@ -8,7 +8,7 @@ module PSS_correlator_mr
     parameter PSS_LEN = 128,
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
     parameter ALGO = 1,
-    parameter MULT_REUSE = 2
+    parameter MULT_REUSE = 4
 )
 (
     input                                       clk_i,
@@ -24,7 +24,7 @@ localparam REQUIRED_OUT_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) + 1;
 localparam IN_OP_DW  = IN_DW / 2;
 localparam TAP_OP_DW = TAP_DW / 2;
 
-localparam REQ_MULTS = PSS_LEN % MULT_REUSE != 0 ? PSS_LEN / MULT_REUSE + 1 : PSS_LEN / MULT_REUSE;
+localparam REQ_MULTS = (PSS_LEN % MULT_REUSE) != 0 ? PSS_LEN / MULT_REUSE + 1 : PSS_LEN / MULT_REUSE;
 
 wire signed [IN_OP_DW - 1 : 0] axis_in_re, axis_in_im;
 assign axis_in_re = s_axis_in_tdata[IN_DW / 2 - 1 -: IN_OP_DW];
@@ -41,13 +41,21 @@ reg signed [REQUIRED_OUT_DW / 2 : 0] sum_im, sum_re;
 
 wire signed [REQUIRED_OUT_DW - 1 : 0] filter_result;
 assign filter_result = sum_im * sum_im + sum_re * sum_re;
+wire signed [REQUIRED_OUT_DW / 2 : 0] mult_out_re [0 : REQ_MULTS - 1];
+wire signed [REQUIRED_OUT_DW / 2 : 0] mult_out_im [0 : REQ_MULTS - 1];
 
 genvar i_g;
 for (i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
-    localparam MULT_REUSE_CUR = i_g < (REQ_MULTS - 1) ? MULT_REUSE : PSS_LEN % MULT_REUSE;
-    reg [$clog2(MULT_REUSE_CUR) + 4 : 0] idx = '0;
+    localparam MULT_REUSE_CUR = PSS_LEN - i_g * MULT_REUSE >= MULT_REUSE ? MULT_REUSE : PSS_LEN % MULT_REUSE;
+    reg [$clog2(MULT_REUSE_CUR) : 0] idx = '0;
     reg signed [REQUIRED_OUT_DW / 2 : 0] out_buf_re, out_buf_im;
     reg ready;
+    assign mult_out_re[i_g] = out_buf_re;
+    assign mult_out_im[i_g] = out_buf_im;
+
+    initial begin
+        $display("%d MULT_REUSE_CUR = %d",i_g, MULT_REUSE_CUR);
+    end
     always @(posedge clk_i) begin
         if ((!valid && (idx == 0))|| !reset_ni) begin
             idx <= '0;
@@ -55,13 +63,16 @@ for (i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
             out_buf_im <= '0;
             ready <= '0;
         end else if (idx < MULT_REUSE_CUR) begin
-            integer pos = i_g*MULT_REUSE + idx;
+            integer pos = i_g * MULT_REUSE + idx;
             tap_re = PSS_LOCAL[pos * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
             tap_im = PSS_LOCAL[pos * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
             out_buf_re <= out_buf_re + in_re[pos] * tap_re - in_im[pos] * tap_im;
             out_buf_im <= out_buf_im + in_re[pos] * tap_im + in_im[pos] * tap_re;
             idx <= idx + 1;
             ready <= '0;
+        end else if (idx < MULT_REUSE) begin
+            ready <= '1;
+            idx <= idx + 1;
         end else begin
             ready <= '1;
             idx <= '0;
@@ -93,11 +104,13 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
         end
 
         if (mult[0].ready) begin
-            // cast from signed to unsigned, therefore throw away highest bit
             sum_re = '0;
             sum_im = '0;
-            sum_re = sum_re + mult[0].out_buf_re + mult[1].out_buf_re + mult[2].out_buf_re;
-            sum_im = sum_im + mult[0].out_buf_im + mult[1].out_buf_im + mult[2].out_buf_im;
+            for (integer i = 0; i < REQ_MULTS; i++) begin
+                sum_re = sum_re + mult_out_re[i];
+                sum_im = sum_im + mult_out_im[i];
+            end
+            // cast from signed to unsigned, therefore throw away highest bit
             m_axis_out_tdata <= filter_result[REQUIRED_OUT_DW - 2 -: OUT_DW];
             m_axis_out_tvalid <= '1;
         end else begin
