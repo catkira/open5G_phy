@@ -49,8 +49,7 @@ initial begin
     $display("used real multiplicators: %d", REQ_MULTS + 2);
 end
 
-genvar i_g;
-for (i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
+for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
     localparam MULT_REUSE_CUR = PSS_LEN_USED - i_g * MULT_REUSE >= MULT_REUSE ? MULT_REUSE : PSS_LEN_USED % MULT_REUSE;
     reg [$clog2(MULT_REUSE_CUR) : 0] idx = '0;
     reg signed [REQUIRED_OUT_DW / 2 : 0] out_buf_re, out_buf_im;
@@ -83,7 +82,7 @@ for (i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
                 out_buf_re <= out_buf_re + (in_re[PSS_LEN - pos] + in_re[pos]) * tap_re
                                         + (in_im[PSS_LEN - pos] - in_im[pos]) * tap_im;
                 out_buf_im <= out_buf_im + (in_im[PSS_LEN - pos] + in_im[pos]) * tap_re
-                                        - (in_re[PSS_LEN - pos] - in_re[pos]) * tap_im;                
+                                        - (in_re[PSS_LEN - pos] - in_re[pos]) * tap_im;
             end
             idx <= idx + 1;
             ready <= '0;
