@@ -124,13 +124,10 @@ async def simple_test(dut):
 
     print(f'max model-hdl difference is {max(np.abs(received - received_model))}')
     if tb.ALGO == 0:
-        #ok_limit = 0.0001
-        #for i in range(len(received)):
-        #    assert np.abs((received[i] - received_model[i]) / received[i]) < ok_limit
         for i in range(len(received)):
             assert received[i] == received_model[i]
     else:
-        # there is not yet a model for ALGO=1
+        # TODO: implement model
         pass
 
     assert ssb_start == 412
@@ -194,4 +191,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(30, 32, 24, 0, 0, 15)
+    test(30, 32, 24, 1, 12000, 15)

@@ -24,7 +24,8 @@ localparam REQUIRED_OUT_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) + 1;
 localparam IN_OP_DW  = IN_DW / 2;
 localparam TAP_OP_DW = TAP_DW / 2;
 
-localparam REQ_MULTS = (PSS_LEN % MULT_REUSE) != 0 ? PSS_LEN / MULT_REUSE + 1 : PSS_LEN / MULT_REUSE;
+localparam PSS_LEN_USED = ALGO ? (PSS_LEN - 2) / 2 : PSS_LEN;
+localparam REQ_MULTS = (PSS_LEN_USED % MULT_REUSE) != 0 ? PSS_LEN_USED / MULT_REUSE + 1 : PSS_LEN_USED / MULT_REUSE;
 
 wire signed [IN_OP_DW - 1 : 0] axis_in_re, axis_in_im;
 assign axis_in_re = s_axis_in_tdata[IN_DW / 2 - 1 -: IN_OP_DW];
@@ -50,10 +51,10 @@ end
 
 genvar i_g;
 for (i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
-    localparam MULT_REUSE_CUR = PSS_LEN - i_g * MULT_REUSE >= MULT_REUSE ? MULT_REUSE : PSS_LEN % MULT_REUSE;
+    localparam MULT_REUSE_CUR = PSS_LEN_USED - i_g * MULT_REUSE >= MULT_REUSE ? MULT_REUSE : PSS_LEN_USED % MULT_REUSE;
     reg [$clog2(MULT_REUSE_CUR) : 0] idx = '0;
     reg signed [REQUIRED_OUT_DW / 2 : 0] out_buf_re, out_buf_im;
-    reg [$clog2(PSS_LEN) : 0] pos;
+    reg [$clog2(PSS_LEN_USED) : 0] pos;
     reg ready;
     assign mult_out_re[i_g] = out_buf_re;
     assign mult_out_im[i_g] = out_buf_im;
@@ -67,7 +68,7 @@ for (i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
             out_buf_re <= '0;
             out_buf_im <= '0;
             ready <= '0;
-            pos <= i_g * MULT_REUSE;
+            pos <= ALGO ? i_g * MULT_REUSE + 1 : i_g * MULT_REUSE;
         end else if (idx < MULT_REUSE_CUR) begin
             if (s_axis_in_tvalid) begin
                 $display("Error: s_axis_in_tvalid should not go high now!");
@@ -75,8 +76,15 @@ for (i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
             pos <= pos + 1;
             tap_re = PSS_LOCAL[pos * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
             tap_im = PSS_LOCAL[pos * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
-            out_buf_re <= out_buf_re + in_re[pos] * tap_re - in_im[pos] * tap_im;
-            out_buf_im <= out_buf_im + in_re[pos] * tap_im + in_im[pos] * tap_re;
+            if (ALGO == 0) begin
+                out_buf_re <= out_buf_re + in_re[pos] * tap_re - in_im[pos] * tap_im;
+                out_buf_im <= out_buf_im + in_re[pos] * tap_im + in_im[pos] * tap_re;
+            end else begin
+                out_buf_re <= out_buf_re + (in_re[PSS_LEN - pos] + in_re[pos]) * tap_re
+                                        + (in_im[PSS_LEN - pos] - in_im[pos]) * tap_im;
+                out_buf_im <= out_buf_im + (in_im[PSS_LEN - pos] + in_im[pos]) * tap_re
+                                        - (in_re[PSS_LEN - pos] - in_re[pos]) * tap_im;                
+            end
             idx <= idx + 1;
             ready <= '0;
         end else if (idx < MULT_REUSE) begin
