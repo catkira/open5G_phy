@@ -89,7 +89,7 @@ async def simple_test(dut):
     clk_div = 0
     while rx_counter < num_items:
         await RisingEdge(dut.clk_i)
-        if clk_div < 8:
+        if clk_div < 16:
             dut.s_axis_in_tvalid.value = 0
             clk_div += 1
         else:
@@ -102,13 +102,13 @@ async def simple_test(dut):
             in_counter += 1
 
         if dut.m_axis_out_tvalid == 1:
-            print(f'{rx_counter}: rx hdl {dut.m_axis_out_tdata.value.integer}')
+            # print(f'{rx_counter}: rx hdl {dut.m_axis_out_tdata.value.integer}')
             received[rx_counter] = dut.m_axis_out_tdata.value.integer
             rx_counter  += 1
 
         if tb.model.data_valid() and rx_counter_model < num_items:
             received_model[rx_counter_model] = tb.model.get_data()
-            print(f'{rx_counter_model}: rx mod {received_model[rx_counter_model]}')
+            # print(f'{rx_counter_model}: rx mod {received_model[rx_counter_model]}')
             rx_counter_model += 1
 
     ssb_start = np.argmax(received)
@@ -142,7 +142,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("OUT_DW", [24, 32])
 @pytest.mark.parametrize("TAP_DW", [24, 32])
 @pytest.mark.parametrize("CFO", [0, 7500])
-@pytest.mark.parametrize("MULT_REUSE", [1, 4])
+@pytest.mark.parametrize("MULT_REUSE", [1, 15])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
     dut = 'PSS_correlator_mr'
     module = os.path.splitext(os.path.basename(__file__))[0]
@@ -194,4 +194,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(30, 32, 24, 0, 0, 7)
+    test(30, 32, 24, 0, 0, 15)
