@@ -87,9 +87,10 @@ async def simple_test(dut):
     received = np.empty(num_items, int)
     received_model = np.empty(num_items, int)
     clk_div = 0
+    clk_decimation = 16
     while rx_counter < num_items:
         await RisingEdge(dut.clk_i)
-        if clk_div < 16:
+        if clk_div < (clk_decimation - 1):
             dut.s_axis_in_tvalid.value = 0
             clk_div += 1
         else:
@@ -139,7 +140,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("OUT_DW", [24, 32])
 @pytest.mark.parametrize("TAP_DW", [24, 32])
 @pytest.mark.parametrize("CFO", [0, 7500])
-@pytest.mark.parametrize("MULT_REUSE", [1, 15])
+@pytest.mark.parametrize("MULT_REUSE", [1, 15, 16])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
     dut = 'PSS_correlator_mr'
     module = os.path.splitext(os.path.basename(__file__))[0]
@@ -191,4 +192,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(30, 32, 24, 1, 12000, 15)
+    test(30, 32, 24, 1, 12000, 16)
