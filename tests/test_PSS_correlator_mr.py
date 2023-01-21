@@ -103,7 +103,7 @@ async def simple_test(dut):
             in_counter += 1
 
         if dut.m_axis_out_tvalid == 1:
-            # print(f'{rx_counter}: rx hdl {dut.m_axis_out_tdata.value.integer}')
+            # print(f'{rx_counter}: rx hdl {dut.m_axis_out_tdata.value}')
             received[rx_counter] = dut.m_axis_out_tdata.value.integer
             rx_counter  += 1
 
@@ -136,9 +136,9 @@ async def simple_test(dut):
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
 @pytest.mark.parametrize("ALGO", [0, 1])
-@pytest.mark.parametrize("IN_DW", [30, 32])
-@pytest.mark.parametrize("OUT_DW", [24, 32])
-@pytest.mark.parametrize("TAP_DW", [24, 32])
+@pytest.mark.parametrize("IN_DW", [14, 32])
+@pytest.mark.parametrize("OUT_DW", [45])
+@pytest.mark.parametrize("TAP_DW", [18, 32])
 @pytest.mark.parametrize("CFO", [0, 7500])
 @pytest.mark.parametrize("MULT_REUSE", [1, 15, 16])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
@@ -192,4 +192,5 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(30, 32, 24, 1, 12000, 16)
+    # this setup does not require output truncation
+    test(IN_DW = 14, OUT_DW = 48, TAP_DW = 18, ALGO = 1, CFO = 5000, MULT_REUSE = 16)

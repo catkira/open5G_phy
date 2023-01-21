@@ -131,9 +131,9 @@ async def simple_test(dut):
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
 @pytest.mark.parametrize("ALGO", [0, 1])
-@pytest.mark.parametrize("IN_DW", [30, 32])
-@pytest.mark.parametrize("OUT_DW", [24, 32])
-@pytest.mark.parametrize("TAP_DW", [24, 32])
+@pytest.mark.parametrize("IN_DW", [14, 32])
+@pytest.mark.parametrize("OUT_DW", [24, 48])
+@pytest.mark.parametrize("TAP_DW", [18, 32])
 @pytest.mark.parametrize("CFO", [0, 7500])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
     dut = 'PSS_correlator'
@@ -185,4 +185,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(30, 32, 24, 0, 10000)
+    test(IN_DW = 14, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 10000)

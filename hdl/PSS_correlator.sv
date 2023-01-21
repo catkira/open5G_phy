@@ -21,7 +21,7 @@ module PSS_correlator
     output  reg                                 m_axis_out_tvalid
 );
 
-localparam REQUIRED_OUT_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) + 1;
+localparam REQUIRED_OUT_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN);
 
 localparam IN_OP_DW  = IN_DW / 2;
 localparam TAP_OP_DW = TAP_DW / 2;
@@ -48,7 +48,7 @@ initial begin
     end
 end
 
-wire signed [REQUIRED_OUT_DW - 1 : 0] filter_result;
+wire unsigned [REQUIRED_OUT_DW - 1: 0] filter_result;
 assign filter_result = sum_im * sum_im + sum_re * sum_re;
 
 always @(posedge clk_i) begin // cannot use $display inside always_ff with iverilog
@@ -116,8 +116,12 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                                     - (in_re[PSS_LEN - i] - in_re[i]) * tap_im;
                 end
             end
-            // cast from signed to unsigned, therefore throw away highest bit
-            m_axis_out_tdata <= filter_result[REQUIRED_OUT_DW - 2 -: OUT_DW];
+            if (REQUIRED_OUT_DW >= OUT_DW) begin
+                m_axis_out_tdata <= filter_result[REQUIRED_OUT_DW - 1 -: OUT_DW];
+            end else begin
+                // do zero padding
+                m_axis_out_tdata <= {{(OUT_DW - REQUIRED_OUT_DW){1'b0}}, filter_result};
+            end
             m_axis_out_tvalid <= '1;
         end else begin
             m_axis_out_tdata <= '0;

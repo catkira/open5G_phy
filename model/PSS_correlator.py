@@ -62,7 +62,10 @@ class Model:
                 result_im += (  int(self.taps[i].real) * int(self.in_pipeline[i].imag) \
                                 + int(self.taps[i].imag) * int(self.in_pipeline[i].real))
             result_abs = result_re ** 2 + result_im ** 2
-            self.result[0] = (result_abs >> int(2 * np.ceil(np.log2(self.PSS_LEN)) + self.IN_DW + self.TAP_DW + 2 - self.OUT_DW)) & (2 ** self.OUT_DW - 1)
+            truncate = int(2 * np.ceil(np.log2(self.PSS_LEN)) + self.IN_DW + self.TAP_DW + 2 - self.OUT_DW)
+            if truncate < 0:
+                truncate = 0
+            self.result[0] = (result_abs >> truncate) & (2 ** self.OUT_DW - 1)
 
     def set_data(self, data_in):
         self.in_buffer =      _twos_comp((data_in & (2 ** (self.IN_DW // 2) - 1)),                        self.IN_DW // 2) \
