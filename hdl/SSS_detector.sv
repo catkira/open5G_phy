@@ -2,7 +2,7 @@
 
 module SSS_detector
 #(
-    localparam N_id_1_MAX = 1
+    localparam N_id_1_MAX = 335
 )
 (
     input                                       clk_i,
@@ -106,30 +106,27 @@ always @(posedge clk_i) begin
         end
     end else if (state == 1) begin // compare input to single SSS sequence
         if (compare_counter == 0) begin
-            acc_max = '0;
             acc = '0;
             shift_max = '0;
-            $display("N_id_1 = %d  shift_cur = %d", N_id_1, shift_cur);
+            // $display("N_id_1 = %d  shift_cur = %d", N_id_1, shift_cur);
         end
 
-        $display("cnt = %d   %d <-> %d", compare_counter, sss_in[compare_counter],  m_seq_0[m_0 + compare_counter] ^ m_seq_1[m_1 + compare_counter]);
+        // $display("cnt = %d   %d <-> %d", compare_counter, sss_in[compare_counter],  m_seq_0[m_0 + compare_counter] ^ m_seq_1[m_1 + compare_counter]);
         if (sss_in[compare_counter] == m_seq_0[m_0 + compare_counter] ^ m_seq_1[m_1 + compare_counter]) begin
             acc <= acc + 1;
         end
 
         if (compare_counter == SSS_LEN - 1) begin
-            $display("correlation = %d", acc);
+            // $display("correlation = %d", acc);
             if (N_id_1 == N_id_1_MAX) begin
-                m_axis_out_tdata <= N_id_1_det;
                 m_axis_out_tvalid <= 1;
                 shift_cur <= '0;
                 div_cnt <= '0;
-                N_id_1_det <= '0;
                 state <= 0; // back to init state
             end
             if (acc > acc_max) begin
                 acc_max <= acc;
-                N_id_1_det <= N_id_1;
+                m_axis_out_tdata <= N_id_1;
             end
             if (shift_cur == SHIFT_MAX) begin
                 m_0 <= m_0_start + 15 * (div_cnt + 1);  // can be optimized by static calculation
@@ -139,6 +136,7 @@ always @(posedge clk_i) begin
             end else begin
                 m_1 <= m_1 + 1;
             end
+            acc <= '0;
             shift_cur <= shift_cur + 1;
             N_id_1 <= N_id_1 + 1;
         end

@@ -42,8 +42,9 @@ async def simple_test(dut):
     await tb.cycle_reset()
 
     SSS_len = 127
-    N_id_1 = 0
-    N_id_2 = 0
+    N_id_1 = int(os.environ['N_ID_1'])
+    N_id_2 = int(os.environ['N_ID_2'])
+    print(f'test N_id_1 = {N_id_1}  N_id_2 = {N_id_2}')
     SSS_seq = (py3gpp.nrSSS(3*N_id_1 + N_id_2) - 1) // 2
 
     await RisingEdge(dut.clk_i)
@@ -59,7 +60,7 @@ async def simple_test(dut):
     dut.s_axis_in_tvalid.value = 0
     await RisingEdge(dut.clk_i)
 
-    max_wait_cycles = 5000
+    max_wait_cycles = 335 * SSS_len + 1000
     cycle_counter = 0
     while cycle_counter < max_wait_cycles:
         await RisingEdge(dut.clk_i)
@@ -68,9 +69,13 @@ async def simple_test(dut):
             print(f'detected_N_id_1 = {detected_N_id_1}')
             break
         cycle_counter += 1
+    
+    assert detected_N_id_1 == N_id_1
+    # assert dut.m_axis_out_tdata.value == N_id_1
 
-# bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
-def test():
+@pytest.mark.parametrize("N_ID_1", [0])
+@pytest.mark.parametrize("N_ID_2", [0, 1, 2])
+def test(N_ID_1, N_ID_2):
     dut = 'SSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -81,6 +86,8 @@ def test():
     ]
     includes = []
 
+    os.environ['N_ID_1'] = str(N_ID_1)
+    os.environ['N_ID_2'] = str(N_ID_2)
     parameters = {}
 
     sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters.items()))
@@ -97,4 +104,4 @@ def test():
     )
 
 if __name__ == '__main__':
-    test()
+    test(N_ID_1 = 0, N_ID_2 = 0)
