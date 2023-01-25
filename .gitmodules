@@ -1,3 +1,6 @@
 [submodule "submodules/CIC"]
 	path = submodules/CIC
 	url = https://github.com/catkira/CIC
+[submodule "submodules/LFSR"]
+	path = submodules/LFSR
+	url = https://github.com/catkira/LFSR
