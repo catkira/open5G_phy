@@ -6,5 +6,5 @@ cocotb
 cocotb-test
 pytest
 pytest-parallel
-py3gpp
+py3gpp>=0.1.4
 sigmf
