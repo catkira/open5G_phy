@@ -1,0 +1,151 @@
+`timescale 1ns / 1ns
+
+module SSS_detector
+#(
+    localparam N_id_1_MAX = 1
+)
+(
+    input                                       clk_i,
+    input                                       reset_ni,
+    input   wire                                s_axis_in_tdata,
+    input                                       s_axis_in_tvalid,
+    input   wire   [1 : 0]                      N_id_2_i,
+    input   wire                                N_id_2_valid_i,
+    output  reg    [$clog2(N_id_1_MAX) - 1 : 0] m_axis_out_tdata,
+    output  reg                                 m_axis_out_tvalid
+);
+
+localparam SSS_LEN = 127;
+
+reg [SSS_LEN - 1 : 0] sss_in;
+
+localparam NUM_STATES = 5;
+reg [$clog2(NUM_STATES) - 1 : 0] state= '0;
+reg [$clog2(SSS_LEN) - 1 : 0] copy_counter, copy_counter_m_seq;
+reg [$clog2(SSS_LEN) - 1 : 0] compare_counter;
+reg [$clog2(SSS_LEN) - 1 : 0] acc, acc_max;
+localparam SHIFT_MAX = 112;
+reg [$clog2(SHIFT_MAX) - 1 : 0] shift_cur, shift_max;
+
+reg [$clog2(N_id_1_MAX) - 1 : 0] N_id_1, N_id_1_det;
+
+wire lfsr_out_0, lfsr_out_1, lfsr_valid;
+localparam LFSR_N = 7;
+LFSR #(
+    .N(LFSR_N),
+    .TAPS('h11),
+    .START_VALUE(1),
+    .VARIABLE_CONFIG(0)
+)
+lfsr_0
+(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+    .data_o(lfsr_out_0),
+    .valid_o(lfsr_valid)
+);
+LFSR #(
+    .N(LFSR_N),
+    .TAPS('h03),
+    .START_VALUE(1),
+    .VARIABLE_CONFIG(0)
+)
+lfsr_1
+(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+    .data_o(lfsr_out_1)
+);
+reg [SSS_LEN - 1 : 0] m_seq_0, m_seq_1;
+reg [$clog2(SSS_LEN) - 1 : 0] m_0, m_1, m_0_start;
+reg [3 : 0] div_cnt; // is (N_id_1 / 112)
+
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        m_axis_out_tdata <= '0;
+        m_axis_out_tvalid <= '0;
+        copy_counter <= '0;
+        copy_counter_m_seq <= '0;
+        state <= '0;
+        compare_counter <= '0;
+        shift_cur <= '0;
+        m_0 <= '0;
+        m_1 <= '0;
+        div_cnt <= '0;
+        N_id_1 <= '0;
+        N_id_1_det <= '0;
+        m_0_start <= '0;
+        $display("reset");
+    end
+    if (state == 0) begin   
+        // copy SSS into internal buffer and create m_seq_0 and m_seq_1
+        // m_0 = 15 * int((N_id_1 / 112)) + 5 * N_id_2
+        // m_1 = N_id_1 % 112
+        // d_SSS = (1 - 2 * np.roll(mseq_0, -m_0)) * (1 - 2 * np.roll(mseq_1, -m_1))
+
+        if (lfsr_valid && (copy_counter_m_seq < SSS_LEN)) begin
+            // $display("store %d %d", lfsr_out_0, lfsr_out_1);
+            m_seq_0[copy_counter_m_seq] <= lfsr_out_0;
+            m_seq_1[copy_counter_m_seq] <= lfsr_out_1;
+            copy_counter_m_seq <= copy_counter_m_seq + 1;
+        end
+
+        if (N_id_2_valid_i) begin
+            $display("N_id_2 = %d", N_id_2_i);
+            m_0_start = 5 * N_id_2_i;
+            m_0 <= m_0_start;
+            m_1 <= 0;
+        end
+        if (s_axis_in_tvalid) begin
+            sss_in[copy_counter] = s_axis_in_tdata;
+            if (copy_counter == SSS_LEN - 1) begin
+                state <= 1;
+                $display("enter state 1");
+            end
+            copy_counter <= copy_counter + 1;
+        end
+    end else if (state == 1) begin // compare input to single SSS sequence
+        if (compare_counter == 0) begin
+            acc_max = '0;
+            acc = '0;
+            shift_max = '0;
+            $display("N_id_1 = %d  shift_cur = %d", N_id_1, shift_cur);
+        end
+
+        $display("cnt = %d   %d <-> %d", compare_counter, sss_in[compare_counter],  m_seq_0[m_0 + compare_counter] ^ m_seq_1[m_1 + compare_counter]);
+        if (sss_in[compare_counter] == m_seq_0[m_0 + compare_counter] ^ m_seq_1[m_1 + compare_counter]) begin
+            acc <= acc + 1;
+        end
+
+        if (compare_counter == SSS_LEN - 1) begin
+            $display("correlation = %d", acc);
+            if (N_id_1 == N_id_1_MAX) begin
+                m_axis_out_tdata <= N_id_1_det;
+                m_axis_out_tvalid <= 1;
+                shift_cur <= '0;
+                div_cnt <= '0;
+                N_id_1_det <= '0;
+                state <= 0; // back to init state
+            end
+            if (acc > acc_max) begin
+                acc_max <= acc;
+                N_id_1_det <= N_id_1;
+            end
+            if (shift_cur == SHIFT_MAX) begin
+                m_0 <= m_0_start + 15 * (div_cnt + 1);  // can be optimized by static calculation
+                m_1 <= 0;
+                div_cnt <= div_cnt + 1;
+                shift_cur <= '0;
+            end else begin
+                m_1 <= m_1 + 1;
+            end
+            shift_cur <= shift_cur + 1;
+            N_id_1 <= N_id_1 + 1;
+        end
+        compare_counter <= compare_counter + 1;
+    end else begin
+        $display("ERROR: undefined state %d", state);
+    end
+end
+
+endmodule
