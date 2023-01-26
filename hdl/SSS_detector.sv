@@ -21,9 +21,9 @@ reg [SSS_LEN - 1 : 0] sss_in;
 
 localparam NUM_STATES = 5;
 reg [$clog2(NUM_STATES) - 1 : 0] state= '0;
-reg [$clog2(SSS_LEN) - 1 : 0] copy_counter, copy_counter_m_seq;
-reg [$clog2(SSS_LEN) - 1 : 0] compare_counter;
-reg [$clog2(SSS_LEN) - 1 : 0] acc, acc_max;
+reg [$clog2(SSS_LEN - 1) - 1 : 0] copy_counter, copy_counter_m_seq;
+reg [$clog2(SSS_LEN - 1) - 1 : 0] compare_counter;
+reg [$clog2(SSS_LEN - 1) - 1 : 0] acc, acc_max;
 localparam SHIFT_MAX = 112;
 reg [$clog2(SHIFT_MAX) - 1 : 0] shift_cur, shift_max;
 
@@ -57,7 +57,14 @@ lfsr_1
     .data_o(lfsr_out_1)
 );
 reg [SSS_LEN - 1 : 0] m_seq_0, m_seq_1;
-reg [$clog2(SSS_LEN) - 1 : 0] m_0, m_1, m_0_start;
+wire [$clog2(SSS_LEN - 1) - 1 : 0] m_seq_0_pos, m_seq_1_pos;
+//  if SSS_LEN would be 128, roll operation would be very easy by just using overflows
+//  however since SSS_LEN is 127 it is a bit more complicated
+reg m_seq_0_wrap, m_seq_1_wrap;
+assign m_seq_0_pos = m_0 + compare_counter + m_seq_0_wrap;
+assign m_seq_1_pos = m_1 + compare_counter + m_seq_1_wrap;
+
+reg [$clog2(SSS_LEN - 1) - 1 : 0] m_0, m_1, m_0_start;
 reg [3 : 0] div_cnt; // is (N_id_1 / 112)
 
 always @(posedge clk_i) begin
@@ -75,7 +82,11 @@ always @(posedge clk_i) begin
         N_id_1 <= '0;
         N_id_1_det <= '0;
         m_0_start <= '0;
-        $display("reset");
+        acc_max <= '0;
+        acc <= '0;
+        m_seq_0_wrap <= '0;
+        m_seq_1_wrap <= '0;
+        // $display("reset");
     end
     if (state == 0) begin   
         // copy SSS into internal buffer and create m_seq_0 and m_seq_1
@@ -91,16 +102,17 @@ always @(posedge clk_i) begin
         end
 
         if (N_id_2_valid_i) begin
-            $display("N_id_2 = %d", N_id_2_i);
+            // $display("N_id_2 = %d", N_id_2_i);
             m_0_start = 5 * N_id_2_i;
             m_0 <= m_0_start;
             m_1 <= 0;
         end
         if (s_axis_in_tvalid) begin
-            sss_in[copy_counter] = s_axis_in_tdata;
+            sss_in[copy_counter] <= s_axis_in_tdata;
+            // $display("ss_in[%d] = %d", copy_counter, s_axis_in_tdata);
             if (copy_counter == SSS_LEN - 1) begin
                 state <= 1;
-                $display("enter state 1");
+                // $display("enter state 1");
             end
             copy_counter <= copy_counter + 1;
         end
@@ -109,38 +121,59 @@ always @(posedge clk_i) begin
             acc = '0;
             shift_max = '0;
             // $display("N_id_1 = %d  shift_cur = %d", N_id_1, shift_cur);
+            // $display("m_0 = %d  m_1 = %d  mod = %d", m_seq_0_pos, m_seq_1_pos, div_cnt);
         end
 
-        // $display("cnt = %d   %d <-> %d", compare_counter, sss_in[compare_counter],  m_seq_0[m_0 + compare_counter] ^ m_seq_1[m_1 + compare_counter]);
-        if (sss_in[compare_counter] == m_seq_0[m_0 + compare_counter] ^ m_seq_1[m_1 + compare_counter]) begin
-            acc <= acc + 1;
+        if (m_seq_0_pos == SSS_LEN - 1) begin
+            m_seq_0_wrap <= 1;
+        end
+        if (m_seq_1_pos == SSS_LEN - 1) begin
+            m_seq_1_wrap <= 1;
         end
 
         if (compare_counter == SSS_LEN - 1) begin
             // $display("correlation = %d", acc);
+            if (acc > acc_max) begin
+                acc_max <= acc;
+                m_axis_out_tdata <= N_id_1;
+                // $display("best N_id_1 so far is %d", N_id_1);
+            end
             if (N_id_1 == N_id_1_MAX) begin
                 m_axis_out_tvalid <= 1;
                 shift_cur <= '0;
                 div_cnt <= '0;
+                compare_counter <= '0;
+                m_seq_0_wrap <= '0;
+                m_seq_1_wrap <= '0;
                 state <= 0; // back to init state
-            end
-            if (acc > acc_max) begin
-                acc_max <= acc;
-                m_axis_out_tdata <= N_id_1;
-            end
-            if (shift_cur == SHIFT_MAX) begin
-                m_0 <= m_0_start + 15 * (div_cnt + 1);  // can be optimized by static calculation
-                m_1 <= 0;
-                div_cnt <= div_cnt + 1;
-                shift_cur <= '0;
             end else begin
-                m_1 <= m_1 + 1;
+                if (shift_cur == SHIFT_MAX - 1) begin
+                    m_0 <= m_0_start + 15 * (div_cnt + 1);  // can be optimized by static calculation
+                    m_1 <= 0;
+                    div_cnt <= div_cnt + 1;
+                    shift_cur <= '0;
+                end else begin
+                    m_1 <= m_1 + 1;
+                    shift_cur <= shift_cur + 1;
+                end
+                acc <= '0;
+                N_id_1 <= N_id_1 + 1;
+                compare_counter <= '0;
+                m_seq_0_wrap <= '0;
+                m_seq_1_wrap <= '0;
+                // $display("test next: N_id_1 = %d  N_id_2 = %d", N_id_1 + 1, m_0_start / 5);
             end
-            acc <= '0;
-            shift_cur <= shift_cur + 1;
-            N_id_1 <= N_id_1 + 1;
+        end else begin
+            // $display("pos0 = %d  pos1 = %d  seq0 = %d  seq1 = %d  wrap0 = %d  wrap1 = %d  acc = %d", m_seq_0_pos, m_seq_1_pos, m_seq_0[m_seq_0_pos], m_seq_1[m_seq_1_pos], m_seq_0_wrap, m_seq_1_wrap, acc);
+            if (compare_counter == 55 || compare_counter == 56) begin
+                // $display("pos0 = %d  pos1 = %d", m_seq_0_pos, m_seq_1_pos);
+            end
+            // $display("cnt = %d   %d <-> %d", compare_counter, sss_in[compare_counter],  m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]);
+            if (sss_in[compare_counter] == (m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos])) begin
+                acc <= acc + 1;
+            end
+            compare_counter <= compare_counter + 1;
         end
-        compare_counter <= compare_counter + 1;
     end else begin
         $display("ERROR: undefined state %d", state);
     end

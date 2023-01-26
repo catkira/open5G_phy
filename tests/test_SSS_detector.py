@@ -46,6 +46,7 @@ async def simple_test(dut):
     N_id_2 = int(os.environ['N_ID_2'])
     print(f'test N_id_1 = {N_id_1}  N_id_2 = {N_id_2}')
     SSS_seq = (py3gpp.nrSSS(3*N_id_1 + N_id_2) - 1) // 2
+    # SSS_seq = np.append(SSS_seq, 0)
 
     await RisingEdge(dut.clk_i)
     dut.N_id_2_i.value = N_id_2
@@ -73,7 +74,7 @@ async def simple_test(dut):
     assert detected_N_id_1 == N_id_1
     # assert dut.m_axis_out_tdata.value == N_id_1
 
-@pytest.mark.parametrize("N_ID_1", [0])
+@pytest.mark.parametrize("N_ID_1", [0, 335])
 @pytest.mark.parametrize("N_ID_2", [0, 1, 2])
 def test(N_ID_1, N_ID_2):
     dut = 'SSS_detector'
@@ -104,4 +105,4 @@ def test(N_ID_1, N_ID_2):
     )
 
 if __name__ == '__main__':
-    test(N_ID_1 = 0, N_ID_2 = 0)
+    test(N_ID_1 = 335, N_ID_2 = 1)
