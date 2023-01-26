@@ -134,7 +134,7 @@ always @(posedge clk_i) begin
             acc = '0;
             shift_max = '0;
             // $display("N_id_1 = %d  shift_cur = %d", N_id_1, shift_cur);
-            $display("m_0 = %d  m_1 = %d  mod = %d", m_seq_0_pos, m_seq_1_pos, div_112);
+            // $display("m_0 = %d  m_1 = %d  mod = %d", m_seq_0_pos, m_seq_1_pos, div_112);
         end
 
         if (m_seq_0_pos == SSS_LEN - 1) begin
@@ -177,7 +177,7 @@ always @(posedge clk_i) begin
                 compare_counter <= '0;
                 m_seq_0_wrap <= '0;
                 m_seq_1_wrap <= '0;
-                $display("test next: N_id_1 = %d  N_id_2 = %d", N_id_1 + 1, m_0_start / 5);
+                // $display("test next: N_id_1 = %d  N_id_2 = %d", N_id_1 + 1, m_0_start / 5);
             end
         end else begin
             // $display("pos0 = %d  pos1 = %d  seq0 = %d  seq1 = %d  wrap0 = %d  wrap1 = %d  acc = %d", m_seq_0_pos, m_seq_1_pos, m_seq_0[m_seq_0_pos], m_seq_1[m_seq_1_pos], m_seq_0_wrap, m_seq_1_wrap, acc);
