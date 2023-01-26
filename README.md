@@ -8,10 +8,10 @@ Implemented so far:<br>
 * PSS correlator (detailed description below)
 * Peak detector (detailed description below)
 * SSS demodulator which uses [ZipCPU's FFT core](https://github.com/ZipCPU/dblclockfft)
+* SSS detector (detailed description below)
 
 <b>TODO:</b>
-* SSS detector
-* channel estimator
+* channel estimator using PBCH DMRS and SSS
 * PBCH demodulator
 * maybe optimize PSS correlator further like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
 
@@ -20,6 +20,7 @@ Implemented so far:<br>
 * PSS correlator  :  6 DSP slices
 * Peak detector   :  0 DSP slices
 * SSS demodulator :  8 DSP slices
+* SSS detector    :  0 DSP slices
 
 # Tests
 ```
@@ -54,3 +55,8 @@ The peak detector takes the sum of the last WINDOW_LEN samples and compares it t
 
 # SSS demodulator
 The SSS demodulator uses [ZipCPU's FFT core](https://github.com/ZipCPU/dblclockfft). Since the core runs at 122.88 MHz while the sample rate it only 3.84 MSPS, overclocking can be used to reduce the number of required multipliers. Normally a FFT would need 3 real multipliers per stage, with overclocking this can be reduced to 1 multiplier per stage. SSS would only need a 128 point FFT, but a 256 point FFT is used anyway, so that it can also be used for PBCH demodulation. This results in 8 real multipliers required for the FFT.
+
+# SSS demodulator
+The SSS detector currently operates in search mode, which means that it compares the received SSS sequence to all possible 335 SSS for the given N_id_1 which comes from the PSS detection.
+The code is optimized to not use any multiplication and no large additions. This is achieved by doing every operation in a separate clock cycle. This means the core needs about 335 * 127 = 42545 cycles to finish the detection, assuming the system clock is 100 MHz, that would be 425 us.
+The code is also memory optimized, by only storing the two m-sequences that are needed to construct all the possible SSS. It currently builds the stored m-sequences at startup using [this](https://github.com/catkira/LFSR) LFSR core. The code could be modified to have the m-sequences statically stored.
