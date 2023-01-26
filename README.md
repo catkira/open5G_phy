@@ -7,7 +7,7 @@ Implemented so far:<br>
 * Decimator which uses [this](https://github.com/catkira/CIC) CIC core
 * PSS correlator (detailed description below)
 * Peak detector (detailed description below)
-* SSS demodulator which uses [ZipCPU's FFT core](https://github.com/ZipCPU/dblclockfft)
+* FFT demodulator which uses [ZipCPU's FFT core](https://github.com/ZipCPU/dblclockfft)
 * SSS detector (detailed description below)
 
 <b>TODO:</b>
@@ -19,7 +19,7 @@ Implemented so far:<br>
 * Decimator       :  0 DSP slices
 * PSS correlator  :  6 DSP slices
 * Peak detector   :  0 DSP slices
-* SSS demodulator :  8 DSP slices
+* FFT demodulator :  8 DSP slices
 * SSS detector    :  0 DSP slices
 
 # Tests
@@ -53,8 +53,8 @@ This would allow DSP48E1 slices to be used, even for the last multipliers that a
 The peak detector takes the sum of the last WINDOW_LEN samples and compares it to the current sample. If the current sample is larger than the window sum times a DETECTION_FACTOR, then a peak is detected. DETECTION_FACTOR is currently hard coded to 32, so that the multiplication can be implemented as a shift operation. As result, this core only needs WINDOW_LEN additions and no multiplications. <br><br>
 <b>TODO:</b> There is currently no pipelining implemented. For larger windows it is probably needed to break up the add operation into different stages.
 
-# SSS demodulator
-The SSS demodulator uses [ZipCPU's FFT core](https://github.com/ZipCPU/dblclockfft). Since the core runs at 122.88 MHz while the sample rate it only 3.84 MSPS, overclocking can be used to reduce the number of required multipliers. Normally a FFT would need 3 real multipliers per stage, with overclocking this can be reduced to 1 multiplier per stage. SSS would only need a 128 point FFT, but a 256 point FFT is used anyway, so that it can also be used for PBCH demodulation. This results in 8 real multipliers required for the FFT.
+# FFT demodulator
+The FFT demodulator uses [ZipCPU's FFT core](https://github.com/ZipCPU/dblclockfft). Since the core runs at 122.88 MHz while the sample rate it only 3.84 MSPS, overclocking can be used to reduce the number of required multipliers. Normally a FFT would need 3 real multipliers per stage, with overclocking this can be reduced to 1 multiplier per stage. SSS would only need a 128 point FFT, but a 256 point FFT is used anyway, so that it can also be used for PBCH demodulation. This results in 8 real multipliers required for the FFT. The FFT demodulator is synchronized to the start signal from the Peak detector. It then continuously performs FFTs. There are special tag signals for the start of the SSS and PBCH symbols.
 
 # SSS demodulator
 The SSS detector currently operates in search mode, which means that it compares the received SSS sequence to all possible 335 SSS for the given N_id_1 which comes from the PSS detection.

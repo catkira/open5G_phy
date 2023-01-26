@@ -24,8 +24,11 @@ module Decimator_Correlator_PeakDetector_FFT
     output  wire                                m_axis_correlator_debug_tvalid,
     output  reg                                 peak_detected_debug_o,
     output  wire            [FFT_OUT_DW-1:0]    fft_result_debug_o,
+    output  wire            [FFT_OUT_DW-1:0]    fft_demod_result_debug_o,    
     output  wire                                fft_sync_debug_o,
-    output  wire            [15:0]              sync_wait_counter_debug_o
+    output  wire            [15:0]              sync_wait_counter_debug_o,
+    output  reg                                 fft_demod_PBCH_start_o,
+    output  reg                                 fft_demod_SSS_start_o
 );
 
 wire [IN_DW - 1 : 0] m_axis_cic_tdata;
@@ -82,7 +85,7 @@ PSS_correlator #(
     .PSS_LOCAL(PSS_LOCAL),
     .ALGO(ALGO)
 )
-correlator(
+correlator_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
     .s_axis_in_tdata(m_axis_cic_tdata),
@@ -98,7 +101,7 @@ Peak_detector #(
     .IN_DW(OUT_DW),
     .WINDOW_LEN(WINDOW_LEN)
 )
-peak_detector(
+peak_detector_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
     .s_axis_in_tdata(correlator_tdata),
@@ -106,7 +109,8 @@ peak_detector(
     .peak_detected_o(peak_detected)
 );
 
-wire [FFT_OUT_DW - 1 : 0] fft_result;
+wire [FFT_OUT_DW - 1 : 0] fft_result, fft_result_demod;
+wire fft_result_demod_valid;
 wire fft_sync;
 
 assign fft_result_debug_o = fft_result;
@@ -117,6 +121,7 @@ assign sync_wait_counter_debug_o = sync_wait_counter;
 localparam CP_LEN = 18;
 localparam DETECTION_DELAY = 15;
 localparam WAIT_CYCLES = 256 + 2*CP_LEN - DETECTION_DELAY;
+localparam WAIT_CYCLES_FFT_DEMOD = 2*CP_LEN - DETECTION_DELAY;
 always_ff @(posedge clk_i) begin
     if (!reset_ni) begin
         sync_wait_counter <= 'b0;
@@ -132,13 +137,32 @@ assign enable_fft = (sync_wait_counter == WAIT_CYCLES);
 
 fftmain #(
 )
-fft(
+fft_i(
     .i_clk(clk_i),
     .i_reset(!reset_ni),
     .i_ce(s_axis_in_tvalid && enable_fft),
     .i_sample({s_axis_in_tdata[IN_DW / 2 - 1 : 0], s_axis_in_tdata[IN_DW - 1 : IN_DW / 2]}),
     .o_result(fft_result),
     .o_sync(fft_sync)
+);
+
+wire enable_fft_demod;
+assign enable_fft_demod = (sync_wait_counter == WAIT_CYCLES_FFT_DEMOD);
+assign fft_demod_result_debug_o = fft_result_demod;
+
+FFT_demod #(
+    .IN_DW(IN_DW)
+)
+FFT_demod_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+    .SSB_start_i(enable_fft_demod),
+    .s_axis_in_tdata(s_axis_in_tdata),
+    .s_axis_in_tvalid(s_axis_in_tvalid),
+    .m_axis_out_tdata(fft_result_demod),
+    .m_axis_out_tvalid(fft_result_demod_valid),
+    .PBCH_start_o(fft_demod_PBCH_start_o),
+    .SSS_start_o(fft_demod_SSS_start_o)
 );
 
 endmodule

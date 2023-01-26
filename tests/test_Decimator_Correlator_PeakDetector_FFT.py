@@ -97,8 +97,10 @@ async def simple_test(dut):
     received = np.empty(num_items, int)
     received_correlator = []
     received_fft = []
+    received_fft_demod = []
     received_fft_ideal = []
     fft_started = False
+    fft_demod_started = False
     wait_cycles = 0
     CP_LEN = 18
     FFT_SIZE = 256
@@ -133,18 +135,37 @@ async def simple_test(dut):
 
         # receive FFT data from hdl
 
+        if dut.fft_demod_PBCH_start_o == 1:
+            print(f'{rx_counter}: PBCH start')
+
+        if dut.fft_demod_SSS_start_o == 1 and len(received_fft_demod) == 0:
+            print(f'{rx_counter}: SSS start')
+            fft_demod_started = True
+
         if dut.fft_sync_debug_o == 1 and len(received_fft) == 0:
-            print(f'{rx_counter}: start FFT')
-            # print(f'fft_sync_debug_o {dut.fft_sync_debug_o.value.integer}')
+            print(f'{rx_counter}: start fft')
             fft_started = True
 
+        if fft_demod_started:
+            # print(f'{rx_counter}: fft_demod_result_debug_o {dut.fft_demod_result_debug_o.value}')
+            received_fft_demod.append(1j*_twos_comp(dut.fft_demod_result_debug_o.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+                + _twos_comp((dut.fft_demod_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
+            if len(received_fft_demod) == FFT_SIZE:
+                print(f'{rx_counter}: end FFT_demod')
+                fft_demod_started = False
+
         if fft_started:
-            # print(f'{rx_counter}: fft_result_debug_o {dut.fft_result_debug_o.value}')
+            # print(f'{rx_counter}: fft_core__result_debug_o {dut.fft_result_debug_o.value}')
             received_fft.append(1j*_twos_comp(dut.fft_result_debug_o.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
             if len(received_fft) == FFT_SIZE:
                 print(f'{rx_counter}: end fft')
                 fft_started = False
+
+    # for i in range(FFT_SIZE):
+        # print(f'core : {received_fft[i]}')
+        # print(f'demod: {received_fft_demod[i]}')
+    assert np.array_equal(received_fft, received_fft_demod)
 
     peak_pos = np.argmax(received)
     SSS_START = 64
@@ -205,6 +226,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
+        os.path.join(rtl_dir, 'FFT_demod.sv'),
         os.path.join(rtl_dir, 'CIC/cic_d.sv'),
         os.path.join(rtl_dir, 'CIC/comb.sv'),
         os.path.join(rtl_dir, 'CIC/downsampler.sv'),
@@ -264,4 +286,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
     )
 
 if __name__ == '__main__':
-    pass
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8)
