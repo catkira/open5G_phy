@@ -17,6 +17,12 @@ module SSS_detector
 
 localparam SSS_LEN = 127;
 
+//localparam [$clog2(10) - 1 : 0]times_5 [0 : 2] = '{10, 5, 0};
+// stupid iverilog does not support multidimensional localparams,
+// there have to use a reg that is assigned a constant value at reset
+reg [$clog2(10) - 1 : 0] times_5 [0 : 2];
+reg [$clog2(35) - 1 : 0] times_15 [0 : 2];
+
 reg [SSS_LEN - 1 : 0] sss_in;
 
 localparam NUM_STATES = 5;
@@ -65,10 +71,16 @@ assign m_seq_0_pos = m_0 + compare_counter + m_seq_0_wrap;
 assign m_seq_1_pos = m_1 + compare_counter + m_seq_1_wrap;
 
 reg [$clog2(SSS_LEN - 1) - 1 : 0] m_0, m_1, m_0_start;
-reg [3 : 0] div_cnt; // is (N_id_1 / 112)
+reg [3 : 0] div_112; // is (N_id_1 / 112)
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
+        times_5[0] = 0;
+        times_5[1] = 5;
+        times_5[2] = 10;
+        times_15[0] = 0;
+        times_15[1] = 15;
+        times_15[2] = 30;
         m_axis_out_tdata <= '0;
         m_axis_out_tvalid <= '0;
         copy_counter <= '0;
@@ -78,7 +90,7 @@ always @(posedge clk_i) begin
         shift_cur <= '0;
         m_0 <= '0;
         m_1 <= '0;
-        div_cnt <= '0;
+        div_112 <= '0;
         N_id_1 <= '0;
         N_id_1_det <= '0;
         m_0_start <= '0;
@@ -103,7 +115,8 @@ always @(posedge clk_i) begin
 
         if (N_id_2_valid_i) begin
             // $display("N_id_2 = %d", N_id_2_i);
-            m_0_start = 5 * N_id_2_i;
+            // m_0_start = 5 * N_id_2_i;
+            m_0_start = times_5[N_id_2_i];  // optimized to not use multiplication
             m_0 <= m_0_start;
             m_1 <= 0;
         end
@@ -121,7 +134,7 @@ always @(posedge clk_i) begin
             acc = '0;
             shift_max = '0;
             // $display("N_id_1 = %d  shift_cur = %d", N_id_1, shift_cur);
-            // $display("m_0 = %d  m_1 = %d  mod = %d", m_seq_0_pos, m_seq_1_pos, div_cnt);
+            $display("m_0 = %d  m_1 = %d  mod = %d", m_seq_0_pos, m_seq_1_pos, div_112);
         end
 
         if (m_seq_0_pos == SSS_LEN - 1) begin
@@ -141,16 +154,19 @@ always @(posedge clk_i) begin
             if (N_id_1 == N_id_1_MAX) begin
                 m_axis_out_tvalid <= 1;
                 shift_cur <= '0;
-                div_cnt <= '0;
+                div_112 <= '0;
                 compare_counter <= '0;
                 m_seq_0_wrap <= '0;
                 m_seq_1_wrap <= '0;
+                acc <= '0;
+                acc_max <= '0;
                 state <= 0; // back to init state
             end else begin
                 if (shift_cur == SHIFT_MAX - 1) begin
-                    m_0 <= m_0_start + 15 * (div_cnt + 1);  // can be optimized by static calculation
+                    // m_0 <= m_0_start + 15 * (div_112 + 1);
+                    m_0 <= m_0_start + times_15[div_112 + 1]; // optimized to not use multiplication
                     m_1 <= 0;
-                    div_cnt <= div_cnt + 1;
+                    div_112 <= div_112 + 1;
                     shift_cur <= '0;
                 end else begin
                     m_1 <= m_1 + 1;
@@ -161,13 +177,10 @@ always @(posedge clk_i) begin
                 compare_counter <= '0;
                 m_seq_0_wrap <= '0;
                 m_seq_1_wrap <= '0;
-                // $display("test next: N_id_1 = %d  N_id_2 = %d", N_id_1 + 1, m_0_start / 5);
+                $display("test next: N_id_1 = %d  N_id_2 = %d", N_id_1 + 1, m_0_start / 5);
             end
         end else begin
             // $display("pos0 = %d  pos1 = %d  seq0 = %d  seq1 = %d  wrap0 = %d  wrap1 = %d  acc = %d", m_seq_0_pos, m_seq_1_pos, m_seq_0[m_seq_0_pos], m_seq_1[m_seq_1_pos], m_seq_0_wrap, m_seq_1_wrap, acc);
-            if (compare_counter == 55 || compare_counter == 56) begin
-                // $display("pos0 = %d  pos1 = %d", m_seq_0_pos, m_seq_1_pos);
-            end
             // $display("cnt = %d   %d <-> %d", compare_counter, sss_in[compare_counter],  m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]);
             if (sss_in[compare_counter] == (m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos])) begin
                 acc <= acc + 1;
