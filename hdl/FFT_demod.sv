@@ -51,7 +51,7 @@ always @(posedge clk_i) begin
             CP_cnt <= s_axis_in_tdata ? CP_cnt + 1 : CP_cnt;
         end
     end else if (state2 == 2) begin //
-        if (in_cnt != FFT_LEN) begin
+        if (in_cnt != (FFT_LEN - 1)) begin
             in_cnt <= s_axis_in_tdata ? in_cnt + 1 : in_cnt;
         end else begin
             in_cnt <= '0;
