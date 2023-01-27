@@ -16,15 +16,19 @@ module Decimator_Correlator_PeakDetector_FFT
     input                                       reset_ni,
     input   wire           [IN_DW-1:0]          s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
+
+    output                                      PBCH_valid_o,
+    output                                      SSS_valid_o,
+    output                 [FFT_OUT_DW-1:0]     m_axis_out_tdata,
+    output                                      m_axis_out_tvalid,
     
     // debug outputs
     output  wire            [IN_DW-1:0]         m_axis_cic_debug_tdata,
     output  wire                                m_axis_cic_debug_tvalid,
-    output  wire           [OUT_DW - 1 : 0]     m_axis_correlator_debug_tdata,
+    output  wire            [OUT_DW - 1 : 0]    m_axis_correlator_debug_tdata,
     output  wire                                m_axis_correlator_debug_tvalid,
     output  reg                                 peak_detected_debug_o,
     output  wire            [FFT_OUT_DW-1:0]    fft_result_debug_o,
-    output  wire            [FFT_OUT_DW-1:0]    fft_demod_result_debug_o,    
     output  wire                                fft_sync_debug_o,
     output  wire            [15:0]              sync_wait_counter_debug_o,
     output  reg                                 fft_demod_PBCH_start_o,
@@ -120,8 +124,7 @@ reg [15:0] sync_wait_counter;
 assign sync_wait_counter_debug_o = sync_wait_counter;
 localparam CP_LEN = 18;
 localparam DETECTION_DELAY = 15;
-localparam WAIT_CYCLES = 256 + 2*CP_LEN - DETECTION_DELAY;
-localparam WAIT_CYCLES_FFT_DEMOD = 2*CP_LEN - DETECTION_DELAY;
+localparam WAIT_CYCLES = CP_LEN - DETECTION_DELAY;
 always_ff @(posedge clk_i) begin
     if (!reset_ni) begin
         sync_wait_counter <= 'b0;
@@ -130,6 +133,7 @@ always_ff @(posedge clk_i) begin
     end else if ((sync_wait_counter < WAIT_CYCLES) && (sync_wait_counter > 0)) begin
         sync_wait_counter <= sync_wait_counter + 1'b1;
     end
+    if (fft_sync) $display("sync_debug");
 end
 
 wire enable_fft;
@@ -146,23 +150,21 @@ fft_i(
     .o_sync(fft_sync)
 );
 
-wire enable_fft_demod;
-assign enable_fft_demod = (sync_wait_counter == WAIT_CYCLES_FFT_DEMOD);
-assign fft_demod_result_debug_o = fft_result_demod;
-
 FFT_demod #(
     .IN_DW(IN_DW)
 )
 FFT_demod_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
-    .SSB_start_i(enable_fft_demod),
+    .SSB_start_i(enable_fft),
     .s_axis_in_tdata(s_axis_in_tdata),
     .s_axis_in_tvalid(s_axis_in_tvalid),
-    .m_axis_out_tdata(fft_result_demod),
-    .m_axis_out_tvalid(fft_result_demod_valid),
+    .m_axis_out_tdata(m_axis_out_tdata),
+    .m_axis_out_tvalid(m_axis_out_tvalid),
     .PBCH_start_o(fft_demod_PBCH_start_o),
-    .SSS_start_o(fft_demod_SSS_start_o)
+    .SSS_start_o(fft_demod_SSS_start_o),
+    .PBCH_valid_o(PBCH_valid_o),
+    .SSS_valid_o(SSS_valid_o)
 );
 
 endmodule
