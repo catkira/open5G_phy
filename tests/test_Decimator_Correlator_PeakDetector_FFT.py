@@ -231,16 +231,24 @@ async def simple_test(dut):
     #     print(received_PBCH_ideal[i])
 
     # / 8 is needed because fft core as not full output width
-    # round( / 100) is needed because np.fft and hdl fft core do different rounding
+    # floor( / 500) is needed because np.fft and hdl fft core do different rounding / truncation
     round_factor = 500
-    received_SSS = np.floor(received_SSS.real / round_factor ) + 1j * np.floor(received_SSS.imag / round_factor )
+    received_SSS = np.floor(received_SSS.real / round_factor) + 1j * np.floor(received_SSS.imag / round_factor)
     ideal_SSS = np.floor(ideal_SSS.real / round_factor / 8) + 1j * np.floor(ideal_SSS.imag / round_factor / 8)
-    for i in range(len(received_SSS)):
-        if received_SSS[i] != ideal_SSS[i]:
-            print(f'{received_SSS[i]} != {ideal_SSS[i]}')
+    # for i in range(len(received_SSS)):
+    #     if received_SSS[i] != ideal_SSS[i]:
+    #         print(f'{received_SSS[i]} != {ideal_SSS[i]}')
     assert np.array_equal(received_SSS, ideal_SSS)
 
-    # assert np.array_equal(received_PBCH, received_PBCH_ideal)  # TODO: make this pass
+    received_PBCH = np.floor(received_PBCH.real / round_factor) + 1j * np.floor(received_PBCH.imag / round_factor)
+    received_PBCH_ideal = np.floor(received_PBCH_ideal.real / round_factor / 8) \
+        + 1j * np.floor(received_PBCH_ideal.imag / round_factor / 8) 
+    for i in range(len(received_PBCH)):
+        if received_PBCH[i] == received_PBCH_ideal[i]:
+            print(f'{received_PBCH[i]}  {received_PBCH_ideal[i]}')
+        else:
+            print(f'{received_PBCH[i]}  {received_PBCH_ideal[i]}  error')
+    # assert np.array_equal(received_PBCH, received_PBCH_ideal)
     assert peak_pos == 840
     assert len(received_fft) == FFT_SIZE
     corr = np.zeros(335)

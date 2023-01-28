@@ -39,13 +39,11 @@ always @(posedge clk_i) begin
         if (SSB_start_i) begin
             // CP for first symbol is already skipped
             state2 <= 2;
-            $display("- state2 <= 2");
         end
         out_cnt <= '0;
     end else if (state2 == 1) begin // skip CP
         if (CP_cnt == (CP_LEN - 1)) begin
             state2 <= 2;
-            $display("state2 <= 2");
             CP_cnt <= '0;
         end else begin
             CP_cnt <= s_axis_in_tdata ? CP_cnt + 1 : CP_cnt;
@@ -55,7 +53,6 @@ always @(posedge clk_i) begin
             in_cnt <= s_axis_in_tdata ? in_cnt + 1 : in_cnt;
         end else begin
             in_cnt <= '0;
-            $display("state2 <= 1");
             state2 <= 1;
         end
     end
@@ -90,8 +87,7 @@ always @(posedge clk_i) begin
         end else if (state == 1) begin  // wait for start of fft output
             if (fft_sync) begin
                 state <= 2;
-                $display("state = 2");
-                $display("current_out_symbol = %d", current_out_symbol);
+                // $display("current_out_symbol = %d", current_out_symbol);
             end
             SSS_valid_o <= '0;
             PBCH_valid_o <= '0;
@@ -99,7 +95,6 @@ always @(posedge clk_i) begin
         end else if (state == 2) begin // output one symbol
             out_cnt <= out_cnt + 1;
             if (out_cnt == (FFT_LEN - 1)) begin
-                $display("state = 1");
                 state <= 1;
                 current_out_symbol <= current_out_symbol + 1;
             end
