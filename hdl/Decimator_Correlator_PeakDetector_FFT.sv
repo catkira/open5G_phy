@@ -9,7 +9,7 @@ module Decimator_Correlator_PeakDetector_FFT
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
     parameter ALGO = 1,
     parameter WINDOW_LEN = 8,
-    localparam FFT_OUT_DW = 42
+    localparam FFT_OUT_DW = 32
 )
 (
     input                                       clk_i,
@@ -114,6 +114,7 @@ peak_detector_i(
 );
 
 wire [FFT_OUT_DW - 1 : 0] fft_result, fft_result_demod;
+wire [FFT_OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
 wire fft_result_demod_valid;
 wire fft_sync;
 
@@ -139,16 +140,38 @@ end
 wire enable_fft;
 assign enable_fft = (sync_wait_counter == WAIT_CYCLES);
 
-fftmain #(
+// fftmain #(
+// )
+// fft_i(
+//     .i_clk(clk_i),
+//     .i_reset(!reset_ni),
+//     .i_ce(s_axis_in_tvalid && enable_fft),
+//     .i_sample({s_axis_in_tdata[IN_DW / 2 - 1 : 0], s_axis_in_tdata[IN_DW - 1 : IN_DW / 2]}),
+//     .o_result(fft_result),
+//     .o_sync(fft_sync)
+// );
+localparam NFFT = 8;
+fft #(
+    .NFFT(NFFT),
+    .FORMAT(0),
+    .DATA_WIDTH(IN_DW / 2),
+    .TWDL_WIDTH(IN_DW / 2),
+    .XSERIES("NEW"),
+    .USE_MLT(0)
 )
-fft_i(
-    .i_clk(clk_i),
-    .i_reset(!reset_ni),
-    .i_ce(s_axis_in_tvalid && enable_fft),
-    .i_sample({s_axis_in_tdata[IN_DW / 2 - 1 : 0], s_axis_in_tdata[IN_DW - 1 : IN_DW / 2]}),
-    .o_result(fft_result),
-    .o_sync(fft_sync)
+fft(
+    .clk(clk_i),
+    .rst(!reset_ni),
+    .di_re(s_axis_in_tdata[IN_DW / 2 - 1 : 0]),
+    .di_im(s_axis_in_tdata[IN_DW - 1 : IN_DW / 2]),
+    .di_en(s_axis_in_tvalid && enable_fft),
+
+    .do_re(fft_result_re),
+    .do_im(fft_result_im),
+    .do_vl(),
+    .sync(fft_sync)
 );
+assign fft_result = {fft_result_im, fft_result_re};
 
 FFT_demod #(
     .IN_DW(IN_DW)

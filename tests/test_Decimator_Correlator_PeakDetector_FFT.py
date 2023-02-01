@@ -108,8 +108,8 @@ async def simple_test(dut):
     FFT_SIZE = 256
     DETECTOR_LATENCY = 17
     SSS_delay = CP_LEN - DETECTOR_LATENCY
-    FFT_OUT_DW = 42
-    while rx_counter < num_items:
+    FFT_OUT_DW = 32
+    while len(received_SSS) < FFT_SIZE:
         await RisingEdge(dut.clk_i)
         data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
               + ((int(waveform[in_counter].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
@@ -136,22 +136,26 @@ async def simple_test(dut):
             else:
                 received_fft_ideal.append(waveform[in_counter])
 
+        print(f'valid = {dut.m_axis_out_tvalid.value}')
+
         if dut.fft_demod_PBCH_start_o == 1:
             print(f'{rx_counter}: PBCH start')
             fft_demod_started = True
 
         if dut.fft_demod_SSS_start_o == 1 and len(received_fft_demod) == 0:
-            print(f'{rx_counter}: SSS start')
+            print(f'{rx_counter}: SSS start\n\n\n\n')
 
-        if dut.fft_sync_debug_o == 1 and len(received_fft) == 0:
+        if dut.fft_sync_debug_o.value.binstr == '1' and len(received_fft) == 0:
             print(f'{rx_counter}: start debug fft')
             fft_started = True
 
         if dut.PBCH_valid_o.value.integer == 1:
+            print("rx PBCH")
             received_PBCH.append(1j*_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
         if dut.SSS_valid_o.value.integer == 1:
+            print("rx SSS")
             received_SSS.append(1j*_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
@@ -262,6 +266,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
 
+    unisim_dir = os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/unisims')
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
@@ -271,16 +276,29 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
         os.path.join(rtl_dir, 'CIC/comb.sv'),
         os.path.join(rtl_dir, 'CIC/downsampler.sv'),
         os.path.join(rtl_dir, 'CIC/integrator.sv'),
-        os.path.join(rtl_dir, 'fft-core/bimpy.v'),
-        os.path.join(rtl_dir, 'fft-core/bitreverse.v'),
-        os.path.join(rtl_dir, 'fft-core/butterfly.v'),
-        os.path.join(rtl_dir, 'fft-core/convround.v'),
-        os.path.join(rtl_dir, 'fft-core/fftmain.v'),
-        os.path.join(rtl_dir, 'fft-core/fftstage.v'),
-        os.path.join(rtl_dir, 'fft-core/hwbfly.v'),
-        os.path.join(rtl_dir, 'fft-core/laststage.v'),
-        os.path.join(rtl_dir, 'fft-core/longbimpy.v'),
-        os.path.join(rtl_dir, 'fft-core/qtrstage.v')
+        # os.path.join(rtl_dir, 'fft-core/bimpy.v'),
+        # os.path.join(rtl_dir, 'fft-core/bitreverse.v'),
+        # os.path.join(rtl_dir, 'fft-core/butterfly.v'),
+        # os.path.join(rtl_dir, 'fft-core/convround.v'),
+        # os.path.join(rtl_dir, 'fft-core/fftmain.v'),
+        # os.path.join(rtl_dir, 'fft-core/fftstage.v'),
+        # os.path.join(rtl_dir, 'fft-core/hwbfly.v'),
+        # os.path.join(rtl_dir, 'fft-core/laststage.v'),
+        # os.path.join(rtl_dir, 'fft-core/longbimpy.v'),
+        # os.path.join(rtl_dir, 'fft-core/qtrstage.v'),
+        os.path.join(rtl_dir, 'FFT/fft/fft.v'),
+        os.path.join(rtl_dir, 'FFT/fft/int_dif2_fly.v'),
+        os.path.join(rtl_dir, 'FFT/fft/int_fftNk.v'),
+        os.path.join(rtl_dir, 'FFT/math/int_addsub_dsp48.v'),
+        os.path.join(rtl_dir, 'FFT/math/cmult/int_cmult_dsp48.v'),
+        os.path.join(rtl_dir, 'FFT/math/cmult/int_cmult18x25_dsp48.v'),
+        os.path.join(rtl_dir, 'FFT/twiddle/rom_twiddle_int.v'),
+        os.path.join(rtl_dir, 'FFT/delay/int_align_fft.v'),
+        os.path.join(rtl_dir, 'FFT/delay/int_delay_line.v'),
+        os.path.join(rtl_dir, 'FFT/buffers/inbuf_half_path.v'),
+        os.path.join(rtl_dir, 'FFT/buffers/outbuf_half_path.v'),
+        os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v'),
+        os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v')
     ]
     includes = [
         os.path.join(rtl_dir, 'CIC'),
@@ -310,6 +328,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     parameters_no_taps = parameters.copy()
     del parameters_no_taps['PSS_LOCAL']
+
     sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     cocotb_test.simulator.run(
         python_search=[tests_dir],
@@ -322,7 +341,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
         extra_env=extra_env,
         testcase='simple_test',
         force_compile=True,
-        compile_args = ['-DLUT_PATH=\"' + rtl_dir + '/fft-core/\"']
+        compile_args = ['-DLUT_PATH=\"' + rtl_dir + '/fft-core/\"', '-sglbl', '-y' + unisim_dir]
     )
 
 if __name__ == '__main__':
