@@ -4,3 +4,6 @@
 [submodule "submodules/LFSR"]
 	path = submodules/LFSR
 	url = https://github.com/catkira/LFSR
+[submodule "submodules/FFT"]
+	path = submodules/FFT
+	url = https://github.com/catkira/FFT.git
