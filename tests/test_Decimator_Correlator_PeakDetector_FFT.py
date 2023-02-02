@@ -228,8 +228,6 @@ async def simple_test(dut):
     # for i in range(len(received_PBCH)):
     #     print(received_PBCH_ideal[i])
 
-    # / 8 is needed because fft core as not full output width
-    # round( / 100) is needed because np.fft and hdl fft core do different rounding
     NFFT = 8
     scaling_factor = 2**(tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mode
     ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
