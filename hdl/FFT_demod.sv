@@ -40,23 +40,24 @@ always @(posedge clk_i) begin
         if (SSB_start_i) begin
             // CP for first symbol is already skipped
             state2 <= 2;
-            $display("- state2 <= 2");
+            // $display("- state2 <= 2");
         end
         out_cnt <= '0;
     end else if (state2 == 1) begin // skip CP
         if (CP_cnt == (CP_LEN - 1)) begin
             state2 <= 2;
-            $display("state2 <= 2");
+            // $display("state2 <= 2");
             CP_cnt <= '0;
         end else begin
-            CP_cnt <= s_axis_in_tdata ? CP_cnt + 1 : CP_cnt;
+            // $display("skipping CP %d", fft_in_en);
+            CP_cnt <= s_axis_in_tvalid ? CP_cnt + 1 : CP_cnt;
         end
     end else if (state2 == 2) begin //
         if (in_cnt != (FFT_LEN - 1)) begin
-            in_cnt <= s_axis_in_tdata ? in_cnt + 1 : in_cnt;
+            in_cnt <= s_axis_in_tvalid ? in_cnt + 1 : in_cnt;
         end else begin
             in_cnt <= '0;
-            $display("state2 <= 1");
+            // $display("state2 <= 1");
             state2 <= 1;
         end
     end
@@ -92,15 +93,15 @@ always @(posedge clk_i) begin
         end else if (state == 1) begin  // wait for start of fft output
             if (fft_val) begin
                 state <= 2;
-                $display("state = 2");
-                $display("current_out_symbol = %d", current_out_symbol);
+                // $display("state = 2");
+                // $display("current_out_symbol = %d", current_out_symbol);
             end
             SSS_valid_o <= '0;
             PBCH_valid_o <= '0;
         end else if (state == 2) begin // output one symbol
             out_cnt <= out_cnt + 1;
             if (out_cnt == (FFT_LEN - 1)) begin
-                $display("state = 1");
+                // $display("state = 1");
                 state <= 1;
                 current_out_symbol <= current_out_symbol + 1;
             end
@@ -131,36 +132,27 @@ always @(posedge clk_i) begin
     end
 end
 
+wire fft_in_en = in_valid_f && (state2 == 2);
+
 fft #(
     .NFFT(NFFT),
     .FORMAT(0),
     .DATA_WIDTH(IN_DW / 2),
     .TWDL_WIDTH(IN_DW / 2),
     .XSERIES("NEW"),
+    .RAMB_TYPE("CONT"),
     .USE_MLT(0)
 )
 fft(
     .clk(clk_i),
     .rst(!reset_ni),
-    .di_re(in_data_f[IN_DW - 1 : IN_DW / 2]),
-    .di_im(in_data_f[IN_DW / 2 - 1 : 0]),
-    .di_en(in_valid_f && (state2 == 2)),
+    .di_im(in_data_f[IN_DW - 1 : IN_DW / 2]),
+    .di_re(in_data_f[IN_DW / 2 - 1 : 0]),
+    .di_en(fft_in_en),
 
     .do_re(fft_result_re),
     .do_im(fft_result_im),
     .do_vl(fft_val)
 );
-
-// fftmain #(
-// )
-// fft(
-//     .i_clk(clk_i),
-//     .i_reset(!reset_ni),
-//     .i_ce(in_valid_f && (state2 == 2)),
-//     .i_sample({in_data_f[IN_DW / 2 - 1 : 0], in_data_f[IN_DW - 1 : IN_DW / 2]}),
-//     .o_result(fft_result),
-//     .o_sync(fft_sync)
-// );
-
 
 endmodule
