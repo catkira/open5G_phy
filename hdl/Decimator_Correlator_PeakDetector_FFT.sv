@@ -40,10 +40,6 @@ wire                 m_axis_cic_tvalid;
 assign m_axis_cic_debug_tdata = m_axis_cic_tdata;
 assign m_axis_cic_debug_tvalid = m_axis_cic_tvalid;
 
-initial begin
-    $display($sformatf("LUT_PATH = %s",`LUT_PATH));
-end
-
 cic_d #(
     .INP_DW(IN_DW/2),
     .OUT_DW(IN_DW/2),
@@ -139,39 +135,6 @@ end
 
 wire enable_fft;
 assign enable_fft = (sync_wait_counter == WAIT_CYCLES);
-
-// fftmain #(
-// )
-// fft_i(
-//     .i_clk(clk_i),
-//     .i_reset(!reset_ni),
-//     .i_ce(s_axis_in_tvalid && enable_fft),
-//     .i_sample({s_axis_in_tdata[IN_DW / 2 - 1 : 0], s_axis_in_tdata[IN_DW - 1 : IN_DW / 2]}),
-//     .o_result(fft_result),
-//     .o_sync(fft_sync)
-// );
-localparam NFFT = 8;
-fft #(
-    .NFFT(NFFT),
-    .FORMAT(0),
-    .DATA_WIDTH(IN_DW / 2),
-    .TWDL_WIDTH(IN_DW / 2),
-    .XSERIES("NEW"),
-    .USE_MLT(0)
-)
-fft(
-    .clk(clk_i),
-    .rst(!reset_ni),
-    .di_re(s_axis_in_tdata[IN_DW / 2 - 1 : 0]),
-    .di_im(s_axis_in_tdata[IN_DW - 1 : IN_DW / 2]),
-    .di_en(s_axis_in_tvalid && enable_fft),
-
-    .do_re(fft_result_re),
-    .do_im(fft_result_im),
-    .do_vl(),
-    .sync(fft_sync)
-);
-assign fft_result = {fft_result_im, fft_result_re};
 
 FFT_demod #(
     .IN_DW(IN_DW)
