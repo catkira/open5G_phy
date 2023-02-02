@@ -9,7 +9,7 @@ module Decimator_Correlator_PeakDetector_FFT
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
     parameter ALGO = 1,
     parameter WINDOW_LEN = 8,
-    localparam FFT_OUT_DW = 42
+    localparam FFT_OUT_DW = 32
 )
 (
     input                                       clk_i,
@@ -39,10 +39,6 @@ wire [IN_DW - 1 : 0] m_axis_cic_tdata;
 wire                 m_axis_cic_tvalid;
 assign m_axis_cic_debug_tdata = m_axis_cic_tdata;
 assign m_axis_cic_debug_tvalid = m_axis_cic_tvalid;
-
-initial begin
-    $display($sformatf("LUT_PATH = %s",`LUT_PATH));
-end
 
 cic_d #(
     .INP_DW(IN_DW/2),
@@ -114,6 +110,7 @@ peak_detector_i(
 );
 
 wire [FFT_OUT_DW - 1 : 0] fft_result, fft_result_demod;
+wire [FFT_OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
 wire fft_result_demod_valid;
 wire fft_sync;
 
@@ -138,17 +135,6 @@ end
 
 wire enable_fft;
 assign enable_fft = (sync_wait_counter == WAIT_CYCLES);
-
-fftmain #(
-)
-fft_i(
-    .i_clk(clk_i),
-    .i_reset(!reset_ni),
-    .i_ce(s_axis_in_tvalid && enable_fft),
-    .i_sample({s_axis_in_tdata[IN_DW / 2 - 1 : 0], s_axis_in_tdata[IN_DW - 1 : IN_DW / 2]}),
-    .o_result(fft_result),
-    .o_sync(fft_sync)
-);
 
 FFT_demod #(
     .IN_DW(IN_DW)

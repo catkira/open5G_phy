@@ -86,7 +86,7 @@ async def simple_test(dut):
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform = scipy.signal.decimate(waveform, 16//2, ftype='fir')  # decimate to 3.840 MSPS
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform *= 2 ** (tb.IN_DW // 2 - 1)
+    waveform *= (2 ** (tb.IN_DW // 2 - 1) - 1)
     waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
 
     await tb.cycle_reset()
@@ -94,7 +94,7 @@ async def simple_test(dut):
     num_items = 2100
     rx_counter = 0
     in_counter = 0
-    received = np.empty(num_items, int)
+    received = []
     received_correlator = []
     received_fft = []
     received_fft_demod = []
@@ -102,26 +102,27 @@ async def simple_test(dut):
     received_PBCH = []
     received_SSS = []
     fft_started = False
-    fft_demod_started = False
     wait_cycles = 0
     CP_LEN = 18
     FFT_SIZE = 256
     DETECTOR_LATENCY = 17
     SSS_delay = CP_LEN - DETECTOR_LATENCY
-    FFT_OUT_DW = 42
-    while rx_counter < num_items:
+    FFT_OUT_DW = 32
+    while len(received_SSS) < FFT_SIZE:
         await RisingEdge(dut.clk_i)
         data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
               + ((int(waveform[in_counter].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
         dut.s_axis_in_tdata.value = data
         dut.s_axis_in_tvalid.value = 1
         tb.PSS_correlator_model.set_data(data)
+
+        #print(f"data[{in_counter}] = {(int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x} {(int(waveform[in_counter].real)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x}")
         in_counter += 1
 
         if dut.m_axis_correlator_debug_tvalid == 1:
             received_correlator.append(dut.m_axis_correlator_debug_tdata.value.integer)
 
-        received[rx_counter] = dut.peak_detected_debug_o.value.integer
+        received.append(dut.peak_detected_debug_o.value.integer)
         rx_counter += 1
         # if dut.peak_detected_debug_o.value.integer == 1:
         #     print(f'{rx_counter}: peak detected')
@@ -129,55 +130,52 @@ async def simple_test(dut):
         # if dut.sync_wait_counter.value.integer != 0:
         #     print(f'{rx_counter}: wait_counter = {dut.sync_wait_counter.value.integer}')
 
+        # print(f'{dut.m_axis_out_tvalid.value.binstr}  {dut.m_axis_out_tdata.value.binstr}')
+
+        if dut.peak_detected_debug_o.value.integer == 1:
+            print(f'peak pos = {in_counter}')
+
         if dut.peak_detected_debug_o.value.integer == 1 or wait_cycles > 0:
             if wait_cycles < SSS_delay:
                 wait_cycles += 1
-            #elif len(received_fft_ideal) < FFT_SIZE:
             else:
                 received_fft_ideal.append(waveform[in_counter])
 
         if dut.fft_demod_PBCH_start_o == 1:
             print(f'{rx_counter}: PBCH start')
-            fft_demod_started = True
 
         if dut.fft_demod_SSS_start_o == 1 and len(received_fft_demod) == 0:
             print(f'{rx_counter}: SSS start')
 
-        if dut.fft_sync_debug_o == 1 and len(received_fft) == 0:
-            print(f'{rx_counter}: start debug fft')
-            fft_started = True
-
         if dut.PBCH_valid_o.value.integer == 1:
-            received_PBCH.append(1j*_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
+            # print(f"rx PBCH[{len(received_PBCH):3d}] re = {dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1):4x} " \
+            #     "im = {(dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1):4x}")
+            received_PBCH.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
         if dut.SSS_valid_o.value.integer == 1:
-            received_SSS.append(1j*_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
+            # print(f"rx SSS[{len(received_SSS):3d}]")
+            received_SSS.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
-        if fft_demod_started:
+        if dut.m_axis_out_tvalid.value.binstr == '1':
             # print(f'{rx_counter}: fft_demod {dut.m_axis_out_tdata.value}')
-            received_fft_demod.append(1j*_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
-            if len(received_fft_demod) == FFT_SIZE:
-                print(f'{rx_counter}: end fft_demod')
-                fft_demod_started = False
+            received_fft_demod.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
         if fft_started:
             # print(f'{rx_counter}: fft_debug {dut.fft_result_debug_o.value}')
-            received_fft.append(1j*_twos_comp(dut.fft_result_debug_o.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
-            if len(received_fft) == FFT_SIZE:
-                print(f'{rx_counter}: end debug fft')
-                fft_started = False
+            received_fft.append(_twos_comp(dut.fft_result_debug_o.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+                + 1j * _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
     assert len(received_SSS) == FFT_SIZE
+    # received_SSS_sym = np.fft.fftshift(received_fft_demod[256:][:256])
     received_SSS_sym = np.fft.fftshift(received_SSS)
     SSS_START = 64
     SSS_LEN = 127
     received_SSS = received_SSS_sym[SSS_START:][:SSS_LEN]
 
-    ideal_SSS_sym = np.fft.fftshift(np.fft.fft(received_fft_ideal[FFT_SIZE + CP_LEN:][:256]))
+    ideal_SSS_sym = np.fft.fftshift(np.fft.fft(received_fft_ideal[FFT_SIZE + CP_LEN:][:FFT_SIZE]))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         ax = plt.subplot(4, 2, 1)
@@ -205,7 +203,7 @@ async def simple_test(dut):
             np.imag(received_SSS), '.')
         plt.show()
 
-    received_PBCH= np.fft.fftshift(received_PBCH)[8:][:FFT_SIZE-8*2]
+    received_PBCH= np.fft.fftshift(received_PBCH)[9:][:FFT_SIZE-8*2 - 1]
     received_PBCH_ideal = np.fft.fftshift(np.fft.fft(received_fft_ideal[:FFT_SIZE]))[8:][:FFT_SIZE-8*2]
     received_PBCH_ideal = (received_PBCH_ideal.real.astype(int) + 1j * received_PBCH_ideal.imag.astype(int))
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
@@ -230,27 +228,17 @@ async def simple_test(dut):
     # for i in range(len(received_PBCH)):
     #     print(received_PBCH_ideal[i])
 
-    # / 8 is needed because fft core as not full output width
-    # floor( / 500) is needed because np.fft and hdl fft core do different rounding / truncation
-    round_factor = 500
-    received_SSS = np.floor(received_SSS.real / round_factor) + 1j * np.floor(received_SSS.imag / round_factor)
-    ideal_SSS = np.floor(ideal_SSS.real / round_factor / 8) + 1j * np.floor(ideal_SSS.imag / round_factor / 8)
+    NFFT = 8
+    scaling_factor = 2**(tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mode
+    ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
+    error_signal = received_SSS - ideal_SSS
     # for i in range(len(received_SSS)):
     #     if received_SSS[i] != ideal_SSS[i]:
     #         print(f'{received_SSS[i]} != {ideal_SSS[i]}')
-    assert np.array_equal(received_SSS, ideal_SSS)
+    assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
 
-    received_PBCH = np.floor(received_PBCH.real / round_factor) + 1j * np.floor(received_PBCH.imag / round_factor)
-    received_PBCH_ideal = np.floor(received_PBCH_ideal.real / round_factor / 8) \
-        + 1j * np.floor(received_PBCH_ideal.imag / round_factor / 8) 
-    for i in range(len(received_PBCH)):
-        if received_PBCH[i] == received_PBCH_ideal[i]:
-            print(f'{received_PBCH[i]}  {received_PBCH_ideal[i]}')
-        else:
-            print(f'{received_PBCH[i]}  {received_PBCH_ideal[i]}  error')
     # assert np.array_equal(received_PBCH, received_PBCH_ideal)
     assert peak_pos == 840
-    assert len(received_fft) == FFT_SIZE
     corr = np.zeros(335)
     for i in range(335):
         sss = py3gpp.nrSSS(i)
@@ -270,6 +258,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
 
+    unisim_dir = os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/unisims')
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
@@ -279,16 +268,19 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
         os.path.join(rtl_dir, 'CIC/comb.sv'),
         os.path.join(rtl_dir, 'CIC/downsampler.sv'),
         os.path.join(rtl_dir, 'CIC/integrator.sv'),
-        os.path.join(rtl_dir, 'fft-core/bimpy.v'),
-        os.path.join(rtl_dir, 'fft-core/bitreverse.v'),
-        os.path.join(rtl_dir, 'fft-core/butterfly.v'),
-        os.path.join(rtl_dir, 'fft-core/convround.v'),
-        os.path.join(rtl_dir, 'fft-core/fftmain.v'),
-        os.path.join(rtl_dir, 'fft-core/fftstage.v'),
-        os.path.join(rtl_dir, 'fft-core/hwbfly.v'),
-        os.path.join(rtl_dir, 'fft-core/laststage.v'),
-        os.path.join(rtl_dir, 'fft-core/longbimpy.v'),
-        os.path.join(rtl_dir, 'fft-core/qtrstage.v')
+        os.path.join(rtl_dir, 'FFT/fft/fft.v'),
+        os.path.join(rtl_dir, 'FFT/fft/int_dif2_fly.v'),
+        os.path.join(rtl_dir, 'FFT/fft/int_fftNk.v'),
+        os.path.join(rtl_dir, 'FFT/math/int_addsub_dsp48.v'),
+        os.path.join(rtl_dir, 'FFT/math/cmult/int_cmult_dsp48.v'),
+        os.path.join(rtl_dir, 'FFT/math/cmult/int_cmult18x25_dsp48.v'),
+        os.path.join(rtl_dir, 'FFT/twiddle/rom_twiddle_int.v'),
+        os.path.join(rtl_dir, 'FFT/delay/int_align_fft.v'),
+        os.path.join(rtl_dir, 'FFT/delay/int_delay_line.v'),
+        os.path.join(rtl_dir, 'FFT/buffers/inbuf_half_path.v'),
+        os.path.join(rtl_dir, 'FFT/buffers/outbuf_half_path.v'),
+        os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v'),
+        os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v')
     ]
     includes = [
         os.path.join(rtl_dir, 'CIC'),
@@ -318,6 +310,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     parameters_no_taps = parameters.copy()
     del parameters_no_taps['PSS_LOCAL']
+
     sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     cocotb_test.simulator.run(
         python_search=[tests_dir],
@@ -330,7 +323,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
         extra_env=extra_env,
         testcase='simple_test',
         force_compile=True,
-        compile_args = ['-DLUT_PATH=\"' + rtl_dir + '/fft-core/\"']
+        compile_args = ['-sglbl', '-y' + unisim_dir]
     )
 
 if __name__ == '__main__':
