@@ -21,6 +21,11 @@ CLK_PERIOD_S = CLK_PERIOD_NS * 0.000000001
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 rtl_dir = os.path.abspath(os.path.join(tests_dir, '..', 'hdl'))
 
+def _twos_comp(val, bits):
+    """compute the 2's complement of int value val"""
+    if (val & (1 << (bits - 1))) != 0:
+        val = val - (1 << bits)
+    return int(val)
 
 class TB(object):
     def __init__(self, dut):
@@ -88,11 +93,10 @@ async def simple_test(dut):
 
     num_items = 2000
     rx_counter = 0
-    rx_counter_model = 0
     in_counter = 0
     received = np.empty(num_items, int)
     received_correlator = []
-    received_model = np.empty(num_items, int)
+    received_data = []
     while rx_counter < num_items:
         await RisingEdge(dut.clk_i)
         data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
@@ -107,19 +111,12 @@ async def simple_test(dut):
         if dut.m_axis_correlator_debug_tvalid == 1:
             received_correlator.append(dut.m_axis_correlator_debug_tdata.value.integer)
 
-        #if dut.m_axis_out_tvalid == 1:
-            # print(dut.m_axis_out_tdata.value.integer)
-         #   received[rx_counter] = dut.m_axis_out_tdata.value.integer
-            # print(f'rx hdl {received[rx_counter]}')
-          #  rx_counter  += 1
+        if dut.m_axis_cic_debug_tvalid.value.binstr == '1':
+            received_data.append(1j*_twos_comp(dut.m_axis_cic_debug_tdata.value.integer & (2**(tb.OUT_DW//2) - 1), tb.OUT_DW//2)
+                + _twos_comp((dut.m_axis_cic_debug_tdata.value.integer>>(tb.OUT_DW//2)) & (2**(tb.OUT_DW//2) - 1), tb.OUT_DW//2))
+
         received[rx_counter] = dut.peak_detected_o.value.integer
         rx_counter += 1
-        # print(dut.peak_detected_o.value.integer)
-
-        # if tb.model.data_valid() and rx_counter_model < num_items:
-        #     received_model[rx_counter_model] = tb.model.get_data()
-        #     # print(f'rx mod {received_model[rx_counter_model]}')
-        #     rx_counter_model += 1
 
     peak_pos = np.argmax(received)
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
@@ -192,4 +189,5 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
     )
 
 if __name__ == '__main__':
-    pass
+    os.environ['PLOTS'] = "1"
+    test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8)
