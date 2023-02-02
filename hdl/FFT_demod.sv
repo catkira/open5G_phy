@@ -140,7 +140,6 @@ fft #(
     .DATA_WIDTH(IN_DW / 2),
     .TWDL_WIDTH(IN_DW / 2),
     .XSERIES("NEW"),
-    .RAMB_TYPE("CONT"),
     .USE_MLT(0)
 )
 fft(

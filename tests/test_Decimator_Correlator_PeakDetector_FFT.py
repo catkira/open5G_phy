@@ -277,7 +277,6 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
         os.path.join(rtl_dir, 'FFT/twiddle/rom_twiddle_int.v'),
         os.path.join(rtl_dir, 'FFT/delay/int_align_fft.v'),
         os.path.join(rtl_dir, 'FFT/delay/int_delay_line.v'),
-        os.path.join(rtl_dir, 'FFT/delay/int_delay_wrap.v'),
         os.path.join(rtl_dir, 'FFT/buffers/inbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/outbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v'),
