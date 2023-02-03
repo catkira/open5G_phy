@@ -140,7 +140,8 @@ fft #(
     .DATA_WIDTH(IN_DW / 2),
     .TWDL_WIDTH(IN_DW / 2),
     .XSERIES("NEW"),
-    .USE_MLT(0)
+    .USE_MLT(0),
+    .SHIFTED(1)
 )
 fft(
     .clk(clk_i),
