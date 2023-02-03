@@ -91,7 +91,6 @@ async def simple_test(dut):
 
     await tb.cycle_reset()
 
-    num_items = 2100
     rx_counter = 0
     in_counter = 0
     received = []
@@ -108,13 +107,17 @@ async def simple_test(dut):
     DETECTOR_LATENCY = 17
     SSS_delay = CP_LEN - DETECTOR_LATENCY
     FFT_OUT_DW = 32
-    while len(received_SSS) < FFT_SIZE:
+    max_tx = 2000
+    while in_counter < 50000:
         await RisingEdge(dut.clk_i)
-        data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
-              + ((int(waveform[in_counter].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
-        dut.s_axis_in_tdata.value = data
-        dut.s_axis_in_tvalid.value = 1
-        tb.PSS_correlator_model.set_data(data)
+        if in_counter < max_tx:
+            data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
+                + ((int(waveform[in_counter].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
+            dut.s_axis_in_tdata.value = data
+            dut.s_axis_in_tvalid.value = 1
+            tb.PSS_correlator_model.set_data(data)
+        else:
+            dut.s_axis_in_tvalid.value = 0
 
         #print(f"data[{in_counter}] = {(int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x} {(int(waveform[in_counter].real)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x}")
         in_counter += 1
@@ -144,8 +147,11 @@ async def simple_test(dut):
         if dut.fft_demod_PBCH_start_o == 1:
             print(f'{rx_counter}: PBCH start')
 
-        if dut.fft_demod_SSS_start_o == 1 and len(received_fft_demod) == 0:
+        if dut.fft_demod_SSS_start_o == 1:
             print(f'{rx_counter}: SSS start')
+
+        if dut.m_axis_SSS_tdata.value.integer == 1:
+            print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
 
         if dut.PBCH_valid_o.value.integer == 1:
             # print(f"rx PBCH[{len(received_PBCH):3d}] re = {dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1):4x} " \
@@ -174,9 +180,6 @@ async def simple_test(dut):
     SSS_START = 64
     SSS_LEN = 127
     received_SSS = received_SSS_sym[SSS_START:][:SSS_LEN]
-
-    for i in range(SSS_LEN):
-        print(f'SSS[{i}] = {int(received_SSS[i].real>0)}')
 
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(received_fft_ideal[FFT_SIZE + CP_LEN:][:FFT_SIZE]))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
@@ -240,7 +243,7 @@ async def simple_test(dut):
     #         print(f'{received_SSS[i]} != {ideal_SSS[i]}')
     assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
 
-    # assert np.array_equal(received_PBCH, received_PBCH_ideal)
+    # assert np.array_equal(received_PBCH, received_PBCH_ideal)  # TODO: make this pass
     assert peak_pos == 840
     corr = np.zeros(335)
     for i in range(335):
@@ -257,7 +260,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
-    dut = 'Decimator_Correlator_PeakDetector_FFT'
+    dut = 'Decimator_to_SSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
 
@@ -266,6 +269,8 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
+        os.path.join(rtl_dir, 'SSS_detector.sv'),
+        os.path.join(rtl_dir, 'LFSR/LFSR.sv'),        
         os.path.join(rtl_dir, 'FFT_demod.sv'),
         os.path.join(rtl_dir, 'CIC/cic_d.sv'),
         os.path.join(rtl_dir, 'CIC/comb.sv'),

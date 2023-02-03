@@ -157,7 +157,6 @@ FFT_demod_i(
 initial begin
   $dumpfile ("debug.vcd");
   $dumpvars (0, Decimator_Correlator_PeakDetector_FFT);
-  // #1;
 end
 `endif
 
