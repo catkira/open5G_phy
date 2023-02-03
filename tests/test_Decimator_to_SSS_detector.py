@@ -107,13 +107,17 @@ async def simple_test(dut):
     DETECTOR_LATENCY = 17
     SSS_delay = CP_LEN - DETECTOR_LATENCY
     FFT_OUT_DW = 32
+    max_tx = 2000
     while in_counter < 50000:
         await RisingEdge(dut.clk_i)
-        data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
-              + ((int(waveform[in_counter].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
-        dut.s_axis_in_tdata.value = data
-        dut.s_axis_in_tvalid.value = 1
-        tb.PSS_correlator_model.set_data(data)
+        if in_counter < max_tx:
+            data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
+                + ((int(waveform[in_counter].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
+            dut.s_axis_in_tdata.value = data
+            dut.s_axis_in_tvalid.value = 1
+            tb.PSS_correlator_model.set_data(data)
+        else:
+            dut.s_axis_in_tvalid.value = 0
 
         #print(f"data[{in_counter}] = {(int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x} {(int(waveform[in_counter].real)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x}")
         in_counter += 1
@@ -143,7 +147,7 @@ async def simple_test(dut):
         if dut.fft_demod_PBCH_start_o == 1:
             print(f'{rx_counter}: PBCH start')
 
-        if dut.fft_demod_SSS_start_o == 1 and len(received_fft_demod) == 0:
+        if dut.fft_demod_SSS_start_o == 1:
             print(f'{rx_counter}: SSS start')
 
         if dut.m_axis_SSS_tdata.value.integer == 1:
