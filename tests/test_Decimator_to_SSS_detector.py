@@ -81,8 +81,12 @@ class TB(object):
 @cocotb.test()
 async def simple_test(dut):
     tb = TB(dut)
+    CFO = int(os.getenv('CFO'))
     handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
     waveform = handle.read_samples()
+    fs = 30720000
+    print(f'CFO = {CFO} Hz')
+    waveform *= np.exp(np.arange(len(waveform))*1j*2*np.pi*CFO/fs)
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform = scipy.signal.decimate(waveform, 16//2, ftype='fir')  # decimate to 3.840 MSPS
     waveform /= max(waveform.real.max(), waveform.imag.max())
@@ -259,7 +263,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("OUT_DW", [32])
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
+@pytest.mark.parametrize("CFO", [0, 100])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO):
     dut = 'Decimator_to_SSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -303,6 +308,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
     parameters['PSS_LEN'] = PSS_LEN
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
+    os.environ['CFO'] = str(CFO)
 
     # imaginary part is in upper 16 Bit
     PSS = np.zeros(PSS_LEN, 'complex')
@@ -336,4 +342,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=100)
