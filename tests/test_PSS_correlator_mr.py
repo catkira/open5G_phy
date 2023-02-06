@@ -21,6 +21,12 @@ CLK_PERIOD_S = CLK_PERIOD_NS * 0.000000001
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 rtl_dir = os.path.abspath(os.path.join(tests_dir, '..', 'hdl'))
 
+def _twos_comp(val, bits):
+    """compute the 2's complement of int value val"""
+    if (val & (1 << (bits - 1))) != 0:
+        val = val - (1 << bits)
+    return int(val)
+
 class TB(object):
     def __init__(self, dut):
         self.dut = dut
@@ -74,7 +80,8 @@ async def simple_test(dut):
     print(f'CFO = {CFO} Hz')
     waveform *= np.exp(np.arange(len(waveform))*1j*2*np.pi*CFO/fs)
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform = scipy.signal.decimate(waveform, 16, ftype='fir')
+    decimation_factor = 16
+    waveform = scipy.signal.decimate(waveform, decimation_factor, ftype='fir')
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform *= 2 ** (tb.IN_DW // 2 - 1) - 1
     waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
@@ -88,6 +95,8 @@ async def simple_test(dut):
     received_model = np.empty(num_items, int)
     clk_div = 0
     clk_decimation = 16
+    C0 = []
+    C1 = []
     while rx_counter < num_items:
         await RisingEdge(dut.clk_i)
         if clk_div < (clk_decimation - 1):
@@ -105,6 +114,10 @@ async def simple_test(dut):
         if dut.m_axis_out_tvalid == 1:
             # print(f'{rx_counter}: rx hdl {dut.m_axis_out_tdata.value}')
             received[rx_counter] = dut.m_axis_out_tdata.value.integer
+            C0.append(_twos_comp(dut.C0.value.integer & (2 ** (tb.OUT_DW // 2) - 1), tb.OUT_DW // 2) \
+                    + 1j * _twos_comp((dut.C0.value.integer >> (tb.OUT_DW // 2)) & (2 ** (tb.OUT_DW // 2) - 1), tb.OUT_DW // 2))
+            C1.append(_twos_comp(dut.C1.value.integer & (2 ** (tb.OUT_DW // 2) - 1), tb.OUT_DW // 2) \
+                    + 1j * _twos_comp((dut.C1.value.integer >> (tb.OUT_DW // 2)) & (2 ** (tb.OUT_DW // 2) - 1), tb.OUT_DW // 2))
             rx_counter  += 1
 
         if tb.model.data_valid() and rx_counter_model < num_items:
@@ -130,6 +143,20 @@ async def simple_test(dut):
     else:
         # TODO: implement model
         pass
+    Tu = 1/fs * decimation_factor
+    prod = C0[ssb_start] * np.conj(C1[ssb_start])
+    detectedCFO = np.arctan2(prod.imag, prod.real)
+    # detectedCFO = np.angle(prod)
+    print(f'detected CFO = {detectedCFO / (2*np.pi) / Tu / 64} Hz')
+
+    PSS = py3gpp.nrPSS(2)
+    taps = np.fft.ifft(np.fft.fftshift(PSS))
+    C0 = np.vdot(taps[:63], waveform[ssb_start:][:63])
+    C1 = np.vdot(taps[63:][:63], waveform[ssb_start+63:][:63])
+    prod = C0 * np.conj(C1)
+    detectedCFO = np.arctan2(prod.imag, prod.real)
+    # detectedCFO = np.angle(prod)
+    print(f'detected CFO (model) = {detectedCFO / (2*np.pi) / Tu / 63} Hz')
 
     assert ssb_start == 412
     assert len(received) == num_items
@@ -141,6 +168,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("TAP_DW", [18, 32])
 @pytest.mark.parametrize("CFO", [0, 7500])
 @pytest.mark.parametrize("MULT_REUSE", [1, 15, 16])
+@pytest.mark.parametrize("CF)", [0])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
     dut = 'PSS_correlator_mr'
     module = os.path.splitext(os.path.basename(__file__))[0]
@@ -193,4 +221,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # this setup does not require output truncation
-    test(IN_DW = 14, OUT_DW = 48, TAP_DW = 18, ALGO = 1, CFO = 5000, MULT_REUSE = 16)
+    test(IN_DW = 14, OUT_DW = 48, TAP_DW = 18, ALGO = 1, CFO = 500, MULT_REUSE = 16)
