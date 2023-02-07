@@ -9,3 +9,5 @@
 	url = https://github.com/catkira/FFT.git
 [submodule "submodules/DDS"]
 	path = submodules/DDS
+[submodule "submodules/complex_multiplier"]
+	path = submodules/complex_multiplier
