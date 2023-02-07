@@ -16,8 +16,8 @@ module PSS_correlator_mr
     input   wire           [IN_DW-1:0]                          s_axis_in_tdata,
     input                                                       s_axis_in_tvalid,
     output  reg            [OUT_DW-1:0]                         m_axis_out_tdata,
-    output  reg            [IN_DW + TAP_DW + 2 * $clog2(PSS_LEN) - 2 : 0]    C0,
-    output  reg            [IN_DW + TAP_DW + 2 * $clog2(PSS_LEN) - 2 : 0]    C1,
+    output  reg            [IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1 : 0]    C0,
+    output  reg            [IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1: 0]    C1,
     output  reg                                                 m_axis_out_tvalid
 );
 
@@ -150,10 +150,10 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
             for (integer i = 0; i < REQ_MULTS; i++) begin
                 sum_re = sum_re + mult_out_re[i];
                 sum_im = sum_im + mult_out_im[i];
-                if (i < ((REQ_MULTS / 2) - 1)) begin
+                if (i < (REQ_MULTS / 2)) begin
                     C0_re = C0_re + mult_out_re[i];
                     C0_im = C0_im + mult_out_im[i];
-                end else if (i < (REQ_MULTS - 1)) begin
+                end else begin
                     C1_re = C1_re + mult_out_re[i];
                     C1_im = C1_im + mult_out_im[i];
                 end
