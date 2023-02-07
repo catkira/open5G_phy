@@ -174,12 +174,22 @@ async def simple_test(dut):
     assert ssb_start == 284
     assert len(received) == num_items - 128
 
+
+@pytest.mark.parametrize("ALGO", [0])
+@pytest.mark.parametrize("IN_DW", [32])
+@pytest.mark.parametrize("OUT_DW", [45])
+@pytest.mark.parametrize("TAP_DW", [18, 32])
+@pytest.mark.parametrize("CFO", [0, 6500, -5500])
+@pytest.mark.parametrize("MULT_REUSE", [1, 16])
+def test_CFO(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
+    test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE)
+
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
 @pytest.mark.parametrize("ALGO", [0, 1])
 @pytest.mark.parametrize("IN_DW", [14, 32])
 @pytest.mark.parametrize("OUT_DW", [45])
 @pytest.mark.parametrize("TAP_DW", [18, 32])
-@pytest.mark.parametrize("CFO", [0, 6500, -5500])
+@pytest.mark.parametrize("CFO", [1000])
 @pytest.mark.parametrize("MULT_REUSE", [1, 15, 16])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
     dut = 'PSS_correlator_mr'
