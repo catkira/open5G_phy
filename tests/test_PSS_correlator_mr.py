@@ -224,10 +224,10 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
                                 +  ((int(np.real(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     os.environ['CFO'] = str(CFO)
-    parameters_no_taps = parameters.copy()
-    del parameters_no_taps['PSS_LOCAL']
-    parameters_no_taps['CFO'] = CFO
-    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
+    parameters_dirname = parameters.copy()
+    del parameters_dirname['PSS_LOCAL']
+    parameters_dirname['CFO'] = CFO
+    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
