@@ -21,6 +21,12 @@ CLK_PERIOD_S = CLK_PERIOD_NS * 0.000000001
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 rtl_dir = os.path.abspath(os.path.join(tests_dir, '..', 'hdl'))
 
+def _twos_comp(val, bits):
+    """compute the 2's complement of int value val"""
+    if (val & (1 << (bits - 1))) != 0:
+        val = val - (1 << bits)
+    return int(val)
+
 class TB(object):
     def __init__(self, dut):
         self.dut = dut
@@ -74,7 +80,8 @@ async def simple_test(dut):
     print(f'CFO = {CFO} Hz')
     waveform *= np.exp(np.arange(len(waveform))*1j*2*np.pi*CFO/fs)
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform = scipy.signal.decimate(waveform, 16, ftype='fir')
+    decimation_factor = 16
+    waveform = scipy.signal.decimate(waveform, decimation_factor, ftype='fir')
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform *= 2 ** (tb.IN_DW // 2 - 1) - 1
     waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
@@ -88,6 +95,9 @@ async def simple_test(dut):
     received_model = np.empty(num_items, int)
     clk_div = 0
     clk_decimation = 16
+    C0 = []
+    C1 = []
+    C_DW = int(tb.IN_DW + tb.TAP_DW + 2 + 2*np.ceil(np.log2(tb.PSS_LEN)))
     while rx_counter < num_items:
         await RisingEdge(dut.clk_i)
         if clk_div < (clk_decimation - 1):
@@ -105,6 +115,10 @@ async def simple_test(dut):
         if dut.m_axis_out_tvalid == 1:
             # print(f'{rx_counter}: rx hdl {dut.m_axis_out_tdata.value}')
             received[rx_counter] = dut.m_axis_out_tdata.value.integer
+            C0.append(_twos_comp(dut.C0.value.integer & (2 ** (C_DW // 2) - 1),C_DW // 2) \
+                    + 1j * _twos_comp((dut.C0.value.integer >> (C_DW // 2)) & (2 ** (C_DW // 2) - 1), C_DW // 2))
+            C1.append(_twos_comp(dut.C1.value.integer & (2 ** (C_DW // 2) - 1), C_DW // 2) \
+                    + 1j * _twos_comp((dut.C1.value.integer >> (C_DW // 2)) & (2 ** (C_DW // 2) - 1), C_DW // 2))
             rx_counter  += 1
 
         if tb.model.data_valid() and rx_counter_model < num_items:
@@ -112,7 +126,9 @@ async def simple_test(dut):
             # print(f'{rx_counter_model}: rx mod {received_model[rx_counter_model]}')
             rx_counter_model += 1
 
-    ssb_start = np.argmax(received)
+    ssb_start = np.argmax(received) - 128
+    received = np.array(received)[128:]
+    received_model = np.array(received_model)[128:]
     print(f'max model {max(received_model)} max hdl {max(received)}')
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         _, (ax, ax2) = plt.subplots(2, 1)
@@ -130,16 +146,40 @@ async def simple_test(dut):
     else:
         # TODO: implement model
         pass
+    if tb.ALGO == 0:
+        prod = C0[ssb_start+128] * np.conj(C1[ssb_start+128])
+        # detectedCFO = np.arctan2(prod.imag, prod.real)
+        detectedCFO = np.angle(prod)
+        detectedCFO_Hz = detectedCFO / (2*np.pi) * (fs/decimation_factor) / 64
+        print(f'detected CFO = {detectedCFO_Hz} Hz')
+    else:
+        print('CFO estimation is not possible with ALGO=1')
+    
+    PSS = np.zeros(128, 'complex')
+    PSS[:-1] = py3gpp.nrPSS(2)
+    taps = np.fft.ifft(np.fft.fftshift(PSS))
+    C0 = np.vdot(waveform[ssb_start:][:64], taps[:64])
+    C1 = np.vdot(waveform[ssb_start+64:][:64], taps[64:][:64])
+    prod = C0 * np.conj(C1)
+    # detectedCFO = np.arctan2(prod.imag, prod.real)
+    detectedCFO = np.angle(prod)
+    detectedCFO_Hz_model = detectedCFO / (2*np.pi) * (fs/decimation_factor) / 64
+    print(f'detected CFO (model) = {detectedCFO_Hz_model} Hz')
+    if tb.ALGO == 0:
+        if CFO != 0:
+            assert (np.abs(detectedCFO_Hz - detectedCFO_Hz_model)/np.abs(CFO)) < 0.05
+        else:
+            assert np.abs(detectedCFO_Hz - detectedCFO_Hz_model) < 20
 
-    assert ssb_start == 412
-    assert len(received) == num_items
+    assert ssb_start == 284
+    assert len(received) == num_items - 128
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
 @pytest.mark.parametrize("ALGO", [0, 1])
 @pytest.mark.parametrize("IN_DW", [14, 32])
 @pytest.mark.parametrize("OUT_DW", [45])
 @pytest.mark.parametrize("TAP_DW", [18, 32])
-@pytest.mark.parametrize("CFO", [0, 7500])
+@pytest.mark.parametrize("CFO", [0, 6500, -5500])
 @pytest.mark.parametrize("MULT_REUSE", [1, 15, 16])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
     dut = 'PSS_correlator_mr'
@@ -193,4 +233,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # this setup does not require output truncation
-    test(IN_DW = 14, OUT_DW = 48, TAP_DW = 18, ALGO = 1, CFO = 5000, MULT_REUSE = 16)
+    test(IN_DW = 14, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 6500, MULT_REUSE = 16)

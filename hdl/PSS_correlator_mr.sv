@@ -11,12 +11,14 @@ module PSS_correlator_mr
     parameter MULT_REUSE = 4
 )
 (
-    input                                       clk_i,
-    input                                       reset_ni,
-    input   wire           [IN_DW-1:0]          s_axis_in_tdata,
-    input                                       s_axis_in_tvalid,
-    output  reg            [OUT_DW-1:0]         m_axis_out_tdata,
-    output  reg                                 m_axis_out_tvalid
+    input                                                       clk_i,
+    input                                                       reset_ni,
+    input   wire           [IN_DW-1:0]                          s_axis_in_tdata,
+    input                                                       s_axis_in_tvalid,
+    output  reg            [OUT_DW-1:0]                         m_axis_out_tdata,
+    output  reg            [IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1 : 0]    C0,
+    output  reg            [IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1: 0]    C1,
+    output  reg                                                 m_axis_out_tvalid
 );
 
 localparam REQUIRED_OUT_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN);
@@ -37,6 +39,7 @@ reg signed [IN_OP_DW - 1 : 0] in_re [0 : PSS_LEN - 1];
 reg signed [IN_OP_DW - 1 : 0] in_im [0 : PSS_LEN - 1];
 reg valid;
 reg signed [REQUIRED_OUT_DW / 2 : 0] sum_im, sum_re;
+reg signed [REQUIRED_OUT_DW / 2 - 1 : 0] C0_im, C0_re, C1_im, C1_re; // partial sums, used for CFO estimation
 initial begin
     if (REQUIRED_OUT_DW > OUT_DW) $display("truncating output from %d to %d bits", REQUIRED_OUT_DW, OUT_DW);
 end
@@ -120,7 +123,9 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
         for (integer i = 0; i < PSS_LEN; i++) begin
             in_re[i] <= '0;
             in_im[i] <= '0;
-        end        
+        end
+        C0_im <= '0;
+        C1_im <= '0;
     end
     else begin
         if (s_axis_in_tvalid) begin
@@ -138,15 +143,28 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
         if (mult[0].ready) begin
             sum_re = '0;
             sum_im = '0;
+            C0_im = '0;
+            C0_re = '0;
+            C1_im = '0;
+            C1_re = '0;
             for (integer i = 0; i < REQ_MULTS; i++) begin
                 sum_re = sum_re + mult_out_re[i];
                 sum_im = sum_im + mult_out_im[i];
+                if (i < (REQ_MULTS / 2)) begin
+                    C0_re = C0_re + mult_out_re[i];
+                    C0_im = C0_im + mult_out_im[i];
+                end else begin
+                    C1_re = C1_re + mult_out_re[i];
+                    C1_im = C1_im + mult_out_im[i];
+                end
             end
+            C0 <= {C0_im, C0_re};
+            C1 <= {C1_im, C1_re};
+
             if (REQUIRED_OUT_DW >= OUT_DW) begin
                 m_axis_out_tdata <= filter_result[REQUIRED_OUT_DW - 1 -: OUT_DW];
             end else begin
-                // do zero padding
-                m_axis_out_tdata <= {{(OUT_DW - REQUIRED_OUT_DW){1'b0}}, filter_result};
+                m_axis_out_tdata <= {{(OUT_DW - REQUIRED_OUT_DW){1'b0}}, filter_result};   // do zero padding
             end
             m_axis_out_tvalid <= '1;
         end else begin
