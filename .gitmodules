@@ -7,3 +7,5 @@
 [submodule "submodules/FFT"]
 	path = submodules/FFT
 	url = https://github.com/catkira/FFT.git
+[submodule "submodules/DDS"]
+	path = submodules/DDS
