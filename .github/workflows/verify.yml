@@ -28,4 +28,11 @@ jobs:
         sudo apt install -y --no-install-recommends iverilog
     - name: Verify with cocotb & icarus
       run: |
-        pytest -v tests/*.py
+        pytest -v --workers=10 tests/test_PSS_correlator.py
+        pytest -v --workers=10 tests/test_PSS_correlator_mr.py
+        pytest -v --workers=10 tests/test_PSS_correlator_with_peak_detector.py
+        pytest -v --workers=10 tests/test_dot_product.py
+        pytest -v --workers=10 tests/test_Decimator_to_SSS_detector.py
+        pytest -v --workers=10 tests/test_Decimator_to_SSS_detector.py
+        pytest -v --workers=10 tests/test_Decimator_Correlator_PeakDetector.py
+        pytest -v tests/test_Decimator_Correlator_PeakDetector_FFT.py
