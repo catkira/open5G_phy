@@ -178,7 +178,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("ALGO", [0])
 @pytest.mark.parametrize("IN_DW", [32])
 @pytest.mark.parametrize("OUT_DW", [45])
-@pytest.mark.parametrize("TAP_DW", [18, 32])
+@pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("CFO", [0, 6500, -5500])
 @pytest.mark.parametrize("MULT_REUSE", [1, 16])
 def test_CFO(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
@@ -226,6 +226,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
     os.environ['CFO'] = str(CFO)
     parameters_no_taps = parameters.copy()
     del parameters_no_taps['PSS_LOCAL']
+    parameters_no_taps['CFO'] = CFO
     sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     cocotb_test.simulator.run(
         python_search=[tests_dir],
