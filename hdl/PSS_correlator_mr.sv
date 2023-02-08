@@ -174,12 +174,12 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
     end
 end
 
-`ifdef COCOTB_SIM
-initial begin
-  $dumpfile ("PSS_correlator_mr.vcd");
-  $dumpvars (0, PSS_correlator_mr);
-  // #1;
-end
-`endif
+// `ifdef COCOTB_SIM
+// initial begin
+//   $dumpfile ("PSS_correlator_mr.vcd");
+//   $dumpvars (0, PSS_correlator_mr);
+//   // #1;
+// end
+// `endif
 
 endmodule

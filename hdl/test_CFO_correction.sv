@@ -9,7 +9,11 @@ module test_CFO_correction
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
     parameter ALGO = 0,
     parameter WINDOW_LEN = 8,
-    parameter MULT_REUSE = 16    
+    parameter MULT_REUSE = 16,
+    parameter DDS_OUT_DW = 32,
+    parameter DDS_PHASE_DW = 20,
+    parameter COMPL_MULT_OUT_DW = 32,   // has to be multiple of 16
+    parameter CIC_OUT_DW = 34
 )
 (
     input                                       clk_i,
@@ -17,30 +21,32 @@ module test_CFO_correction
     input   wire           [IN_DW-1:0]          s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
     
-    output  wire            [IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1 : 0]   C0,
-    output  wire            [IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1: 0]    C1,
+    output  wire           [CIC_OUT_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1 : 0]   C0,
+    output  wire           [CIC_OUT_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1: 0]    C1,
 
     output  reg                                 peak_detected_o,
     
     // debug outputs
-    output  wire            [IN_DW-1:0]         m_axis_cic_debug_tdata,
+    output  wire           [CIC_OUT_DW-1:0]     m_axis_cic_debug_tdata,
     output  wire                                m_axis_cic_debug_tvalid,
     output  wire           [OUT_DW - 1 : 0]     m_axis_correlator_debug_tdata,
     output  wire                                m_axis_correlator_debug_tvalid
 );
 
-wire [IN_DW - 1 : 0] m_axis_cic_tdata;
-wire                 m_axis_cic_tvalid;
+
+
+wire [CIC_OUT_DW - 1 : 0]       m_axis_cic_tdata;
+wire                            m_axis_cic_tvalid;
 assign m_axis_cic_debug_tdata = m_axis_cic_tdata;
 assign m_axis_cic_debug_tvalid = m_axis_cic_tvalid;
 
-wire [31 : 0] DDS_out;
+wire [DDS_OUT_DW - 1 : 0]       DDS_out;
 wire DDS_out_valid;
 
-reg [19 : 0] DDS_phase;
-reg  DDS_phase_valid;
-reg [31 : 0] mult_out_tdata;
-reg          mult_out_tvalid;
+reg [DDS_PHASE_DW - 1 : 0]      DDS_phase;
+reg                             DDS_phase_valid;
+reg [COMPL_MULT_OUT_DW - 1 : 0] mult_out_tdata;
+reg                             mult_out_tvalid;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -53,8 +59,8 @@ always @(posedge clk_i) begin
 end
 
 dds #(
-    .PHASE_DW(20),
-    .OUT_DW(16),
+    .PHASE_DW(DDS_PHASE_DW),
+    .OUT_DW(DDS_OUT_DW/2),
     .USE_TAYLOR(1),
     .LUT_DW(16),
     .SIN_COS(1),
@@ -72,9 +78,9 @@ dds_i(
 );
 
 complex_multiplier #(
-    .OPERAND_WIDTH_A(16),
+    .OPERAND_WIDTH_A(DDS_OUT_DW/2),
     .OPERAND_WIDTH_B(IN_DW/2),
-    .OPERAND_WIDTH_OUT(IN_DW),
+    .OPERAND_WIDTH_OUT(COMPL_MULT_OUT_DW/2),
     .BLOCKING(0)
 )
 complex_multiplier_i(
@@ -90,8 +96,8 @@ complex_multiplier_i(
 );
 
 cic_d #(
-    .INP_DW(IN_DW/2),
-    .OUT_DW(IN_DW/2),
+    .INP_DW(COMPL_MULT_OUT_DW/2),
+    .OUT_DW(CIC_OUT_DW/2),
     .CIC_R(2),
     .CIC_N(3),
     .VAR_RATE(0)
@@ -99,15 +105,16 @@ cic_d #(
 cic_real(
     .clk(clk_i),
     .reset_n(reset_ni),
-    .s_axis_in_tdata(mult_out_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
+    .s_axis_in_tdata(mult_out_tdata[COMPL_MULT_OUT_DW / 2 - 1 -: COMPL_MULT_OUT_DW / 2]),
     .s_axis_in_tvalid(mult_out_tvalid),
-    .m_axis_out_tdata(m_axis_cic_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
+
+    .m_axis_out_tdata(m_axis_cic_tdata[CIC_OUT_DW / 2 - 1 -: CIC_OUT_DW / 2]),
     .m_axis_out_tvalid(m_axis_cic_tvalid)
 );
 
 cic_d #(
-    .INP_DW(IN_DW / 2),
-    .OUT_DW(IN_DW / 2),
+    .INP_DW(COMPL_MULT_OUT_DW / 2),
+    .OUT_DW(CIC_OUT_DW / 2),
     .CIC_R(2),
     .CIC_N(3),
     .VAR_RATE(0)
@@ -115,9 +122,11 @@ cic_d #(
 cic_imag(
     .clk(clk_i),
     .reset_n(reset_ni),
-    .s_axis_in_tdata(mult_out_tdata[IN_DW - 1 -: IN_DW / 2]),
+    .s_axis_in_tdata(mult_out_tdata[COMPL_MULT_OUT_DW - 1 -: COMPL_MULT_OUT_DW / 2]),
     .s_axis_in_tvalid(mult_out_tvalid),
-    .m_axis_out_tdata(m_axis_cic_tdata[IN_DW - 1 -: IN_DW / 2])
+
+    .m_axis_out_tdata(m_axis_cic_tdata[CIC_OUT_DW - 1 -: CIC_OUT_DW / 2]),
+    .m_axis_out_tvalid()  // not used
 );
 
 
@@ -127,7 +136,7 @@ assign m_axis_correlator_debug_tdata = correlator_tdata;
 assign m_axis_correlator_debug_tvalid = correlator_tvalid;
 
 PSS_correlator_mr #(
-    .IN_DW(IN_DW),
+    .IN_DW(CIC_OUT_DW),
     .OUT_DW(OUT_DW),
     .TAP_DW(TAP_DW),
     .PSS_LEN(PSS_LEN),
@@ -162,7 +171,6 @@ peak_detector(
 initial begin
   $dumpfile ("debug.vcd");
   $dumpvars (0, test_CFO_correction);
-  // #1;
 end
 `endif
 

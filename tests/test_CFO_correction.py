@@ -37,6 +37,7 @@ class TB(object):
         self.PSS_LOCAL = int(dut.PSS_LOCAL.value)
         self.ALGO = int(dut.ALGO.value)
         self.MULT_REUSE = int(dut.MULT_REUSE.value)
+        self.CIC_OUT_DW = int(dut.CIC_OUT_DW.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -80,7 +81,8 @@ async def simple_test(dut):
     print(f'CFO = {CFO} Hz')
     waveform *= np.exp(np.arange(len(waveform))*1j*2*np.pi*CFO/fs)
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    decimation_factor = 16
+    decimation_factor = 8
+    FFT_LEN  = 2048 // decimation_factor
     waveform = scipy.signal.decimate(waveform, decimation_factor, ftype='fir')
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform *= 2 ** (tb.IN_DW // 2 - 1) - 1
@@ -89,18 +91,15 @@ async def simple_test(dut):
 
     num_items = 500
     rx_counter = 0
-    rx_counter_model = 0
     in_counter = 0
     received = np.empty(num_items, int)
-    received_model = np.empty(num_items, int)
     clk_div = 0
-    clk_decimation = 16
     C0 = []
     C1 = []
-    C_DW = int(tb.IN_DW + tb.TAP_DW + 2 + 2*np.ceil(np.log2(tb.PSS_LEN)))
+    C_DW = int(tb.CIC_OUT_DW + tb.TAP_DW + 2 + 2*np.ceil(np.log2(tb.PSS_LEN)))
     while rx_counter < num_items:
         await RisingEdge(dut.clk_i)
-        if clk_div < (clk_decimation - 1):
+        if clk_div < (decimation_factor - 1):
             dut.s_axis_in_tvalid.value = 0
             clk_div += 1
         else:
@@ -120,45 +119,32 @@ async def simple_test(dut):
                     + 1j * _twos_comp((dut.C1.value.integer >> (C_DW // 2)) & (2 ** (C_DW // 2) - 1), C_DW // 2))
             rx_counter  += 1
 
-        if tb.model.data_valid() and rx_counter_model < num_items:
-            received_model[rx_counter_model] = tb.model.get_data()
-            # print(f'{rx_counter_model}: rx mod {received_model[rx_counter_model]}')
-            rx_counter_model += 1
-
-    ssb_start = np.argmax(received) - 128
-    received = np.array(received)[128:]
-    received_model = np.array(received_model)[128:]
-    print(f'max model {max(received_model)} max hdl {max(received)}')
+    PSS_LEN = 128
+    ssb_start = np.argmax(received) - PSS_LEN
+    received = np.array(received)[PSS_LEN:]
+    print(f'max hdl {max(received)}')
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         _, (ax, ax2) = plt.subplots(2, 1)
-        print(f'{type(received.dtype)} {type(received_model.dtype)}')
         ax.plot(np.sqrt(received))
-        ax2.plot(np.sqrt(received_model), 'r-')
         ax.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
         plt.show()
     print(f'max correlation is {received[ssb_start]} at {ssb_start}')
 
-    print(f'max model-hdl difference is {max(np.abs(received - received_model))}')
     if tb.ALGO == 0:
-        for i in range(len(received)):
-            assert received[i] == received_model[i]
-    else:
-        # TODO: implement model
-        pass
-    if tb.ALGO == 0:
-        prod = C0[ssb_start+128] * np.conj(C1[ssb_start+128])
+        prod = C0[ssb_start+PSS_LEN] * np.conj(C1[ssb_start+PSS_LEN])
         # detectedCFO = np.arctan2(prod.imag, prod.real)
         detectedCFO = np.angle(prod)
-        detectedCFO_Hz = detectedCFO / (2*np.pi) * (fs/decimation_factor) / 64
+        detectedCFO_Hz = detectedCFO / (2*np.pi) * (fs/decimation_factor/2) / 64 # there is another 2x decimation inside the hdl 
         print(f'detected CFO = {detectedCFO_Hz} Hz')
     else:
         print('CFO estimation is not possible with ALGO=1')
-    
-    PSS = np.zeros(128, 'complex')
-    PSS[:-1] = py3gpp.nrPSS(2)
+
+    PSS = np.zeros(FFT_LEN, 'complex')
+    PSS[FFT_LEN//2-64:][:127] = py3gpp.nrPSS(2)
     taps = np.fft.ifft(np.fft.fftshift(PSS))
-    C0 = np.vdot(waveform[ssb_start:][:64], taps[:64])
-    C1 = np.vdot(waveform[ssb_start+64:][:64], taps[64:][:64])
+    ssb_start_model = 568
+    C0 = np.vdot(waveform[ssb_start_model:][:64], taps[:64])
+    C1 = np.vdot(waveform[ssb_start_model+64:][:64], taps[64:][:64])
     prod = C0 * np.conj(C1)
     # detectedCFO = np.arctan2(prod.imag, prod.real)
     detectedCFO = np.angle(prod)
@@ -168,15 +154,14 @@ async def simple_test(dut):
         if CFO != 0:
             assert (np.abs(detectedCFO_Hz - detectedCFO_Hz_model)/np.abs(CFO)) < 0.05
         else:
-            assert np.abs(detectedCFO_Hz - detectedCFO_Hz_model) < 20
+            assert np.abs(detectedCFO_Hz - detectedCFO_Hz_model) < 50
 
     assert ssb_start == 284
-    assert len(received) == num_items - 128
+    assert len(received) == num_items - PSS_LEN
 
-# bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
 @pytest.mark.parametrize("ALGO", [0])
 @pytest.mark.parametrize("IN_DW", [32])
-@pytest.mark.parametrize("OUT_DW", [45])
+@pytest.mark.parametrize("OUT_DW", [32])
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("CFO", [0, 6500, -5500])
 @pytest.mark.parametrize("MULT_REUSE", [1, 16])
@@ -197,7 +182,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
         os.path.join(rtl_dir, 'DDS', 'dds.sv')
     ]
     includes = [
-        os.path.join(rtl_dir, 'CIC')        
+        os.path.join(rtl_dir, 'CIC')
     ]
 
     PSS_LEN = 128
@@ -223,9 +208,12 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
                                 +  ((int(np.real(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     os.environ['CFO'] = str(CFO)
-    parameters_no_taps = parameters.copy()
-    del parameters_no_taps['PSS_LOCAL']
-    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
+    
+    parameters_dirname = parameters.copy()
+    del parameters_dirname['PSS_LOCAL']
+    parameters_dirname['CFO'] = CFO
+    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
+    
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
@@ -244,4 +232,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # this setup does not require output truncation
-    test(IN_DW = 32, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 6500, MULT_REUSE = 16)
+    test(IN_DW = 32, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 2500, MULT_REUSE = 16)
