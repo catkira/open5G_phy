@@ -10,6 +10,8 @@ Implemented so far:<br>
 * FFT demodulator which uses [this](https://github.com/catkira/FFT) FFT core
 * SSS detector (detailed description below)
 
+![Overview diagram](doc/overview.jpg)
+
 <b>TODO:</b>
 * channel estimator using PBCH DMRS and SSS
 * PBCH demodulator
