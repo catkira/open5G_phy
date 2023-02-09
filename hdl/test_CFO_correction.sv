@@ -20,6 +20,8 @@ module test_CFO_correction
     input                                       reset_ni,
     input   wire           [IN_DW-1:0]          s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
+    input                                       CFO_norm_valid_in,
+    input   wire           [DDS_PHASE_DW -1 : 0] CFO_norm_in,  // CFO_norm = CFO_hz / fs * (2**DDS_PHASE_DW - 1)
     
     output  wire           [CIC_OUT_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1 : 0]   C0,
     output  wire           [CIC_OUT_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1: 0]    C1,
@@ -48,13 +50,23 @@ reg                             DDS_phase_valid;
 reg [COMPL_MULT_OUT_DW - 1 : 0] mult_out_tdata;
 reg                             mult_out_tvalid;
 
+reg [DDS_PHASE_DW -1 : 0]       CFO_norm;
+
+
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         DDS_phase <= '0;
         DDS_phase_valid <= '0;
-    end else begin
-        DDS_phase <= '0;
-        DDS_phase_valid <= 1;
+        CFO_norm <= '0;
+    end 
+    else begin
+        if (CFO_norm_valid_in) begin
+            CFO_norm <= CFO_norm_in;
+        end
+        if(s_axis_in_tvalid) begin
+            DDS_phase <= DDS_phase + CFO_norm_in;
+            DDS_phase_valid <= 1;
+        end
     end
 end
 

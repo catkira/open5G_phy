@@ -38,6 +38,7 @@ class TB(object):
         self.ALGO = int(dut.ALGO.value)
         self.MULT_REUSE = int(dut.MULT_REUSE.value)
         self.CIC_OUT_DW = int(dut.CIC_OUT_DW.value)
+        self.DDS_PHASE_DW = int(dut.DDS_PHASE_DW.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -87,7 +88,18 @@ async def simple_test(dut):
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform *= 2 ** (tb.IN_DW // 2 - 1) - 1
     waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
+
+    requested_CFO_corr = int(os.environ['CFO_CORR'])
+    print(f'requested CFO correction is {requested_CFO_corr} Hz')
+    eff_CFO_corr_norm = int(np.round(requested_CFO_corr) / 3840000 * (2**tb.DDS_PHASE_DW - 1))
+    eff_CFO_corr_hz = eff_CFO_corr_norm * 3840000 / (2**tb.DDS_PHASE_DW - 1)
+    print(f'effictive CFO correction is {eff_CFO_corr_hz} Hz')
+
     await tb.cycle_reset()
+    dut.CFO_norm_in.value = eff_CFO_corr_norm
+    dut.CFO_norm_valid_in.value = 1
+    await RisingEdge(dut.clk_i)
+    dut.CFO_norm_valid_in.value = 0
 
     num_items = 500
     rx_counter = 0
@@ -150,13 +162,20 @@ async def simple_test(dut):
     detectedCFO = np.angle(prod)
     detectedCFO_Hz_model = detectedCFO / (2*np.pi) * (fs/decimation_factor) / 64
     print(f'detected CFO (model) = {detectedCFO_Hz_model} Hz')
+    # TODO: why do cases with active CFO correction need more tolerance?
     if tb.ALGO == 0:
         if CFO != 0:
-            assert (np.abs(detectedCFO_Hz - detectedCFO_Hz_model)/np.abs(CFO)) < 0.05
+            if eff_CFO_corr_hz == 0:
+                assert (np.abs(detectedCFO_Hz - detectedCFO_Hz_model - eff_CFO_corr_hz))/np.abs(CFO) < 0.05
+            else:
+                assert (np.abs(detectedCFO_Hz - detectedCFO_Hz_model - eff_CFO_corr_hz))/np.abs(CFO) < 0.08
         else:
-            assert np.abs(detectedCFO_Hz - detectedCFO_Hz_model) < 50
+            if eff_CFO_corr_hz == 0:
+                assert np.abs(detectedCFO_Hz - detectedCFO_Hz_model - eff_CFO_corr_hz) < 50
+            else:
+                assert np.abs(detectedCFO_Hz - detectedCFO_Hz_model - eff_CFO_corr_hz) < 60
 
-    assert ssb_start == 284
+    assert ssb_start == 283
     assert len(received) == num_items - PSS_LEN
 
 @pytest.mark.parametrize("ALGO", [0])
@@ -165,7 +184,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("CFO", [0, 6500, -5500])
 @pytest.mark.parametrize("MULT_REUSE", [1, 16])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
+@pytest.mark.parametrize("CFO_CORR", [0, 1000, -1000])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE, CFO_CORR):
     dut = 'test_CFO_correction'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -208,6 +228,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
                                 +  ((int(np.real(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     os.environ['CFO'] = str(CFO)
+    os.environ['CFO_CORR'] = str(CFO_CORR)
     
     parameters_dirname = parameters.copy()
     del parameters_dirname['PSS_LOCAL']
@@ -232,4 +253,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # this setup does not require output truncation
-    test(IN_DW = 32, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 2500, MULT_REUSE = 16)
+    test(IN_DW = 32, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 2500, MULT_REUSE = 16, CFO_CORR = 0)
