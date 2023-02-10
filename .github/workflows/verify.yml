@@ -37,3 +37,4 @@ jobs:
         pytest -v --workers=10 tests/test_Decimator_Correlator_PeakDetector.py
         pytest -v tests/test_Decimator_Correlator_PeakDetector_FFT.py
         pytest -v --workers=10 tests/test_CFO_correction.py
+        pytest -v --workers=9 tests/test_CFO_calc.py
