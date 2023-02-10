@@ -73,7 +73,7 @@ async def simple_test(dut):
 
 @pytest.mark.parametrize("C_DW", [32])
 @pytest.mark.parametrize("CFO_DW", [20])
-@pytest.mark.parametrize("ANGLE", [20, 60, 100, 150, 190, 220, 250, 290, 320, 350])
+@pytest.mark.parametrize("ANGLE", [20, 60, 100, 150, 170, -20, -60, -100, -150, -170])
 def test(C_DW, CFO_DW, ANGLE):
     dut = 'CFO_calc'
     module = os.path.splitext(os.path.basename(__file__))[0]
