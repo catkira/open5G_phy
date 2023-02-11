@@ -156,4 +156,26 @@ fft(
     .do_vl(fft_val)
 );
 
+if (CP_ADVANCE != CP_LEN) begin
+    reg [OUT_DW / 2 - 1 : 0] coeff;
+
+    complex_multiplier #(
+        .OPERAND_WIDTH_A(OUT_DW / 2),
+        .OPERAND_WIDTH_B(OUT_DW / 2),
+        .OPERAND_WIDTH_OUT(OUT_DW / 2)
+    )
+    complex_multiplier_i(
+        .s_axis_a_tdata({fft_result_im, fft_result_re}),
+        .s_axis_a_tvalid(fft_val),
+        .s_axis_b_tdata(coeff),
+        .s_axis_b_tvalid(fft_val),
+
+        .m_axis_dout_tdata(),
+        .m_axis_dout_tvalid()
+    );
+
+    always @(posedge clk_i) begin
+    end
+end
+
 endmodule
