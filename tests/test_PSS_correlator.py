@@ -185,4 +185,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 14, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 10000)
+    test(IN_DW = 32, OUT_DW = 24, TAP_DW = 18, ALGO = 0, CFO = 10000)

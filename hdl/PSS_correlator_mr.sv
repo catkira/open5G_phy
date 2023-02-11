@@ -21,10 +21,9 @@ module PSS_correlator_mr
     output  reg                                                 m_axis_out_tvalid
 );
 
-localparam REQUIRED_OUT_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN);
-
 localparam IN_OP_DW  = IN_DW / 2;
 localparam TAP_OP_DW = TAP_DW / 2;
+localparam REQUIRED_OUT_DW = IN_OP_DW + TAP_OP_DW + 1 + $clog2(PSS_LEN);
 
 localparam PSS_LEN_USED = ALGO ? (PSS_LEN - 2) / 2 : PSS_LEN;
 localparam REQ_MULTS = (PSS_LEN_USED % MULT_REUSE) != 0 ? PSS_LEN_USED / MULT_REUSE + 1 : PSS_LEN_USED / MULT_REUSE;
@@ -38,33 +37,32 @@ reg signed [TAP_OP_DW - 1 : 0] tap_re, tap_im;
 reg signed [IN_OP_DW - 1 : 0] in_re [0 : PSS_LEN - 1];
 reg signed [IN_OP_DW - 1 : 0] in_im [0 : PSS_LEN - 1];
 reg valid;
-reg signed [REQUIRED_OUT_DW / 2 : 0] sum_im, sum_re;
-reg signed [REQUIRED_OUT_DW / 2 - 1 : 0] C0_im, C0_re, C1_im, C1_re; // partial sums, used for CFO estimation
+reg signed [REQUIRED_OUT_DW - 1 : 0] sum_im, sum_re;
+reg signed [REQUIRED_OUT_DW - 1 : 0] C0_im, C0_re, C1_im, C1_re; // partial sums, used for CFO estimation
 initial begin
     if (REQUIRED_OUT_DW > OUT_DW) $display("truncating output from %d to %d bits", REQUIRED_OUT_DW, OUT_DW);
 end
 
 
 reg unsigned [REQUIRED_OUT_DW - 1: 0] filter_result;
-// assign filter_result = sum_im * sum_im + sum_re * sum_re;
-wire signed [REQUIRED_OUT_DW / 2 : 0] mult_out_re [0 : REQ_MULTS - 1];
-wire signed [REQUIRED_OUT_DW / 2 : 0] mult_out_im [0 : REQ_MULTS - 1];
+wire signed [REQUIRED_OUT_DW - 1 : 0] mult_out_re [0 : REQ_MULTS - 1];
+wire signed [REQUIRED_OUT_DW - 1: 0] mult_out_im [0 : REQ_MULTS - 1];
 
 initial begin
     $display("used real multipliers: %d", REQ_MULTS * 4 + 2);
 end
 
-function [REQUIRED_OUT_DW / 2 : 0] abs;
-    input signed [REQUIRED_OUT_DW / 2 : 0] arg;
+function [REQUIRED_OUT_DW - 1 : 0] abs;
+    input signed [REQUIRED_OUT_DW - 1 : 0] arg;
 begin
-    abs = arg[REQUIRED_OUT_DW / 2] ? ~arg + 1 : arg;
+    abs = arg[REQUIRED_OUT_DW - 1] ? ~arg + 1 : arg;
 end
 endfunction
 
 for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
     localparam MULT_REUSE_CUR = PSS_LEN_USED - i_g * MULT_REUSE >= MULT_REUSE ? MULT_REUSE : PSS_LEN_USED % MULT_REUSE;
     reg [$clog2(MULT_REUSE) : 0] idx = '0;
-    reg signed [REQUIRED_OUT_DW / 2 : 0] out_buf_re, out_buf_im;
+    reg signed [REQUIRED_OUT_DW - 1: 0] out_buf_re, out_buf_im;
     reg [$clog2(PSS_LEN_USED) : 0] pos;
     reg ready;
     assign mult_out_re[i_g] = out_buf_re;

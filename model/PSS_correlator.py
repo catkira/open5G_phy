@@ -66,7 +66,7 @@ class Model:
                 result_abs = np.abs(result_re) + (int(np.abs(result_im))>>2)
             else:
                 result_abs = np.abs(result_im) + (int(np.abs(result_re))>>2)
-            truncate = int(2 * np.ceil(np.log2(self.PSS_LEN)) + self.IN_DW + self.TAP_DW + 2 - self.OUT_DW)
+            truncate = int(np.ceil(np.log2(self.PSS_LEN)) + self.IN_DW//2 + self.TAP_DW//2 + 1 - self.OUT_DW)
             if truncate < 0:
                 truncate = 0
             self.result[0] = (result_abs >> truncate) & (2 ** self.OUT_DW - 1)

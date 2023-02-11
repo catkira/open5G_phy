@@ -21,10 +21,9 @@ module PSS_correlator
     output  reg                                 m_axis_out_tvalid
 );
 
-localparam REQUIRED_OUT_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN);
-
 localparam IN_OP_DW  = IN_DW / 2;
 localparam TAP_OP_DW = TAP_DW / 2;
+localparam REQUIRED_OUT_DW = IN_OP_DW + TAP_OP_DW + 1 + $clog2(PSS_LEN);
 
 wire signed [IN_OP_DW - 1 : 0] axis_in_re, axis_in_im;
 assign axis_in_re = s_axis_in_tdata[IN_DW / 2 - 1 -: IN_OP_DW];
@@ -35,7 +34,7 @@ reg signed [TAP_OP_DW - 1 : 0] tap_re, tap_im;
 reg signed [IN_OP_DW - 1 : 0] in_re [0 : PSS_LEN - 1];
 reg signed [IN_OP_DW - 1 : 0] in_im [0 : PSS_LEN - 1];
 reg valid;
-reg signed [REQUIRED_OUT_DW / 2 : 0] sum_im, sum_re;
+reg signed [REQUIRED_OUT_DW - 1 : 0] sum_im, sum_re;
 
 initial begin
     for (integer i = 0; i < PSS_LEN; i = i + 1) begin
@@ -51,10 +50,10 @@ end
 reg [REQUIRED_OUT_DW - 1: 0] filter_result;
 // assign filter_result = sum_im * sum_im + sum_re * sum_re;
 
-function [REQUIRED_OUT_DW / 2 : 0] abs;
-    input signed [REQUIRED_OUT_DW / 2 : 0] arg;
+function [REQUIRED_OUT_DW - 1 : 0] abs;
+    input signed [REQUIRED_OUT_DW - 1 : 0] arg;
 begin
-    abs = arg[REQUIRED_OUT_DW / 2] ? ~arg + 1 : arg;
+    abs = arg[REQUIRED_OUT_DW - 1] ? ~arg + 1 : arg;
 end
 endfunction
 
@@ -141,5 +140,12 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
         end
     end
 end
+
+// `ifdef COCOTB_SIM
+// initial begin
+//   $dumpfile ("PSS_correlator.vcd");
+//   $dumpvars (0, PSS_correlator);
+// end
+// `endif
 
 endmodule
