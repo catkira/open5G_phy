@@ -233,6 +233,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE, CFO_CORR):
     parameters_dirname = parameters.copy()
     del parameters_dirname['PSS_LOCAL']
     parameters_dirname['CFO'] = CFO
+    parameters_dirname['CFO_CORR'] = CFO_CORR
     sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
     
     cocotb_test.simulator.run(
