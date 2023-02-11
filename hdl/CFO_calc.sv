@@ -21,8 +21,9 @@ reg [3 : 0]  state;
 reg mult_valid_out;
 localparam WAIT_FOR_MULT = 4'b0000;
 localparam CALC_DIV      = 4'b0001;
-localparam CALC_ATAN     = 4'b0010;
-localparam OUTPUT        = 4'b0011;
+localparam CALC_DIV2     = 4'b0010;
+localparam CALC_ATAN     = 4'b0011;
+localparam OUTPUT        = 4'b0100;
 
 localparam ATAN_IN_DW = 16;
 // LUT out range is 0..pi/4, thereore width can be 3 bits smaller than CFO_DW which has range 0..+-pi
@@ -66,9 +67,9 @@ complex_multiplier_i(
 reg signed [ATAN_IN_DW - 1 : 0] prod_im, prod_re;
 
 
-localparam MAX_LUT_IN_VAL = (2**(LUT_IN_DW-1) - 1);
+localparam MAX_LUT_IN_VAL = (2**LUT_IN_DW - 1);
 reg [LUT_OUT_DW - 1 : 0]  atan_lut[0 : MAX_LUT_IN_VAL];
-localparam MAX_LUT_OUT_VAL = (2**(LUT_OUT_DW-1) - 1);
+localparam MAX_LUT_OUT_VAL = (2**(LUT_OUT_DW - 1) - 1);
 initial begin
     $display("tan lut has %d entries", MAX_LUT_IN_VAL+1);
     for (integer i = 0; i <= MAX_LUT_IN_VAL; i = i + 1) begin
@@ -78,9 +79,11 @@ initial begin
 end
 wire signed [CFO_DW-1 : 0] LUT_OUT_EXT = {{(3){atan_lut[div][LUT_OUT_DW-1]}}, atan_lut[div]};
 reg [LUT_IN_DW-1 : 0] div;
+reg [10 : 0] div_pos;
 reg signed [CFO_DW-1 : 0] atan;
 
 reg [LUT_IN_DW - 1 : 0] numerator, denominator;
+reg [LUT_IN_DW + ATAN_IN_DW - 1 : 0] numerator_wide, denominator_wide;
 reg inv_div_result;
 localparam signed [CFO_DW - 1 : 0] PI_HALF = 2 ** (CFO_DW - 2) - 1;
 localparam signed [CFO_DW - 1 : 0] PI_QUARTER = 2 ** (CFO_DW - 3) - 1;
@@ -102,8 +105,8 @@ always @(posedge clk_i) begin
             valid_o <= '0;
         end
         CALC_DIV : begin
-            $display("prod_im = %d  abs(prod_im) = %d", prod_im, abs(prod_im));
-            $display("prod_re = %d  abs(prod_re) = %d", prod_re, abs(prod_re));
+            // $display("prod_im = %d  abs(prod_im) = %d", prod_im, abs(prod_im));
+            // $display("prod_re = %d  abs(prod_re) = %d", prod_re, abs(prod_re));
             if (abs(prod_re) > abs(prod_im)) begin
                 numerator = abs(prod_im);
                 denominator = abs(prod_re);
@@ -114,11 +117,25 @@ always @(posedge clk_i) begin
                 numerator = abs(prod_re);
                 denominator = abs(prod_im);
             end
-            div <= (numerator * MAX_LUT_IN_VAL) / denominator;
-            $display("%d/%d = %d", numerator, denominator, (numerator * MAX_LUT_IN_VAL) / denominator);
-            state <= CALC_ATAN;
+            numerator_wide <= (numerator <<< LUT_IN_DW) - 1;
+            denominator_wide <= {{(ATAN_IN_DW){1'b0}}, denominator};  // explicit zero padding is actually not needed
+            div <= '0;
+            div_pos <= LUT_IN_DW;
+            state <= CALC_DIV2;
+            // div <= (numerator * MAX_LUT_IN_VAL) / denominator;
+            // $display("%d/%d = %d", numerator, denominator, (numerator * MAX_LUT_IN_VAL) / denominator);
+            // state <= CALC_ATAN;
+        end
+        CALC_DIV2: begin
+            if (numerator_wide >= (denominator_wide <<< div_pos)) begin
+                numerator_wide <= numerator_wide - (denominator_wide <<< div_pos);
+                div <= div + 2**div_pos;
+            end
+            div_pos <= div_pos - 1;
+            if (div_pos == 0)   state <= CALC_ATAN;
         end
         CALC_ATAN: begin
+            $display("div = %d", div);
             $display("sign(re) = %d  sign(im) = %d", sign(prod_re), sign(prod_im));
             if (inv_div_result)         atan = PI_QUARTER - LUT_OUT_EXT;
             else                        atan = LUT_OUT_EXT;
