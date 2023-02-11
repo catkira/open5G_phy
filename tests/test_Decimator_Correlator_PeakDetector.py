@@ -121,7 +121,7 @@ async def simple_test(dut):
     peak_pos = np.argmax(received)
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         _, (ax1, ax2) = plt.subplots(2,1)
-        ax1.plot(np.sqrt(received_correlator))
+        ax1.plot(received_correlator)
         ax2.plot(received)
         plt.show()
     print(f'highest peak at {peak_pos}')

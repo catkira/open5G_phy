@@ -16,7 +16,7 @@ module Peak_detector
 reg [IN_DW - 1 : 0] in_buffer [0 : WINDOW_LEN - 1];
 reg [IN_DW - 1 + $clog2(WINDOW_LEN) : 0] average;
 reg [$clog2(WINDOW_LEN) : 0] init_counter = '0;
-localparam DETECTION_FACTOR = 32;
+localparam DETECTION_FACTOR = 16;
 localparam AVERAGE_SHIFT = $clog2(WINDOW_LEN) - $clog2(DETECTION_FACTOR);
 
 always @(posedge clk_i) begin
