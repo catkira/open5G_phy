@@ -117,24 +117,26 @@ wire fft_sync;
 assign fft_result_debug_o = fft_result;
 assign fft_sync_debug_o = fft_sync;
 
-reg [15:0] sync_wait_counter;
-assign sync_wait_counter_debug_o = sync_wait_counter;
-localparam CP_LEN = 18;
-localparam DETECTION_DELAY = 15;
-localparam WAIT_CYCLES = CP_LEN - DETECTION_DELAY;
-always_ff @(posedge clk_i) begin
+// this delay line is needed because peak_detected goes high
+// at the end of SSS symbol plus some additional delay
+localparam DELAY_LINE_LEN = 15;
+reg [IN_DW-1:0] delay_line_data  [0 : DELAY_LINE_LEN - 1];
+reg             delay_line_valid [0 : DELAY_LINE_LEN - 1];
+always @(posedge clk_i) begin
     if (!reset_ni) begin
-        sync_wait_counter <= 'b0;
-    end else if (peak_detected && sync_wait_counter == 0) begin
-        sync_wait_counter <= sync_wait_counter + 1'b1;
-    end else if ((sync_wait_counter < WAIT_CYCLES) && (sync_wait_counter > 0)) begin
-        sync_wait_counter <= sync_wait_counter + 1'b1;
+        for (integer i = 0; i < DELAY_LINE_LEN; i = i + 1) begin
+            delay_line_data[i] = '0;
+            delay_line_valid[i] = '0;
+        end
+    end else begin
+        delay_line_data[0] <= s_axis_in_tdata;
+        delay_line_valid[0] <= s_axis_in_tvalid;
+        for (integer i = 0; i < DELAY_LINE_LEN - 1; i = i + 1) begin
+            delay_line_data[i+1] <= delay_line_data[i];
+            delay_line_valid[i+1] <= delay_line_valid[i];
+        end
     end
-    if (fft_sync) $display("sync_debug");
 end
-
-wire enable_fft;
-assign enable_fft = (sync_wait_counter == WAIT_CYCLES);
 
 FFT_demod #(
     .IN_DW(IN_DW)
@@ -142,9 +144,10 @@ FFT_demod #(
 FFT_demod_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
-    .SSB_start_i(enable_fft),
-    .s_axis_in_tdata(s_axis_in_tdata),
-    .s_axis_in_tvalid(s_axis_in_tvalid),
+    .SSB_start_i(peak_detected),
+    .s_axis_in_tdata(delay_line_data[DELAY_LINE_LEN-1]),
+    .s_axis_in_tvalid(delay_line_valid[DELAY_LINE_LEN-1]),
+
     .m_axis_out_tdata(m_axis_out_tdata),
     .m_axis_out_tvalid(m_axis_out_tvalid),
     .PBCH_start_o(fft_demod_PBCH_start_o),

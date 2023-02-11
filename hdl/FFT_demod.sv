@@ -3,7 +3,8 @@ module FFT_demod #(
     localparam OUT_DW = IN_DW,
     localparam NFFT = 8,
     localparam FFT_LEN = 2 ** NFFT,
-    localparam CP_LEN = 18
+    localparam CP_LEN = 18,
+    localparam CP_ADVANCE = 18
 )
 (
     input                                       clk_i,
@@ -28,7 +29,7 @@ localparam SSB_LEN = 4;
 reg fft_sync_f;
 reg PBCH_start_f, SSS_start_f;
 reg [2 : 0] state, state2;
-reg [10 : 0] CP_cnt;
+reg [$clog2(CP_LEN) : 0] CP_cnt;
 reg [$clog2(FFT_LEN) : 0] in_cnt;
 
 always @(posedge clk_i) begin
@@ -38,8 +39,8 @@ always @(posedge clk_i) begin
         CP_cnt <= '0;
     end else if (state2 == 0) begin // wait for SSB
         if (SSB_start_i) begin
-            // CP for first symbol is already skipped
-            state2 <= 2;
+            CP_cnt <= CP_LEN - CP_ADVANCE;
+            state2 <= 1;
             // $display("- state2 <= 2");
         end
         out_cnt <= '0;
