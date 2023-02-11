@@ -136,7 +136,7 @@ async def simple_test(dut):
     received = np.array(received)[PSS_LEN:]
     print(f'max hdl {max(received)}')
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
-        _, (ax, ax2) = plt.subplots(2, 1)
+        _, ax = plt.subplots(1, 1)
         ax.plot(np.sqrt(received))
         ax.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
         plt.show()
@@ -251,6 +251,6 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE, CFO_CORR):
     )
 
 if __name__ == '__main__':
-    os.environ['PLOTS'] = "1"
+    # os.environ['PLOTS'] = "1"
     # this setup does not require output truncation
     test(IN_DW = 32, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 2500, MULT_REUSE = 16, CFO_CORR = 0)
