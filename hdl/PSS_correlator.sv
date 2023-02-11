@@ -48,8 +48,15 @@ initial begin
     end
 end
 
-wire unsigned [REQUIRED_OUT_DW - 1: 0] filter_result;
-assign filter_result = sum_im * sum_im + sum_re * sum_re;
+reg [REQUIRED_OUT_DW - 1: 0] filter_result;
+// assign filter_result = sum_im * sum_im + sum_re * sum_re;
+
+function [REQUIRED_OUT_DW / 2 : 0] abs;
+    input signed [REQUIRED_OUT_DW / 2 : 0] arg;
+begin
+    abs = arg[REQUIRED_OUT_DW / 2] ? ~arg + 1 : arg;
+end
+endfunction
 
 always @(posedge clk_i) begin // cannot use $display inside always_ff with iverilog
     if (!reset_ni) begin
@@ -116,6 +123,11 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                                     - (in_re[PSS_LEN - i] - in_re[i]) * tap_im;
                 end
             end
+
+            // https://openofdm.readthedocs.io/en/latest/verilog.html
+            if (abs(sum_im) > abs(sum_re))   filter_result = abs(sum_im) + (abs(sum_re) >> 2);
+            else                             filter_result = abs(sum_re) + (abs(sum_im) >> 2);
+
             if (REQUIRED_OUT_DW >= OUT_DW) begin
                 m_axis_out_tdata <= filter_result[REQUIRED_OUT_DW - 1 -: OUT_DW];
             end else begin

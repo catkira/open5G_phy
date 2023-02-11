@@ -16,7 +16,7 @@ module PSS_correlator_mr
     input   wire           [IN_DW-1:0]                          s_axis_in_tdata,
     input                                                       s_axis_in_tvalid,
     output  reg            [OUT_DW-1:0]                         m_axis_out_tdata,
-    output  reg            [IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1 : 0]    C0,
+    output  reg            [IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1 : 0]   C0,
     output  reg            [IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1: 0]    C1,
     output  reg                                                 m_axis_out_tvalid
 );
@@ -45,14 +45,21 @@ initial begin
 end
 
 
-wire unsigned [REQUIRED_OUT_DW - 1: 0] filter_result;
-assign filter_result = sum_im * sum_im + sum_re * sum_re;
+reg unsigned [REQUIRED_OUT_DW - 1: 0] filter_result;
+// assign filter_result = sum_im * sum_im + sum_re * sum_re;
 wire signed [REQUIRED_OUT_DW / 2 : 0] mult_out_re [0 : REQ_MULTS - 1];
 wire signed [REQUIRED_OUT_DW / 2 : 0] mult_out_im [0 : REQ_MULTS - 1];
 
 initial begin
     $display("used real multipliers: %d", REQ_MULTS * 4 + 2);
 end
+
+function [REQUIRED_OUT_DW / 2 : 0] abs;
+    input signed [REQUIRED_OUT_DW / 2 : 0] arg;
+begin
+    abs = arg[REQUIRED_OUT_DW / 2] ? ~arg + 1 : arg;
+end
+endfunction
 
 for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
     localparam MULT_REUSE_CUR = PSS_LEN_USED - i_g * MULT_REUSE >= MULT_REUSE ? MULT_REUSE : PSS_LEN_USED % MULT_REUSE;
@@ -160,6 +167,10 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
             end
             C0 <= {C0_im, C0_re};
             C1 <= {C1_im, C1_re};
+            
+            // https://openofdm.readthedocs.io/en/latest/verilog.html
+            if (abs(sum_im) > abs(sum_re))   filter_result = abs(sum_im) + (abs(sum_re) >> 2);
+            else                             filter_result = abs(sum_re) + (abs(sum_im) >> 2);
 
             if (REQUIRED_OUT_DW >= OUT_DW) begin
                 m_axis_out_tdata <= filter_result[REQUIRED_OUT_DW - 1 -: OUT_DW];

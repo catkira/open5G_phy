@@ -242,6 +242,6 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
     )
 
 if __name__ == '__main__':
-    os.environ['PLOTS'] = "1"
+    # os.environ['PLOTS'] = "1"
     # this setup does not require output truncation
     test(IN_DW = 14, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 6500, MULT_REUSE = 16)
