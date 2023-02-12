@@ -277,6 +277,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO):
         os.path.join(rtl_dir, 'SSS_detector.sv'),
         os.path.join(rtl_dir, 'LFSR/LFSR.sv'),        
         os.path.join(rtl_dir, 'FFT_demod.sv'),
+        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v'),        
         os.path.join(rtl_dir, 'CIC/cic_d.sv'),
         os.path.join(rtl_dir, 'CIC/comb.sv'),
         os.path.join(rtl_dir, 'CIC/downsampler.sv'),

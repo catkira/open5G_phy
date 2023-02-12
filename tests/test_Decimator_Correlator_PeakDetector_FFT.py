@@ -98,16 +98,14 @@ async def simple_test(dut):
     received_correlator = []
     received_fft = []
     received_fft_demod = []
-    received_fft_ideal = []
+    rx_ADC_data = []
     received_PBCH = []
     received_SSS = []
     fft_started = False
-    wait_cycles = 0
     CP_LEN = 18
     CP_ADVANCE = int(dut.CP_ADVANCE.value)
     FFT_SIZE = 256
     DETECTOR_LATENCY = 17
-    SSS_delay = CP_LEN - DETECTOR_LATENCY
     FFT_OUT_DW = 32
     while len(received_SSS) < FFT_SIZE:
         await RisingEdge(dut.clk_i)
@@ -136,11 +134,11 @@ async def simple_test(dut):
         if dut.peak_detected_debug_o.value.integer == 1:
             print(f'peak pos = {in_counter}')
 
-        if dut.peak_detected_debug_o.value.integer == 1 or wait_cycles > 0:
-            if wait_cycles < SSS_delay:
-                wait_cycles += 1
-            else:
-                received_fft_ideal.append(waveform[in_counter])
+        if dut.peak_detected_debug_o.value.integer == 1 or len(rx_ADC_data) > 0:
+            # if wait_cycles < SSS_delay:
+            #     wait_cycles += 1
+            # else:
+                rx_ADC_data.append(waveform[in_counter - DETECTOR_LATENCY])
 
         if dut.fft_demod_PBCH_start_o == 1:
             print(f'{rx_counter}: PBCH start')
@@ -179,7 +177,7 @@ async def simple_test(dut):
     for i in range(SSS_LEN):
         print(f'SSS[{i}] = {int(received_SSS[i].real > 0)}')
 
-    ideal_SSS_sym = np.fft.fftshift(np.fft.fft(received_fft_ideal[FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
+    ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
     ideal_SSS_sym *= np.exp(1j * 2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
@@ -209,7 +207,9 @@ async def simple_test(dut):
         plt.show()
 
     received_PBCH= received_PBCH[9:][:FFT_SIZE-8*2 - 1]
-    received_PBCH_ideal = np.fft.fftshift(np.fft.fft(received_fft_ideal[:FFT_SIZE]))[8:][:FFT_SIZE-8*2]
+    received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_SIZE]))
+    received_PBCH_ideal *= np.exp(1j * 2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE))
+    received_PBCH_ideal = received_PBCH_ideal[8:][:FFT_SIZE-8*2]
     received_PBCH_ideal = (received_PBCH_ideal.real.astype(int) + 1j * received_PBCH_ideal.imag.astype(int))
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         _, axs = plt.subplots(3, 1, figsize=(5, 10))
