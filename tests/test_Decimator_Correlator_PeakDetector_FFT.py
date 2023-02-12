@@ -135,10 +135,7 @@ async def simple_test(dut):
             print(f'peak pos = {in_counter}')
 
         if dut.peak_detected_debug_o.value.integer == 1 or len(rx_ADC_data) > 0:
-            # if wait_cycles < SSS_delay:
-            #     wait_cycles += 1
-            # else:
-                rx_ADC_data.append(waveform[in_counter - DETECTOR_LATENCY])
+            rx_ADC_data.append(waveform[in_counter - DETECTOR_LATENCY])
 
         if dut.fft_demod_PBCH_start_o == 1:
             print(f'{rx_counter}: PBCH start')
@@ -190,8 +187,7 @@ async def simple_test(dut):
         ax = ax.twinx()
         ax.plot(np.imag(ideal_SSS), 'b-')
         ax = plt.subplot(4, 2, 4)
-        ax.plot(np.real(ideal_SSS),
-            np.imag(ideal_SSS), '.')
+        ax.plot(np.real(ideal_SSS), np.imag(ideal_SSS), '.')
 
         ax = plt.subplot(4, 2, 5)
         ax.plot(np.abs((received_SSS_sym)))
@@ -202,8 +198,7 @@ async def simple_test(dut):
         ax = ax.twinx()
         ax.plot(np.imag(received_SSS), 'b-')
         ax = plt.subplot(4, 2, 8)
-        ax.plot(np.real(received_SSS),
-            np.imag(received_SSS), '.')
+        ax.plot(np.real(received_SSS), np.imag(received_SSS), '.')
         plt.show()
 
     received_PBCH= received_PBCH[9:][:FFT_SIZE-8*2 - 1]
@@ -336,4 +331,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CP_ADVANCE = 9)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CP_ADVANCE = 18)

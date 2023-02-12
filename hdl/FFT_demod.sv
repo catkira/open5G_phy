@@ -1,10 +1,10 @@
 module FFT_demod #(
     parameter IN_DW = 32,           // input data width
+    parameter CP_ADVANCE = 9,
     localparam OUT_DW = IN_DW,
     localparam NFFT = 8,
     localparam FFT_LEN = 2 ** NFFT,
-    localparam CP_LEN = 18,
-    localparam CP_ADVANCE = 9
+    localparam CP_LEN = 18
 )
 (
     input                                       clk_i,

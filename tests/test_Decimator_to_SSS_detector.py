@@ -99,18 +99,16 @@ async def simple_test(dut):
     rx_counter = 0
     in_counter = 0
     received = []
-    received_correlator = []
     received_fft = []
     received_fft_demod = []
-    received_fft_ideal = []
+    rx_ADC_data = []
     received_PBCH = []
     received_SSS = []
     fft_started = False
-    wait_cycles = 0
     CP_LEN = 18
+    CP_ADVANCE = tb.CP_ADVANCE
     FFT_SIZE = 256
     DETECTOR_LATENCY = 17
-    SSS_delay = CP_LEN - DETECTOR_LATENCY
     FFT_OUT_DW = 32
     max_tx = 2000
     while in_counter < 50000:
@@ -127,9 +125,6 @@ async def simple_test(dut):
         #print(f"data[{in_counter}] = {(int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x} {(int(waveform[in_counter].real)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x}")
         in_counter += 1
 
-        if dut.m_axis_correlator_debug_tvalid == 1:
-            received_correlator.append(dut.m_axis_correlator_debug_tdata.value.integer)
-
         received.append(dut.peak_detected_debug_o.value.integer)
         rx_counter += 1
         # if dut.peak_detected_debug_o.value.integer == 1:
@@ -143,11 +138,8 @@ async def simple_test(dut):
         if dut.peak_detected_debug_o.value.integer == 1:
             print(f'peak pos = {in_counter}')
 
-        if dut.peak_detected_debug_o.value.integer == 1 or wait_cycles > 0:
-            if wait_cycles < SSS_delay:
-                wait_cycles += 1
-            else:
-                received_fft_ideal.append(waveform[in_counter])
+        if dut.peak_detected_debug_o.value.integer == 1 or len(rx_ADC_data) > 0:
+            rx_ADC_data.append(waveform[in_counter - DETECTOR_LATENCY])
 
         if dut.fft_demod_PBCH_start_o == 1:
             print(f'{rx_counter}: PBCH start')
@@ -180,13 +172,13 @@ async def simple_test(dut):
                 + 1j * _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
     assert len(received_SSS) == FFT_SIZE
-    # received_SSS_sym = np.fft.fftshift(received_fft_demod[256:][:256])
     received_SSS_sym = received_SSS
     SSS_START = 64
     SSS_LEN = 127
     received_SSS = received_SSS_sym[SSS_START:][:SSS_LEN]
 
-    ideal_SSS_sym = np.fft.fftshift(np.fft.fft(received_fft_ideal[FFT_SIZE + CP_LEN:][:FFT_SIZE]))
+    ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
+    ideal_SSS_sym *= np.exp(1j * 2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         ax = plt.subplot(4, 2, 1)
@@ -198,8 +190,7 @@ async def simple_test(dut):
         ax = ax.twinx()
         ax.plot(np.imag(ideal_SSS), 'b-')
         ax = plt.subplot(4, 2, 4)
-        ax.plot(np.real(ideal_SSS),
-            np.imag(ideal_SSS), '.')
+        ax.plot(np.real(ideal_SSS), np.imag(ideal_SSS), '.')
 
         ax = plt.subplot(4, 2, 5)
         ax.plot(np.abs((received_SSS_sym)))
@@ -210,12 +201,13 @@ async def simple_test(dut):
         ax = ax.twinx()
         ax.plot(np.imag(received_SSS), 'b-')
         ax = plt.subplot(4, 2, 8)
-        ax.plot(np.real(received_SSS),
-            np.imag(received_SSS), '.')
+        ax.plot(np.real(received_SSS), np.imag(received_SSS), '.')
         plt.show()
 
     received_PBCH= received_PBCH[9:][:FFT_SIZE-8*2 - 1]
-    received_PBCH_ideal = np.fft.fftshift(np.fft.fft(received_fft_ideal[:FFT_SIZE]))[8:][:FFT_SIZE-8*2]
+    received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_SIZE]))
+    received_PBCH_ideal *= np.exp(1j * 2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE))
+    received_PBCH_ideal = received_PBCH_ideal[8:][:FFT_SIZE-8*2]
     received_PBCH_ideal = (received_PBCH_ideal.real.astype(int) + 1j * received_PBCH_ideal.imag.astype(int))
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         _, axs = plt.subplots(3, 1, figsize=(5, 10))
@@ -265,7 +257,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("CFO", [0, 100])
-@pytest.mark.parametrize("CP_ADVANCE", [18])
+@pytest.mark.parametrize("CP_ADVANCE", [9, 18])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
     dut = 'Decimator_to_SSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
@@ -347,4 +339,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=100, CP_ADVANCE = 18)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=100, CP_ADVANCE = 9)
