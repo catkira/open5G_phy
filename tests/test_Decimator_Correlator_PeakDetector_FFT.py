@@ -37,6 +37,7 @@ class TB(object):
         self.PSS_LOCAL = int(dut.PSS_LOCAL.value)
         self.ALGO = int(dut.ALGO.value)
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
+        self.CP_ADVANCE = int(dut.CP_ADVANCE.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -91,7 +92,6 @@ async def simple_test(dut):
 
     await tb.cycle_reset()
 
-    num_items = 2100
     rx_counter = 0
     in_counter = 0
     received = []
@@ -104,6 +104,7 @@ async def simple_test(dut):
     fft_started = False
     wait_cycles = 0
     CP_LEN = 18
+    CP_ADVANCE = int(dut.CP_ADVANCE.value)
     FFT_SIZE = 256
     DETECTOR_LATENCY = 17
     SSS_delay = CP_LEN - DETECTOR_LATENCY
@@ -176,9 +177,10 @@ async def simple_test(dut):
     received_SSS = received_SSS_sym[SSS_START:][:SSS_LEN]
 
     for i in range(SSS_LEN):
-        print(f'SSS[{i}] = {int(received_SSS[i].real>0)}')
+        print(f'SSS[{i}] = {int(received_SSS[i].real > 0)}')
 
-    ideal_SSS_sym = np.fft.fftshift(np.fft.fft(received_fft_ideal[FFT_SIZE + CP_LEN:][:FFT_SIZE]))
+    ideal_SSS_sym = np.fft.fftshift(np.fft.fft(received_fft_ideal[FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
+    ideal_SSS_sym *= np.exp(1j * 2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         ax = plt.subplot(4, 2, 1)
@@ -256,7 +258,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("OUT_DW", [32])
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
+@pytest.mark.parametrize("CP_ADVANCE", [9, 18])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE):
     dut = 'Decimator_Correlator_PeakDetector_FFT'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -267,6 +270,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'FFT_demod.sv'),
+        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v'),
         os.path.join(rtl_dir, 'CIC/cic_d.sv'),
         os.path.join(rtl_dir, 'CIC/comb.sv'),
         os.path.join(rtl_dir, 'CIC/downsampler.sv'),
@@ -298,6 +302,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
     parameters['PSS_LEN'] = PSS_LEN
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
+    parameters['CP_ADVANCE'] = CP_ADVANCE
 
     # imaginary part is in upper 16 Bit
     PSS = np.zeros(PSS_LEN, 'complex')
@@ -331,4 +336,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CP_ADVANCE = 9)

@@ -9,6 +9,7 @@ module Decimator_Correlator_PeakDetector_FFT
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
     parameter ALGO = 1,
     parameter WINDOW_LEN = 8,
+    parameter CP_ADVANCE = 9,
     localparam FFT_OUT_DW = 32
 )
 (
@@ -139,7 +140,8 @@ always @(posedge clk_i) begin
 end
 
 FFT_demod #(
-    .IN_DW(IN_DW)
+    .IN_DW(IN_DW),
+    .CP_ADVANCE(CP_ADVANCE)
 )
 FFT_demod_i(
     .clk_i(clk_i),

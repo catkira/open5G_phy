@@ -4,7 +4,7 @@ module FFT_demod #(
     localparam NFFT = 8,
     localparam FFT_LEN = 2 ** NFFT,
     localparam CP_LEN = 18,
-    localparam CP_ADVANCE = 18
+    localparam CP_ADVANCE = 9
 )
 (
     input                                       clk_i,
@@ -26,8 +26,6 @@ reg in_valid_f;
 reg [OUT_DW - 1 : 0] out_data_f;
 reg [$clog2(FFT_LEN) - 1 : 0] out_cnt;
 localparam SSB_LEN = 4;
-reg fft_sync_f;
-reg PBCH_start_f, SSS_start_f;
 reg [2 : 0] state, state2;
 reg [$clog2(CP_LEN) : 0] CP_cnt;
 reg [$clog2(FFT_LEN) : 0] in_cnt;
@@ -66,24 +64,22 @@ always @(posedge clk_i) begin
     in_valid_f <= s_axis_in_tvalid;
 end
 
-// reg [16 : 0] val_cnt;
-
 reg [10 : 0] current_out_symbol;
+reg PBCH_start;
+reg PBCH_valid;
+reg SSS_start;
+reg SSS_valid;
+reg symbol_start;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
-        PBCH_start_o <= '0;
-        SSS_start_o <= '0;
         out_cnt <= '0;
-        PBCH_start_f <= '0;
-        SSS_start_f <= '0;
-        SSS_valid_o <= '0;
-        PBCH_valid_o <= '0;
+        PBCH_start <= '0;
+        SSS_start <= '0;
+        SSS_valid <= '0;
+        PBCH_valid <= '0;
         state <= '0;
         current_out_symbol <= '0;
-        // val_cnt <= '0;
     end else begin
-        // if (fft_val) val_cnt <= val_cnt + 1;
-        // if (fft_val) $display("val = %d, val_cnt = %d, state = %d  SSS_start = %d", fft_val, val_cnt, state, SSS_start_o);
         if (state == 0) begin  // wait for start of SSB
             current_out_symbol <= '0;
             if (SSB_start_i) begin
@@ -105,18 +101,17 @@ always @(posedge clk_i) begin
                 current_out_symbol <= current_out_symbol + 1;
             end
         end
-        fft_sync_f <= fft_sync;
-        PBCH_start_o <= (state == 2) && (out_cnt == 0) &&  (current_out_symbol == 0);
-        PBCH_valid_o <=(state == 2) && (current_out_symbol == 0);
-        SSS_start_o <= ((state == 2) || (state == 1)) && (out_cnt == 0) && (current_out_symbol == 1);
-        SSS_valid_o <= (state == 2) && (current_out_symbol == 1);
-        symbol_start_o <= fft_sync_f;
+        PBCH_start <= (state == 2) && (out_cnt == 0) &&  (current_out_symbol == 0);
+        PBCH_valid <=(state == 2) && (current_out_symbol == 0);
+        SSS_start <= ((state == 2) || (state == 1)) && (out_cnt == 0) && (current_out_symbol == 1);
+        SSS_valid <= (state == 2) && (current_out_symbol == 1);
+        symbol_start <= (state == 2) && (out_cnt == 0);            
     end
 end
 
 wire [OUT_DW - 1 : 0] fft_result;
 wire [OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
-wire fft_sync;
+wire fft_sync = (state == 2) && (out_cnt == 0);
 wire fft_val;
 reg fft_val_f;
 
@@ -143,38 +138,109 @@ fft(
     .do_vl(fft_val)
 );
 
+
 if (CP_ADVANCE != CP_LEN) begin
-    reg [OUT_DW / 2 - 1 : 0] coeff;
+    localparam MULT_DELAY = 6;
+    reg [MULT_DELAY - 1: 0] PBCH_start_delay;
+    reg [MULT_DELAY - 1 : 0] PBCH_valid_delay;
+    reg [MULT_DELAY - 1 : 0] SSS_start_delay;
+    reg [MULT_DELAY - 1 : 0] SSS_valid_delay;
+
+    reg [OUT_DW - 1 : 0] coeff [0 : 2**NFFT - 1];
+    reg [NFFT - 1 : 0] coeff_idx;
+
+    reg [OUT_DW - 1 : 0] out_data_ff;
+    reg fft_val_ff;
+
+    initial begin
+        for (integer i = 0; i < 2**NFFT; i = i + 1) begin
+            coeff[i][OUT_DW / 2 - 1 : 0]      = $cos(2 * 3.14159 * i * (CP_LEN - CP_ADVANCE) / (2**NFFT)) * (2 ** (OUT_DW / 2 - 1) - 1);
+            coeff[i][OUT_DW - 1 : OUT_DW / 2] = $sin(2 * 3.14159 * i * (CP_LEN - CP_ADVANCE) / (2**NFFT)) * (2 ** (OUT_DW / 2 - 1) - 1);
+            $display("coeff[%d] = %x", i, coeff[i]);
+        end
+    end
+
 
     complex_multiplier #(
         .OPERAND_WIDTH_A(OUT_DW / 2),
         .OPERAND_WIDTH_B(OUT_DW / 2),
-        .OPERAND_WIDTH_OUT(OUT_DW / 2)
+        .OPERAND_WIDTH_OUT(OUT_DW / 2),
+        .STAGES(6),
+        .BLOCKING(0),
+        .GROWTH_BITS(-2)
     )
     complex_multiplier_i(
-        .s_axis_a_tdata({fft_result_im, fft_result_re}),
-        .s_axis_a_tvalid(fft_val),
-        .s_axis_b_tdata(coeff),
-        .s_axis_b_tvalid(fft_val),
+        .aclk(clk_i),
+        .aresetn(reset_ni),
+        .s_axis_a_tdata(out_data_ff),
+        .s_axis_a_tvalid(fft_val_ff),
+        .s_axis_b_tdata(coeff[coeff_idx]),
+        .s_axis_b_tvalid(fft_val_ff),
 
-        .m_axis_dout_tdata(),
-        .m_axis_dout_tvalid()
+        .m_axis_dout_tdata(m_axis_out_tdata),
+        .m_axis_dout_tvalid(m_axis_out_tvalid)
     );
 
     always @(posedge clk_i) begin
+        if (!reset_ni) begin
+            coeff_idx <= '0;
+            fft_val_f <= '0;
+            fft_val_ff <= '0;
+            out_data_f <= '0;
+            out_data_ff <= '0;
+            PBCH_start_delay <= '0;
+            PBCH_valid_delay <= '0;
+            SSS_start_delay <= '0;
+            SSS_valid_delay <= '0;
+            PBCH_start_o <= '0;
+            SSS_start_o <= '0;
+            SSS_valid_o <= '0;
+            PBCH_valid_o <= '0;
+        end else begin
+            fft_val_f <= fft_val;
+            fft_val_ff <= fft_val_f;
+            out_data_f <= {fft_result_im, fft_result_re};
+            out_data_ff <= out_data_f;
+            SSS_start_delay[0] <= SSS_start;
+            SSS_valid_delay[0] <= SSS_valid;
+            PBCH_start_delay[0] <= PBCH_start;
+            PBCH_valid_delay[0] <= PBCH_valid;
+            for (integer i = 0; i < (MULT_DELAY - 1); i = i + 1) begin
+                SSS_start_delay[i+1] <= SSS_start_delay[i];
+                SSS_valid_delay[i+1] <= SSS_valid_delay[i];
+                PBCH_start_delay[i+1] <= PBCH_start_delay[i];
+                PBCH_valid_delay[i+1] <= PBCH_valid_delay[i];
+            end
+            SSS_start_o <= SSS_start_delay[MULT_DELAY - 1];
+            SSS_valid_o <= SSS_valid_delay[MULT_DELAY - 1];
+            PBCH_start_o <= PBCH_start_delay[MULT_DELAY - 1];
+            PBCH_valid_o <= PBCH_valid_delay[MULT_DELAY - 1];
+
+            if (fft_sync) coeff_idx <= '0;
+            else coeff_idx <= coeff_idx + 1;
+        end
     end
 end else begin
+    // this comb block will eliminate some regs
+    // use of logic type would make this cleaner
+    always @(*) begin
+        SSS_start_o = SSS_start;
+        SSS_valid_o = SSS_valid;
+        PBCH_start_o = PBCH_start;
+        PBCH_valid_o = PBCH_valid;
+    end
+
     always @(posedge clk_i) begin
         if (!reset_ni) begin
             fft_val_f <= '0;
+            out_data_f <= '0;
             m_axis_out_tvalid <= '0;
             m_axis_out_tdata <= '0;
-            out_data_f <= '0;
         end else begin
             fft_val_f <= fft_val;
-            m_axis_out_tvalid <= fft_val_f;
             out_data_f <= {fft_result_im, fft_result_re};
-            m_axis_out_tdata <= out_data_f;        
+            m_axis_out_tvalid <= fft_val_f;
+            m_axis_out_tdata <= out_data_f;
         end
     end
 end
