@@ -37,6 +37,7 @@ class TB(object):
         self.PSS_LOCAL = int(dut.PSS_LOCAL.value)
         self.ALGO = int(dut.ALGO.value)
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
+        self.CP_ADVANCE = int(dut.CP_ADVANCE.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -264,7 +265,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("CFO", [0, 100])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO):
+@pytest.mark.parametrize("CP_ADVANCE", [18])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
     dut = 'Decimator_to_SSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -309,6 +311,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO):
     parameters['PSS_LEN'] = PSS_LEN
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
+    parameters['CP_ADVANCE'] = CP_ADVANCE
     os.environ['CFO'] = str(CFO)
 
     # imaginary part is in upper 16 Bit
@@ -344,4 +347,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=100)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=100, CP_ADVANCE = 18)
