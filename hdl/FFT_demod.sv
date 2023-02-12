@@ -71,11 +71,9 @@ end
 reg [10 : 0] current_out_symbol;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
-        m_axis_out_tdata <= '0;
         PBCH_start_o <= '0;
         SSS_start_o <= '0;
         out_cnt <= '0;
-        out_data_f <= '0;
         PBCH_start_f <= '0;
         SSS_start_f <= '0;
         SSS_valid_o <= '0;
@@ -107,8 +105,6 @@ always @(posedge clk_i) begin
                 current_out_symbol <= current_out_symbol + 1;
             end
         end
-        out_data_f <= {fft_result_im, fft_result_re};
-        m_axis_out_tdata <= out_data_f;
         fft_sync_f <= fft_sync;
         PBCH_start_o <= (state == 2) && (out_cnt == 0) &&  (current_out_symbol == 0);
         PBCH_valid_o <=(state == 2) && (current_out_symbol == 0);
@@ -123,15 +119,6 @@ wire [OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
 wire fft_sync;
 wire fft_val;
 reg fft_val_f;
-always @(posedge clk_i) begin
-    if (!reset_ni) begin
-        fft_val_f <= '0;
-        m_axis_out_tvalid <= '0;
-    end else begin
-        fft_val_f <= fft_val;
-        m_axis_out_tvalid <= fft_val_f;
-    end
-end
 
 wire fft_in_en = in_valid_f && (state2 == 2);
 
@@ -175,6 +162,20 @@ if (CP_ADVANCE != CP_LEN) begin
     );
 
     always @(posedge clk_i) begin
+    end
+end else begin
+    always @(posedge clk_i) begin
+        if (!reset_ni) begin
+            fft_val_f <= '0;
+            m_axis_out_tvalid <= '0;
+            m_axis_out_tdata <= '0;
+            out_data_f <= '0;
+        end else begin
+            fft_val_f <= fft_val;
+            m_axis_out_tvalid <= fft_val_f;
+            out_data_f <= {fft_result_im, fft_result_re};
+            m_axis_out_tdata <= out_data_f;        
+        end
     end
 end
 
