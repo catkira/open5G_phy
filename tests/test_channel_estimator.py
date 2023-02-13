@@ -41,38 +41,26 @@ async def simple_test(dut):
     tb = TB(dut)
     await tb.cycle_reset()
 
-    SSS_len = 127
     N_id_1 = int(os.environ['N_ID_1'])
     N_id_2 = int(os.environ['N_ID_2'])
-    print(f'test N_id_1 = {N_id_1}  N_id_2 = {N_id_2}')
-    SSS_seq = (py3gpp.nrSSS(3*N_id_1 + N_id_2) - 1) // 2
-    # SSS_seq = np.append(SSS_seq, 0)
+    print(f'test N_id_1 = {N_id_1}  N_id_2 = {N_id_2} -> N_id = {N_id_1 * 3 + N_id_2}')
 
     await RisingEdge(dut.clk_i)
-    dut.N_id_2_i.value = N_id_2
-    dut.N_id_2_valid_i.value = 1
+    dut.N_id_i.value = N_id_1 * 3 + N_id_2
+    dut.N_id_valid_i.value = 1
     await RisingEdge(dut.clk_i)
-    dut.N_id_2_valid_i.value = 0
+    dut.N_id_valid_i.value = 0
 
-    for i in range(SSS_len):
-        dut.s_axis_in_tvalid.value = 1
-        dut.s_axis_in_tdata.value = int(SSS_seq[i])
-        await RisingEdge(dut.clk_i)
-    dut.s_axis_in_tvalid.value = 0
-    await RisingEdge(dut.clk_i)
-
-    max_wait_cycles = 335 * SSS_len + 1000
+    max_wait_cycles = 2000
     cycle_counter = 0
+    PBCH_DMRS = []
     while cycle_counter < max_wait_cycles:
         await RisingEdge(dut.clk_i)
-        if dut.m_axis_out_tvalid == 1:
-            detected_N_id_1 = dut.m_axis_out_tdata.value.integer
-            print(f'detected_N_id_1 = {detected_N_id_1}')
-            break
+        if dut.debug_PBCH_DMRS_valid_o.value == 1:
+            PBCH_DMRS.append((dut.debug_PBCH_DMRS_o.value % 2) + 1j*((dut.debug_PBCH_DMRS_o.value >> 1) % 2))
+            print(f'PBCH_DMRS[{len(PBCH_DMRS)-1}] = {PBCH_DMRS[len(PBCH_DMRS)-1]}')
         cycle_counter += 1
     
-    assert detected_N_id_1 == N_id_1
-    # assert dut.m_axis_out_tdata.value == N_id_1
 
 @pytest.mark.parametrize("N_ID_1", [0, 335])
 @pytest.mark.parametrize("N_ID_2", [0, 1, 2])
@@ -84,7 +72,7 @@ def test(N_ID_1, N_ID_2):
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'LFSR/LFSR.sv'),
-        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.sv')
+        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
     ]
     includes = []
 
@@ -106,4 +94,4 @@ def test(N_ID_1, N_ID_2):
     )
 
 if __name__ == '__main__':
-    test(N_ID_1 = 335, N_ID_2 = 1)
+    test(N_ID_1 = 69, N_ID_2 = 1)

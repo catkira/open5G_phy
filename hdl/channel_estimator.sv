@@ -17,7 +17,11 @@ module channel_estimator #(
     input                                           PBCH_start_i,
 
     output  reg        [OUT_DW - 1 : 0]             m_axis_out_tdata,
-    output  reg                                     m_axis_out_tvalid    
+    output  reg                                     m_axis_out_tvalid,
+
+    // debug ports
+    output  reg        [1 : 0]                      debug_PBCH_DMRS_o,
+    output  reg                                     debug_PBCH_DMRS_valid_o
 );
 
 reg [$clog2(MAX_CELL_ID) - 1: 0] N_id, N_id_used;
@@ -25,11 +29,12 @@ reg [3 : 0] state_PBCH_DMRS;
 localparam PBCH_DMRS_LEN = 144;
 reg [2 : 0] PBCH_DMRS [0 : PBCH_DMRS_LEN - 1];
 reg [$clog2(2 * PBCH_DMRS_LEN) - 1 : 0] PBCH_DMRS_cnt;
+reg [2 : 0] ibar_SSB;
 
 localparam LFSR_N = 31;
 reg lfsr_out_0, lfsr_out_1;
 reg lfsr_valid;
-reg [LFSR_N - 1 : 9] c_init;
+reg [LFSR_N - 1 : 0] c_init;
 reg LFSR_reset_n;
 reg LFSR_load_config;
 
@@ -85,34 +90,50 @@ always @(posedge clk_i) begin
         PBCH_DMRS_cnt <= '0;
         LFSR_reset_n <= '0;
         LFSR_load_config <= '0;
+        debug_PBCH_DMRS_o <= '0;
+        debug_PBCH_DMRS_valid_o <= '0;
+        ibar_SSB <= 3'b010;
     end else begin
         case (state_PBCH_DMRS)
             0: begin
                 if (N_id_valid_i) begin
                     N_id_used <= N_id_i;
-                    state_PBCH_DMRS <= 1;
+                    ibar_SSB <= 3'b010;
+                    c_init <= (((ibar_SSB + 1) * ((N_id_i >> 2) + 1)) << 11) +  ((ibar_SSB + 1) + (N_id_i[1 : 0] % 4) << 6);
+                    $display("cinit = %x", c_init);
+                    state_PBCH_DMRS <= 2;
                     PBCH_DMRS_cnt <= '0;
-                    LFSR_reset_n <= 1;
+                    LFSR_reset_n <= '1;
                     LFSR_load_config <= 1;
-                    c_init <= 1; // TODO: calculate from N_id
                 end
             end
-            1: begin
-                LFSR_load_config <= '0;
-                state_PBCH_DMRS <= 2;
-            end
             2: begin
+                LFSR_load_config <= '0;
                 if (PBCH_DMRS_cnt == (2*PBCH_DMRS_LEN - 1)) begin
                     state_PBCH_DMRS <= 3;
                 end
                 PBCH_DMRS_cnt <= PBCH_DMRS_cnt + 1;
                 if (PBCH_DMRS_cnt[0] == 0) PBCH_DMRS[PBCH_DMRS_cnt >> 1][0] <= lfsr_out_0 ^ lfsr_out_1;
                 else                       PBCH_DMRS[PBCH_DMRS_cnt >> 1][1] <= lfsr_out_0 ^ lfsr_out_1;
+
+                if (PBCH_DMRS_cnt[0] == 0) debug_PBCH_DMRS_o[0] <= lfsr_out_0 ^ lfsr_out_1;
+                else                       debug_PBCH_DMRS_o[1] <= lfsr_out_0 ^ lfsr_out_1;
+                debug_PBCH_DMRS_valid_o <= PBCH_DMRS_cnt[0];
             end
             3: begin
+                debug_PBCH_DMRS_valid_o <= '0;
+                state_PBCH_DMRS <= '0;
+                LFSR_reset_n <= '0;
             end
         endcase
     end
 end
+
+`ifdef COCOTB_SIM
+initial begin
+  $dumpfile ("debug.vcd");
+  $dumpvars (0, channel_estimator);
+end
+`endif
 
 endmodule
