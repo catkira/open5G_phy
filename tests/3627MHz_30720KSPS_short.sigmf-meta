@@ -1,0 +1,26 @@
+{
+  "annotations": [],
+  "captures": [
+    {
+      "core:datetime": "2022-10-21T11:53:44.729Z",
+      "core:frequency": 3627000000.0,
+      "core:length": 30702000,
+      "sdrangel:sample_rate": 30720000,
+      "sdrangel:tsms": 1666353224729
+    }
+  ],
+  "global": {
+    "core:author": "SDRangel",
+    "core:datatype": "ci32_le",
+    "core:description": "SDRangel SigMF I/Q recording file",
+    "core:hw": "BladeRF2",
+    "core:recorder": "SDRangel",
+    "core:sample_rate": 30720000.0,
+    "core:version": "0.0.2",
+    "sdrangel:arch": "x86_64",
+    "sdrangel:os": "Ubuntu 22.04.1 LTS",
+    "sdrangel:qt_version": "5.15.3",
+    "sdrangel:rx_bits": 24,
+    "sdrangel:version": "7.8.0-46-g5b27a50cf"
+  }
+}
