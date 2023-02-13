@@ -43,22 +43,26 @@ async def simple_test(dut):
 
     N_id_1 = int(os.environ['N_ID_1'])
     N_id_2 = int(os.environ['N_ID_2'])
-    print(f'test N_id_1 = {N_id_1}  N_id_2 = {N_id_2} -> N_id = {N_id_1 * 3 + N_id_2}')
+    N_id = N_id_1 * 3 + N_id_2
+    print(f'test N_id_1 = {N_id_1}  N_id_2 = {N_id_2} -> N_id = {N_id}')
 
     await RisingEdge(dut.clk_i)
-    dut.N_id_i.value = N_id_1 * 3 + N_id_2
+    dut.N_id_i.value = N_id
     dut.N_id_valid_i.value = 1
     await RisingEdge(dut.clk_i)
     dut.N_id_valid_i.value = 0
 
-    max_wait_cycles = 2000
+    max_wait_cycles = 3000
     cycle_counter = 0
     PBCH_DMRS = []
+    ibar_SSB = 2
+    PBCH_DMRS_model = py3gpp.nrPBCHDMRS(N_id, ibar_SSB)*np.sqrt(2)
     while cycle_counter < max_wait_cycles:
         await RisingEdge(dut.clk_i)
         if dut.debug_PBCH_DMRS_valid_o.value == 1:
-            PBCH_DMRS.append((dut.debug_PBCH_DMRS_o.value % 2) + 1j*((dut.debug_PBCH_DMRS_o.value >> 1) % 2))
-            print(f'PBCH_DMRS[{len(PBCH_DMRS)-1}] = {PBCH_DMRS[len(PBCH_DMRS)-1]}')
+            PBCH_DMRS.append((1-2*(dut.debug_PBCH_DMRS_o.value % 2)) + 1j*(1-2*((dut.debug_PBCH_DMRS_o.value >> 1) % 2)))
+            print(f'PBCH_DMRS[{len(PBCH_DMRS)-1}] = {PBCH_DMRS[len(PBCH_DMRS)-1]}  <->  {PBCH_DMRS_model[len(PBCH_DMRS)-1]}')
+            assert PBCH_DMRS[len(PBCH_DMRS)-1] == PBCH_DMRS_model[len(PBCH_DMRS)-1]
         cycle_counter += 1
     
 

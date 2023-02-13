@@ -28,7 +28,7 @@ reg [$clog2(MAX_CELL_ID) - 1: 0] N_id, N_id_used;
 reg [3 : 0] state_PBCH_DMRS;
 localparam PBCH_DMRS_LEN = 144;
 reg [2 : 0] PBCH_DMRS [0 : PBCH_DMRS_LEN - 1];
-reg [$clog2(2 * PBCH_DMRS_LEN) - 1 : 0] PBCH_DMRS_cnt;
+reg [$clog2(1600) : 0] PBCH_DMRS_cnt;
 reg [2 : 0] ibar_SSB;
 
 localparam LFSR_N = 31;
@@ -42,18 +42,21 @@ LFSR #(
     .N(LFSR_N),
     .TAPS('h11),
     .START_VALUE(1),
-    .VARIABLE_CONFIG(0)
+    .VARIABLE_CONFIG(1)
 )
 lfsr_0
 (
     .clk_i(clk_i),
     .reset_ni(LFSR_reset_n),
+    .load_config_i(LFSR_load_config),
+    .taps_i('b1001),
+    .start_value_i(1),
     .data_o(lfsr_out_0),
     .valid_o(lfsr_valid)
 );
 LFSR #(
     .N(LFSR_N),
-    .TAPS('h17),
+    .TAPS('b1001),
     .START_VALUE(1),
     .VARIABLE_CONFIG(1)
 )
@@ -62,7 +65,7 @@ lfsr_1
     .clk_i(clk_i),
     .reset_ni(LFSR_reset_n),
     .load_config_i(LFSR_load_config),
-    .taps_i('h17),
+    .taps_i('b1111),
     .start_value_i(c_init),
     .data_o(lfsr_out_1)
 );
@@ -92,32 +95,40 @@ always @(posedge clk_i) begin
         LFSR_load_config <= '0;
         debug_PBCH_DMRS_o <= '0;
         debug_PBCH_DMRS_valid_o <= '0;
-        ibar_SSB <= 3'b010;
+        ibar_SSB <= 3'b010; // TODO: make this variable
     end else begin
         case (state_PBCH_DMRS)
             0: begin
                 if (N_id_valid_i) begin
                     N_id_used <= N_id_i;
                     ibar_SSB <= 3'b010;
-                    c_init <= (((ibar_SSB + 1) * ((N_id_i >> 2) + 1)) << 11) +  ((ibar_SSB + 1) + (N_id_i[1 : 0] % 4) << 6);
+                    c_init = (((ibar_SSB + 1) * ((N_id_i >> 2) + 1)) << 11) +  ((ibar_SSB + 1) << 6) + (N_id_i[1 : 0] % 4);
                     $display("cinit = %x", c_init);
-                    state_PBCH_DMRS <= 2;
+                    state_PBCH_DMRS <= 1;
                     PBCH_DMRS_cnt <= '0;
                     LFSR_reset_n <= '1;
                     LFSR_load_config <= 1;
                 end
             end
-            2: begin
+            1: begin
                 LFSR_load_config <= '0;
+                if (PBCH_DMRS_cnt == 1601) begin
+                    PBCH_DMRS_cnt <= '0;
+                    state_PBCH_DMRS <= 2;
+                end else begin
+                    PBCH_DMRS_cnt <= PBCH_DMRS_cnt + 1;
+                end
+            end
+            2: begin
                 if (PBCH_DMRS_cnt == (2*PBCH_DMRS_LEN - 1)) begin
                     state_PBCH_DMRS <= 3;
                 end
                 PBCH_DMRS_cnt <= PBCH_DMRS_cnt + 1;
-                if (PBCH_DMRS_cnt[0] == 0) PBCH_DMRS[PBCH_DMRS_cnt >> 1][0] <= lfsr_out_0 ^ lfsr_out_1;
-                else                       PBCH_DMRS[PBCH_DMRS_cnt >> 1][1] <= lfsr_out_0 ^ lfsr_out_1;
+                if (PBCH_DMRS_cnt[0] == 0) PBCH_DMRS[PBCH_DMRS_cnt >> 1][0] <= (lfsr_out_0 ^ lfsr_out_1);
+                else                       PBCH_DMRS[PBCH_DMRS_cnt >> 1][1] <= (lfsr_out_0 ^ lfsr_out_1);
 
-                if (PBCH_DMRS_cnt[0] == 0) debug_PBCH_DMRS_o[0] <= lfsr_out_0 ^ lfsr_out_1;
-                else                       debug_PBCH_DMRS_o[1] <= lfsr_out_0 ^ lfsr_out_1;
+                if (PBCH_DMRS_cnt[0] == 0) debug_PBCH_DMRS_o[0] <= (lfsr_out_0 ^ lfsr_out_1);
+                else                       debug_PBCH_DMRS_o[1] <= (lfsr_out_0 ^ lfsr_out_1);
                 debug_PBCH_DMRS_valid_o <= PBCH_DMRS_cnt[0];
             end
             3: begin
