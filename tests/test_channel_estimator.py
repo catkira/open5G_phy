@@ -86,15 +86,12 @@ async def simple_test2(dut):
 
     handle = sigmf.sigmffile.fromfile(tests_dir + '/30720KSPS_dl_signal.sigmf-data')
     waveform = handle.read_samples()
-    # waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform = scipy.signal.decimate(waveform, 16//2, ftype='fir')  # decimate to 3.840 MSPS
-    # waveform /= max(waveform.real.max(), waveform.imag.max())
-    # waveform *= (2 ** (tb.IN_DW // 2 - 1) - 1)
-    # waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
+    waveform = scipy.signal.decimate(waveform, 8, ftype='fir')  # decimate to 3.840 MSPS
+
     CP_LEN = 18
     FFT_LEN = 256
-    START_POS = 842  # ibar_SSB is 0 for this SSB
-    ibar_SSB = 2
+    ibar_SSB = int(os.environ['ibar_SSB'])
+    START_POS = 842 + int(3.84e6 * 0.001 * int(ibar_SSB / 2)) + 1646 * (ibar_SSB % 2)   # this hack works for ibar_SSB = 0 .. 3
     PBCH = np.fft.fftshift(np.fft.fft(waveform[START_POS:][:FFT_LEN]))
     PBCH = np.append(PBCH, np.fft.fftshift(np.fft.fft(waveform[START_POS + CP_LEN + FFT_LEN:][:FFT_LEN])))
     PBCH = np.append(PBCH, np.fft.fftshift(np.fft.fft(waveform[START_POS + 2 * (CP_LEN + FFT_LEN):][:FFT_LEN])))
@@ -108,15 +105,9 @@ async def simple_test2(dut):
 
     max_wait_cycles = 15000
     cycle_counter = 0
-    PBCH_DMRS = []
-    PBCH_DMRS_model = py3gpp.nrPBCHDMRS(N_id, ibar_SSB)*np.sqrt(2)
     PBCH_cnt = 0
     while cycle_counter < max_wait_cycles:
         await RisingEdge(dut.clk_i)
-        if dut.debug_PBCH_DMRS_valid_o.value == 1:
-            PBCH_DMRS.append(1j*(1-2*(dut.debug_PBCH_DMRS_o.value % 2)) + (1-2*((dut.debug_PBCH_DMRS_o.value >> 1) % 2)))
-            # print(f'PBCH_DMRS[{len(PBCH_DMRS)-1}] = {PBCH_DMRS[len(PBCH_DMRS)-1]}  <->  {PBCH_DMRS_model[len(PBCH_DMRS)-1]}')
-            assert PBCH_DMRS[len(PBCH_DMRS)-1] == PBCH_DMRS_model[len(PBCH_DMRS)-1]
 
         if cycle_counter > 2000 and PBCH_cnt < 256*3:
             data = (((int(PBCH[PBCH_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
@@ -131,7 +122,7 @@ async def simple_test2(dut):
         if dut.debug_ibar_SSB_valid_o.value == 1:
             ibar_SSB_det = dut.debug_ibar_SSB_o.value.integer
             print(f'detected ibar_SSB = {ibar_SSB_det}')
-            assert ibar_SSB_det == 0
+            assert ibar_SSB_det == ibar_SSB
         cycle_counter += 1
 
 @pytest.mark.parametrize("N_ID_1", [0, 335])
@@ -166,7 +157,8 @@ def test_PBCH_DMRS_gen(N_ID_1, N_ID_2):
     )
 
 @pytest.mark.parametrize("IN_DW", [32])
-def test_PBCH_ibar_SSB_det(IN_DW):
+@pytest.mark.parametrize("ibar_SSB", [0, 1, 2, 3])
+def test_PBCH_ibar_SSB_det(IN_DW, ibar_SSB):
     dut = 'channel_estimator'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -177,11 +169,13 @@ def test_PBCH_ibar_SSB_det(IN_DW):
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
     ]
     includes = []
-
+    os.environ['ibar_SSB'] = str(ibar_SSB)
     parameters = {}
     parameters['IN_DW'] = IN_DW
+    parameters_dirname = parameters.copy()
+    parameters_dirname['ibar_SSB'] = str(ibar_SSB)
 
-    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters.items()))
+    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
@@ -196,4 +190,4 @@ def test_PBCH_ibar_SSB_det(IN_DW):
 
 if __name__ == '__main__':
     # test_PBCH_DMRS_gen(N_ID_1 = 69, N_ID_2 = 2)
-    test_PBCH_ibar_SSB_det(IN_DW = 32)
+    test_PBCH_ibar_SSB_det(IN_DW = 32, ibar_SSB = 3)
