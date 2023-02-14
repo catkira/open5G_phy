@@ -102,7 +102,6 @@ async def simple_test2(dut):
     PBCH /= max(PBCH.real.max(), PBCH.imag.max())
     PBCH *= (2 ** (tb.IN_DW // 2 - 1) - 1)
     PBCH = PBCH.real.astype(int) + 1j*PBCH.imag.astype(int)
-    print(PBCH[0:12])
 
     # plt.plot(PBCH[8:248].real, PBCH[8:248].imag, '.r')
     # plt.show()
@@ -128,6 +127,11 @@ async def simple_test2(dut):
             PBCH_cnt += 1
         else:
             dut.s_axis_in_tvalid.value = 0
+
+        if dut.debug_ibar_SSB_valid_o.value == 1:
+            ibar_SSB_det = dut.debug_ibar_SSB_o.value.integer
+            print(f'detected ibar_SSB = {ibar_SSB_det}')
+            assert ibar_SSB_det == 0
         cycle_counter += 1
 
 @pytest.mark.parametrize("N_ID_1", [0, 335])
