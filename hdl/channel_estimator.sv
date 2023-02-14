@@ -27,7 +27,7 @@ module channel_estimator #(
 reg [$clog2(MAX_CELL_ID) - 1: 0] N_id, N_id_used;
 reg [3 : 0] state_PBCH_DMRS;
 localparam PBCH_DMRS_LEN = 144;
-reg [2 : 0] PBCH_DMRS [0 : PBCH_DMRS_LEN - 1][0 : 7];
+reg [1 : 0] PBCH_DMRS [0 : 7][0 : PBCH_DMRS_LEN - 1];
 reg [$clog2(1600) : 0] PBCH_DMRS_cnt;
 reg PBCH_DMRS_ready;
 
@@ -79,28 +79,38 @@ for (ii = 0; ii < 8; ii = ii + 1) begin : LFSR_1
 
     always @(posedge clk_i) begin
         if (!reset_ni) begin
+            for (integer i = 0; i < 1600; i = i + 1) begin
+                PBCH_DMRS[ii][i] = '0;
+            end
         end else begin
             if (N_id_valid_i) begin
                 N_id_used <= N_id_i;
                 c_init = (((ibar_SSB + 1) * ((N_id_i >> 2) + 1)) << 11) +  ((ibar_SSB + 1) << 6) + (N_id_i[1 : 0] % 4);
                 $display("cinit = %x", c_init);
             end
-            if (state_PBCH_DMRS == 2) begin
-                if (PBCH_DMRS_cnt[0] == 0) PBCH_DMRS[ii][PBCH_DMRS_cnt >> 1][0] <= (lfsr_out_0 ^ out);
-                else                       PBCH_DMRS[ii][PBCH_DMRS_cnt >> 1][1] <= (lfsr_out_0 ^ out);                  
+            if (state_PBCH_DMRS == 3) begin
+                if (PBCH_DMRS_cnt[0] == 0) PBCH_DMRS[ii][PBCH_DMRS_cnt >> 1][1] <= (lfsr_out_0 ^ out);
+                else                       PBCH_DMRS[ii][PBCH_DMRS_cnt >> 1][0] <= (lfsr_out_0 ^ out);
+
+                // if ((ii == 1) && !PBCH_DMRS_cnt[0] && (PBCH_DMRS_cnt > 1)) begin
+                //     $display("dmrs[%d] = %b", (PBCH_DMRS_cnt >> 1) - 1,  PBCH_DMRS[ii][(PBCH_DMRS_cnt >> 1) - 1]);
+                // end
             end
         end
     end
 end
 
+reg [1 : 0] PBCH_DMRS_start_idx;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         m_axis_out_tdata <= '0;
         m_axis_out_tvalid <= '0;
         N_id <= '0;
+        PBCH_DMRS_start_idx <= '0;
     end else begin
         if (N_id_valid_i)  begin
             N_id <= N_id_i;
+            PBCH_DMRS_start_idx <= N_id_i[1 : 0];
         end
     end
 end
@@ -158,8 +168,8 @@ always @(posedge clk_i) begin
                     end
                     PBCH_DMRS_cnt <= PBCH_DMRS_cnt + 1;
 
-                    if (PBCH_DMRS_cnt[0] == 0) debug_PBCH_DMRS_o[0] <= (lfsr_out_0 ^ LFSR_1[2].out);
-                    else                       debug_PBCH_DMRS_o[1] <= (lfsr_out_0 ^ LFSR_1[2].out);
+                    if (PBCH_DMRS_cnt[0] == 0) debug_PBCH_DMRS_o[1] <= (lfsr_out_0 ^ LFSR_1[2].out);
+                    else                       debug_PBCH_DMRS_o[0] <= (lfsr_out_0 ^ LFSR_1[2].out);
                     debug_PBCH_DMRS_valid_o <= PBCH_DMRS_cnt[0];
                 end
             end
@@ -176,23 +186,80 @@ always @(posedge clk_i) begin
 end
 
 reg [3 : 0] state_det_ibar;
+reg [2 : 0] PBCH_sym_idx;
+reg [$clog2(256) : 0] PBCH_SC_idx;
+reg [$clog2(256) : 0] PBCH_SC_used_idx;
+wire [$clog2(256) : 0] PBCH_SC_idx_plus_start = PBCH_SC_used_idx - PBCH_DMRS_start_idx;
+reg [$clog2(64) : 0] PBCH_DMRS_idx;
+wire signed [IN_DW / 2 - 1 : 0] in_re, in_im;
+assign in_re = s_axis_in_tdata[IN_DW / 2 - 1 : 0];
+assign in_im = s_axis_in_tdata[IN_DW - 1 : IN_DW / 2];
+
+wire [1 : 0] in_demod;
+assign in_demod = {data_in[IN_DW / 2 - 1], data_in[IN_DW - 1]};
+reg [IN_DW - 1 : 0] data_in;
+always @(posedge clk_i) data_in <= s_axis_in_tdata;
+reg valid_in;
+always @(posedge clk_i) valid_in <= s_axis_in_tvalid;
 
 // detect ibar_SSB
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         state_det_ibar <= '0;
+        PBCH_sym_idx <= '0;
+        PBCH_SC_idx <= '0;
+        PBCH_SC_used_idx <= '0;
+        PBCH_DMRS_idx <= 0;
     end else begin
+        if (s_axis_in_tvalid) $display("rx %d + j%d -> %b", in_re, in_im, {s_axis_in_tdata[IN_DW/2-1], s_axis_in_tdata[IN_DW-1]});
+
         case (state_det_ibar)
             0: begin
                 if (PBCH_start_i) begin
                     state_det_ibar <= 1;
+                    PBCH_sym_idx <= '0;
+                    PBCH_SC_idx <= '0;
+                    PBCH_SC_used_idx <= '0;
+                    PBCH_DMRS_idx <= '0;
                 end
             end
             1: begin // compare 1st PBCH symbol
+                if (PBCH_SC_idx == 255) begin
+                    if (PBCH_sym_idx == 0) begin
+                        state_det_ibar <= 2;
+                        PBCH_sym_idx <= PBCH_sym_idx + 1;
+                        PBCH_SC_used_idx <= '0;
+                        PBCH_DMRS_idx <= '0;
+                    end else begin
+                        state_det_ibar <= 0;
+                    end
+                end else if ((PBCH_SC_idx > 7) && (PBCH_SC_idx < (256-8))) begin
+                    if (valid_in) begin
+                        // $display("rx 0/2 %d + j%d -> %b", in_re, in_im, in_demod);
+                        if (PBCH_SC_idx_plus_start[1 : 0] == 0) begin
+                            $display("compare [%d] %b to %b, %b, %b, %b, %b, %b, %b, %b", PBCH_DMRS_idx, in_demod, 
+                                PBCH_DMRS[0][PBCH_DMRS_idx], PBCH_DMRS[1][PBCH_DMRS_idx], PBCH_DMRS[2][PBCH_DMRS_idx], PBCH_DMRS[3][PBCH_DMRS_idx],
+                                PBCH_DMRS[4][PBCH_DMRS_idx], PBCH_DMRS[5][PBCH_DMRS_idx], PBCH_DMRS[6][PBCH_DMRS_idx], PBCH_DMRS[7][PBCH_DMRS_idx]);
+                            PBCH_DMRS_idx <= PBCH_DMRS_idx + 1;
+                        end
+                        PBCH_SC_used_idx <= PBCH_SC_used_idx + 1;
+                    end
+                    // compare with PBCH DMRS
+                end
+                if (valid_in) PBCH_SC_idx <= PBCH_SC_idx + 1;
             end
             2: begin // compare 2nd PBCH symbol
-            end
-            3: begin // compare 3rd PBCH symbol
+                if (PBCH_SC_idx == 255) begin
+                    state_det_ibar <= 2;
+                    PBCH_sym_idx <= PBCH_sym_idx + 1;
+                end else if (((PBCH_SC_idx > 8) && (PBCH_SC_idx < (256-8))) 
+                    || ((PBCH_SC_idx > 8) && (PBCH_SC_idx < (256-8)))) begin
+                    // compare with PBCH DMRS
+                    if (valid_in) begin
+                        // $display("rx 1 %d + j%d -> %b", in_re, in_im, in_demod);
+                    end
+                end
+                PBCH_SC_idx <= PBCH_SC_idx + 1;            
             end
         endcase
     end
