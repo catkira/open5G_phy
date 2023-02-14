@@ -27,8 +27,9 @@ module channel_estimator #(
 reg [$clog2(MAX_CELL_ID) - 1: 0] N_id, N_id_used;
 reg [3 : 0] state_PBCH_DMRS;
 localparam PBCH_DMRS_LEN = 144;
-reg [2 : 0] PBCH_DMRS [0 : PBCH_DMRS_LEN - 1];
+reg [2 : 0] PBCH_DMRS [0 : PBCH_DMRS_LEN - 1][0 : 7];
 reg [$clog2(1600) : 0] PBCH_DMRS_cnt;
+reg PBCH_DMRS_ready;
 
 localparam LFSR_N = 31;
 reg lfsr_out_0, lfsr_out_1;
@@ -83,12 +84,14 @@ for (ii = 0; ii < 8; ii = ii + 1) begin : LFSR_1
                 N_id_used <= N_id_i;
                 c_init = (((ibar_SSB + 1) * ((N_id_i >> 2) + 1)) << 11) +  ((ibar_SSB + 1) << 6) + (N_id_i[1 : 0] % 4);
                 $display("cinit = %x", c_init);
-            end            
+            end
+            if (state_PBCH_DMRS == 2) begin
+                if (PBCH_DMRS_cnt[0] == 0) PBCH_DMRS[ii][PBCH_DMRS_cnt >> 1][0] <= (lfsr_out_0 ^ out);
+                else                       PBCH_DMRS[ii][PBCH_DMRS_cnt >> 1][1] <= (lfsr_out_0 ^ out);                  
+            end
         end
     end
 end
-
-
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -102,54 +105,94 @@ always @(posedge clk_i) begin
     end
 end
 
-
 // this process updates the PBCH_DMRS after a new N_id was set
+// the process immediately restarts if an N_id update happens while generating a PBCH DMRS
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         state_PBCH_DMRS <= '0;
         for (integer i = 0; i < PBCH_DMRS_LEN; i = i + 1) begin
-            PBCH_DMRS[i] <= '0;
+            for (integer i2 = 0; i2 < 8; i2 = i2 + 1)  PBCH_DMRS[i2][i] <= '0;
         end
         PBCH_DMRS_cnt <= '0;
         LFSR_reset_n <= '0;
         LFSR_load_config <= '0;
         debug_PBCH_DMRS_o <= '0;
         debug_PBCH_DMRS_valid_o <= '0;
+        PBCH_DMRS_ready <= '0;
     end else begin
         case (state_PBCH_DMRS)
             0: begin
-                if (N_id_valid_i) begin
+                if (N_id_valid_i) state_PBCH_DMRS <= 1;
+            end
+            1: begin
+                if (N_id_valid_i) state_PBCH_DMRS <= 1;
+                else begin
                     state_PBCH_DMRS <= 1;
                     PBCH_DMRS_cnt <= '0;
                     LFSR_reset_n <= '1;
                     LFSR_load_config <= 1;
-                end
-            end
-            1: begin
-                LFSR_load_config <= '0;
-                if (PBCH_DMRS_cnt == 1601) begin
-                    PBCH_DMRS_cnt <= '0;
+                    PBCH_DMRS_ready <= '0;
                     state_PBCH_DMRS <= 2;
-                end else begin
-                    PBCH_DMRS_cnt <= PBCH_DMRS_cnt + 1;
                 end
             end
             2: begin
-                if (PBCH_DMRS_cnt == (2*PBCH_DMRS_LEN - 1)) begin
-                    state_PBCH_DMRS <= 3;
+                if (N_id_valid_i) state_PBCH_DMRS <= 1;
+                else begin 
+                    LFSR_load_config <= '0;
+                    if (PBCH_DMRS_cnt == 1601) begin
+                        PBCH_DMRS_cnt <= '0;
+                        state_PBCH_DMRS <= 3;
+                    end else begin
+                        PBCH_DMRS_cnt <= PBCH_DMRS_cnt + 1;
+                    end
                 end
-                PBCH_DMRS_cnt <= PBCH_DMRS_cnt + 1;
-                if (PBCH_DMRS_cnt[0] == 0) PBCH_DMRS[PBCH_DMRS_cnt >> 1][0] <= (lfsr_out_0 ^ LFSR_1[2].out);
-                else                       PBCH_DMRS[PBCH_DMRS_cnt >> 1][1] <= (lfsr_out_0 ^ LFSR_1[2].out);
-
-                if (PBCH_DMRS_cnt[0] == 0) debug_PBCH_DMRS_o[0] <= (lfsr_out_0 ^ LFSR_1[2].out);
-                else                       debug_PBCH_DMRS_o[1] <= (lfsr_out_0 ^ LFSR_1[2].out);
-                debug_PBCH_DMRS_valid_o <= PBCH_DMRS_cnt[0];
             end
             3: begin
-                debug_PBCH_DMRS_valid_o <= '0;
-                state_PBCH_DMRS <= '0;
-                LFSR_reset_n <= '0;
+                if (N_id_valid_i) state_PBCH_DMRS <= 1;
+                else begin
+                    // PBCH_DMRS can be used for channel estimation starting from now
+                    // assuming that the usage starts at the lowest index
+                    PBCH_DMRS_ready <= 1;
+                    if (PBCH_DMRS_cnt == (2*PBCH_DMRS_LEN - 1)) begin
+                        state_PBCH_DMRS <= 4;
+                    end
+                    PBCH_DMRS_cnt <= PBCH_DMRS_cnt + 1;
+
+                    if (PBCH_DMRS_cnt[0] == 0) debug_PBCH_DMRS_o[0] <= (lfsr_out_0 ^ LFSR_1[2].out);
+                    else                       debug_PBCH_DMRS_o[1] <= (lfsr_out_0 ^ LFSR_1[2].out);
+                    debug_PBCH_DMRS_valid_o <= PBCH_DMRS_cnt[0];
+                end
+            end
+            4: begin
+                if (N_id_valid_i) state_PBCH_DMRS <= 1;
+                else begin
+                    debug_PBCH_DMRS_valid_o <= '0;
+                    state_PBCH_DMRS <= '0;
+                    LFSR_reset_n <= '0;
+                end
+            end
+        endcase
+    end
+end
+
+reg [3 : 0] state_det_ibar;
+
+// detect ibar_SSB
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        state_det_ibar <= '0;
+    end else begin
+        case (state_det_ibar)
+            0: begin
+                if (PBCH_start_i) begin
+                    state_det_ibar <= 1;
+                end
+            end
+            1: begin // compare 1st PBCH symbol
+            end
+            2: begin // compare 2nd PBCH symbol
+            end
+            3: begin // compare 3rd PBCH symbol
             end
         endcase
     end
