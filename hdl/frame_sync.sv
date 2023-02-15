@@ -41,6 +41,16 @@ reg [$clog2(SYMS_BTWN_SSB) - 1 : 0] syms_to_next_SSB;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
+        m_axis_out_tdata <= '0;
+        m_axis_out_tvalid <= '0;
+    end else begin
+        m_axis_out_tdata <= s_axis_in_tdata;
+        m_axis_out_tvalid <= s_axis_in_tvalid;
+    end
+end
+
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
         sfn <= '0;
         sym_cnt = '0;
         SC_cnt <= '0;
@@ -168,11 +178,11 @@ always @(posedge clk_i) begin
     end
 end
 
-`ifdef COCOTB_SIM
-initial begin
-  $dumpfile ("debug.vcd");
-  $dumpvars (0, frame_sync);
-end
-`endif
+// `ifdef COCOTB_SIM
+// initial begin
+//   $dumpfile ("debug.vcd");
+//   $dumpvars (0, frame_sync);
+// end
+// `endif
 
 endmodule

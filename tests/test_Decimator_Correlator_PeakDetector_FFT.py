@@ -175,7 +175,7 @@ async def simple_test(dut):
         print(f'SSS[{i}] = {int(received_SSS[i].real > 0)}')
 
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
-    ideal_SSS_sym *= np.exp(1j * 2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE))
+    ideal_SSS_sym *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP_LEN - CP_ADVANCE)))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         ax = plt.subplot(4, 2, 1)
@@ -203,7 +203,7 @@ async def simple_test(dut):
 
     received_PBCH= received_PBCH[9:][:FFT_SIZE-8*2 - 1]
     received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_SIZE]))
-    received_PBCH_ideal *= np.exp(1j * 2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE))
+    received_PBCH_ideal *= np.exp(1j * ( 2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP_LEN - CP_ADVANCE)))
     received_PBCH_ideal = received_PBCH_ideal[8:][:FFT_SIZE-8*2]
     received_PBCH_ideal = (received_PBCH_ideal.real.astype(int) + 1j * received_PBCH_ideal.imag.astype(int))
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
@@ -331,4 +331,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CP_ADVANCE = 18)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CP_ADVANCE = 9)

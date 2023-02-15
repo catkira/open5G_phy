@@ -153,10 +153,17 @@ if (CP_ADVANCE != CP_LEN) begin
     reg fft_val_ff;
 
     initial begin
+        real PI = 3.1415926535;
+        real angle_step = 2 * PI * $itor((CP_LEN - CP_ADVANCE)) / $itor((2**NFFT));
+        real angle_acc = 0;
+        // if real variables are declared inside the for loop, bugs appear, fking shit
         for (integer i = 0; i < 2**NFFT; i = i + 1) begin
-            coeff[i][OUT_DW / 2 - 1 : 0]      = $cos(2 * 3.14159 * i * (CP_LEN - CP_ADVANCE) / (2**NFFT)) * (2 ** (OUT_DW / 2 - 1) - 1);
-            coeff[i][OUT_DW - 1 : OUT_DW / 2] = $sin(2 * 3.14159 * i * (CP_LEN - CP_ADVANCE) / (2**NFFT)) * (2 ** (OUT_DW / 2 - 1) - 1);
-            $display("coeff[%d] = %x", i, coeff[i]);
+            coeff[i][OUT_DW / 2 - 1 : 0]      = $cos(angle_acc + PI * (CP_LEN - CP_ADVANCE)) * (2 ** (OUT_DW / 2 - 1) - 1);
+            coeff[i][OUT_DW - 1 : OUT_DW / 2] = $sin(angle_acc + PI * (CP_LEN - CP_ADVANCE)) * (2 ** (OUT_DW / 2 - 1) - 1);
+            // $display("coeff[%d] = %x,  angle = %f", i, coeff[i], angle_acc);
+
+            angle_acc = angle_acc + angle_step;
+            // if (angle_acc > PI) angle_acc = angle_acc - 2*PI; 
         end
     end
 

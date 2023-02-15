@@ -147,8 +147,9 @@ async def simple_test(dut):
         if dut.fft_demod_SSS_start_o == 1:
             print(f'{rx_counter}: SSS start')
 
-        if dut.m_axis_SSS_tdata.value.integer == 1:
-            print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
+        if dut.m_axis_SSS_tvalid.value.integer == 1:
+            detected_N_id = dut.N_id_o.value.integer
+            detected_N_id_1 = dut.m_axis_SSS_tdata.value.integer
 
         if dut.PBCH_valid_o.value.integer == 1:
             # print(f"rx PBCH[{len(received_PBCH):3d}] re = {dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1):4x} " \
@@ -178,7 +179,7 @@ async def simple_test(dut):
     received_SSS = received_SSS_sym[SSS_START:][:SSS_LEN]
 
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
-    ideal_SSS_sym *= np.exp(1j * 2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE))
+    ideal_SSS_sym *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) +  np.pi * (CP_LEN - CP_ADVANCE)))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         ax = plt.subplot(4, 2, 1)
@@ -206,7 +207,7 @@ async def simple_test(dut):
 
     received_PBCH= received_PBCH[9:][:FFT_SIZE-8*2 - 1]
     received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_SIZE]))
-    received_PBCH_ideal *= np.exp(1j * 2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE))
+    received_PBCH_ideal *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) +  np.pi * (CP_LEN - CP_ADVANCE)))
     received_PBCH_ideal = received_PBCH_ideal[8:][:FFT_SIZE-8*2]
     received_PBCH_ideal = (received_PBCH_ideal.real.astype(int) + 1j * received_PBCH_ideal.imag.astype(int))
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
@@ -242,6 +243,12 @@ async def simple_test(dut):
 
     # assert np.array_equal(received_PBCH, received_PBCH_ideal)  # TODO: make this pass
     assert peak_pos == 840
+
+    print(f'detected N_id_1 = {detected_N_id_1}')
+    print(f'detected N_id = {detected_N_id}')
+    assert detected_N_id == 209
+    assert detected_N_id_1 == 69
+
     corr = np.zeros(335)
     for i in range(335):
         sss = py3gpp.nrSSS(i)
@@ -339,4 +346,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=100, CP_ADVANCE = 9)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, CP_ADVANCE = 9)

@@ -12,7 +12,8 @@ module Decimator_to_SSS_detector
     parameter CP_ADVANCE = 9,
     localparam FFT_OUT_DW = 32,
     localparam N_id_1_MAX = 335,
-    localparam detected_N_id_2 = 2
+    localparam detected_N_id_2 = 2,
+    localparam N_id_MAX = 1007
 )
 (
     input                                           clk_i,
@@ -26,6 +27,7 @@ module Decimator_to_SSS_detector
     output                                          m_axis_out_tvalid,
     output          [$clog2(N_id_1_MAX) - 1 : 0]    m_axis_SSS_tdata,
     output                                          m_axis_SSS_tvalid,
+    output          [$clog2(N_id_MAX) - 1 : 0]      N_id_o,
     
     // debug outputs
     output  wire    [IN_DW-1:0]                     m_axis_cic_debug_tdata,
@@ -205,7 +207,7 @@ always @(posedge clk_i) begin
             SSS_valid <= 0;
             state <= 4;
         end else if (SSS_valid_o) begin
-            $display("SSB bit %d", m_axis_out_tdata[FFT_OUT_DW / 2 - 1]);
+            $display("SSB bit %d", ~m_axis_out_tdata[FFT_OUT_DW / 2 - 1]);
             SSS_wait_cnt <= SSS_wait_cnt + 1;
             SSS_valid <= 1;
         end else begin
@@ -228,18 +230,21 @@ SSS_detector_i(
     .reset_ni(reset_ni),
     .N_id_2_i(N_id_2),
     .N_id_2_valid_i(N_id_2_valid),
-    .s_axis_in_tdata(m_axis_out_tdata[FFT_OUT_DW / 2 - 1]), // BPSK demod by just taking the MSB of the real part
+    // BPSK demod by just taking the MSB of the real part
+    // 0 -> -1, 1 -> 1
+    .s_axis_in_tdata(~m_axis_out_tdata[FFT_OUT_DW / 2 - 1]), 
     .s_axis_in_tvalid(SSS_valid),
     .m_axis_out_tdata(m_axis_SSS_tdata),
-    .m_axis_out_tvalid(m_axis_SSS_tvalid)
+    .m_axis_out_tvalid(m_axis_SSS_tvalid),
+    .N_id_o(N_id_o)
 );
 
-// `ifdef COCOTB_SIM
-// initial begin
-//   $dumpfile ("debug.vcd");
-//   $dumpvars (0, Decimator_to_SSS_detector);
-// end
-// `endif
+`ifdef COCOTB_SIM
+initial begin
+  $dumpfile ("debug.vcd");
+  $dumpvars (0, Decimator_to_SSS_detector);
+end
+`endif
 
 endmodule
 

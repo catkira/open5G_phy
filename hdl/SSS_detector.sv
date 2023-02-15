@@ -2,7 +2,8 @@
 
 module SSS_detector
 #(
-    localparam N_id_1_MAX = 335
+    localparam N_id_1_MAX = 335,
+    localparam N_id_MAX = 1007
 )
 (
     input                                       clk_i,
@@ -12,7 +13,9 @@ module SSS_detector
     input   wire   [1 : 0]                      N_id_2_i,
     input   wire                                N_id_2_valid_i,
     output  reg    [$clog2(N_id_1_MAX) - 1 : 0] m_axis_out_tdata,
-    output  reg                                 m_axis_out_tvalid
+    output  reg                                 m_axis_out_tvalid,
+    output  reg    [$clog2(N_id_MAX) - 1 : 0]   N_id_o,
+    output  reg                                 N_id_valid_o
 );
 
 localparam SSS_LEN = 127;
@@ -24,6 +27,7 @@ reg [$clog2(10) - 1 : 0] times_5 [0 : 2];
 reg [$clog2(35) - 1 : 0] times_15 [0 : 2];
 
 reg [SSS_LEN - 1 : 0] sss_in;
+reg [1 : 0]           N_id_2;
 
 localparam NUM_STATES = 5;
 reg [$clog2(NUM_STATES) - 1 : 0] state= '0;
@@ -83,6 +87,8 @@ always @(posedge clk_i) begin
         times_15[2] = 30;
         m_axis_out_tdata <= '0;
         m_axis_out_tvalid <= '0;
+        N_id_valid_o <= '0;
+        N_id_o <= '0;
         copy_counter <= '0;
         copy_counter_m_seq <= '0;
         state <= '0;
@@ -116,6 +122,7 @@ always @(posedge clk_i) begin
         if (N_id_2_valid_i) begin
             // $display("N_id_2 = %d", N_id_2_i);
             // m_0_start = 5 * N_id_2_i;
+            N_id_2 <= N_id_2_i;
             m_0_start = times_5[N_id_2_i];  // optimized to not use multiplication
             m_0 <= m_0_start;
             m_1 <= 0;
@@ -149,10 +156,12 @@ always @(posedge clk_i) begin
             if (acc > acc_max) begin
                 acc_max <= acc;
                 m_axis_out_tdata <= N_id_1;
+                N_id_o <= N_id_1 + N_id_1 + N_id_1 + N_id_2;
                 // $display("best N_id_1 so far is %d", N_id_1);
             end
             if (N_id_1 == N_id_1_MAX) begin
                 m_axis_out_tvalid <= 1;
+                N_id_valid_o <= 1;
                 shift_cur <= '0;
                 div_112 <= '0;
                 compare_counter <= '0;
@@ -182,7 +191,7 @@ always @(posedge clk_i) begin
         end else begin
             // $display("pos0 = %d  pos1 = %d  seq0 = %d  seq1 = %d  wrap0 = %d  wrap1 = %d  acc = %d", m_seq_0_pos, m_seq_1_pos, m_seq_0[m_seq_0_pos], m_seq_1[m_seq_1_pos], m_seq_0_wrap, m_seq_1_wrap, acc);
             // $display("cnt = %d   %d <-> %d", compare_counter, sss_in[compare_counter],  m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]);
-            if (sss_in[compare_counter] == (m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos])) begin
+            if (sss_in[compare_counter] == ~(m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos])) begin
                 acc <= acc + 1;
             end
             compare_counter <= compare_counter + 1;

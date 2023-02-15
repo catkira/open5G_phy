@@ -283,11 +283,11 @@ always @(posedge clk_i) begin
     end
 end
 
-`ifdef COCOTB_SIM
-initial begin
-  $dumpfile ("debug.vcd");
-  $dumpvars (0, channel_estimator);
-end
-`endif
+// `ifdef COCOTB_SIM
+// initial begin
+//   $dumpfile ("debug.vcd");
+//   $dumpvars (0, channel_estimator);
+// end
+// `endif
 
 endmodule
