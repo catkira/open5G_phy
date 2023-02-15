@@ -36,18 +36,22 @@ reg [$clog2(FFT_LEN + MAX_CP_LEN) - 1 : 0] SC_cnt;
 reg [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len;
 reg find_SSB;
 
+localparam SYMS_BTWN_SSB = 14 * 20;
+reg [$clog2(SYMS_BTWN_SSB) - 1 : 0] syms_to_next_SSB;
+
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         sfn <= '0;
         sym_cnt = '0;
         SC_cnt <= '0;
         state <= '0;
-        current_CP_len <= 18;
+        current_CP_len <= CP2_LEN;
         expected_SSB_sym <= '0;
         find_SSB <= '0;
         symbol_start_o <= '0;
         PBCH_start_o <= '0;
         SSS_start_o <= '0;
+        syms_to_next_SSB <= '0;
     end else begin
         case (state)
             0: begin    // wait for SSB_start
@@ -56,12 +60,18 @@ always @(posedge clk_i) begin
                     // whether we are on symbol 3 or symbol 9 depends on ibar_SSB
                     // assume for now that we are at symbol 3
                     // it might have to be corrected once ibar_SSB arrives
+                    current_CP_len <= CP2_LEN;
                     sym_cnt = 3;
                     expected_SSB_sym <= 3;
                     state <= 1;
+                    syms_to_next_SSB <= '0;
+                    PBCH_start_o <= 1;
+                end else begin
+                    PBCH_start_o <= '0;
                 end
             end        // wait for ibar_SSB
             1: begin
+                PBCH_start_o <= '0;
                 if (ibar_SSB_valid_i) begin
                     if (ibar_SSB_i != 0) begin
                         // sym_cnt needs to be corrected for ibar_SSB != 0
@@ -76,8 +86,10 @@ always @(posedge clk_i) begin
                     state <= 2;
                 end
 
+                if (SSB_start_i) $display("unexpected SSB_start in state 1 !");
+
                 if (s_axis_in_tvalid) begin
-                    if (SC_cnt == (FFT_LEN + current_CP_len)) begin
+                    if (SC_cnt == (FFT_LEN + current_CP_len - 1)) begin
                         sym_cnt = sym_cnt + 1;
                         if (sym_cnt >= SYM_PER_SF) begin  // perform modulo SYM_PER_SF operation
                             sym_cnt = sym_cnt - SYM_PER_SF;
@@ -86,6 +98,7 @@ always @(posedge clk_i) begin
                         SC_cnt <= '0;
                         if ((sym_cnt == 0) || (sym_cnt == 7))   current_CP_len <= CP1_LEN;
                         else                                    current_CP_len <= CP2_LEN;
+                        syms_to_next_SSB <= syms_to_next_SSB + 1;                        
                     end else begin
                         SC_cnt <= SC_cnt + 1;
                     end
@@ -113,7 +126,8 @@ always @(posedge clk_i) begin
                         end
                         find_SSB <= '0;
                     end
-                    if (SC_cnt >= 2) begin
+
+                    if (SC_cnt == 3) begin
                         // could not find SSB, connection is lost 
                         // go back to search mode (state 0)
                         $display("could not find SSB, connection is lost!");
@@ -126,8 +140,11 @@ always @(posedge clk_i) begin
                     end
                 end
 
+                if (SSB_start_i && find_SSB)  PBCH_start_o <= '1;
+                else                          PBCH_start_o <= '0;
+
                 if (s_axis_in_tvalid) begin
-                    if (SC_cnt == (FFT_LEN + current_CP_len)) begin
+                    if (SC_cnt == (FFT_LEN + current_CP_len - 1)) begin
                         sym_cnt = sym_cnt + 1;
                         if (sym_cnt >= SYM_PER_SF) begin  // perform modulo SYM_PER_SF operation
                             sym_cnt = sym_cnt - SYM_PER_SF;
@@ -136,11 +153,12 @@ always @(posedge clk_i) begin
                         SC_cnt <= '0;
                         if ((sym_cnt == 0) || (sym_cnt == 7))   current_CP_len <= CP1_LEN;
                         else                                    current_CP_len <= CP2_LEN;
+                        syms_to_next_SSB <= syms_to_next_SSB + 1;
                     end else begin
                         SC_cnt <= SC_cnt + 1;
                     end
 
-                    if ((SC_cnt == FFT_LEN + current_CP_len - 2) && (sym_cnt == expected_SSB_sym - 1)) begin
+                    if ((SC_cnt == FFT_LEN + current_CP_len - 2) && (syms_to_next_SSB == (SYMS_BTWN_SSB - 1))) begin
                         find_SSB <= 1;
                         $display("find SSB ...");
                     end

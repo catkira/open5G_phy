@@ -14,8 +14,8 @@ from cocotb.triggers import RisingEdge
 import py3gpp
 import sigmf
 
-CLK_PERIOD_NS = 8
-CLK_PERIOD_S = CLK_PERIOD_NS * 0.000000001
+CLK_PERIOD_NS = 260416
+CLK_PERIOD_S = CLK_PERIOD_NS * 1e-12
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 rtl_dir = os.path.abspath(os.path.join(tests_dir, '..', 'hdl'))
 
@@ -81,18 +81,23 @@ async def test_stream_tb(dut):
     symbol *= (2 ** (tb.IN_DW // 2 - 1) - 1)
     symbol = symbol.real.astype(int) + 1j*symbol.imag.astype(int)
 
-    max_wait_cycles = int(3.84e6 * 0.025)  # 25ms
+    max_clk_cnt = int(3.84e6 * 0.025)  # 25ms
     clk_cnt = 0
     symbol_id = 0
     SC_cnt = 0
     pos = 0
     current_CP_len = CP2_LEN
     ibar_SSB_DEALAY = 1000
-    while clk_cnt < max_wait_cycles:
+    while clk_cnt < max_clk_cnt:
         await RisingEdge(dut.clk_i)
 
         if pos in SSB_POS:
             dut.SSB_start_i.value = 1
+            # assume SSB arrives at symbol 3
+            current_CP_len = CP2_LEN
+            SC_cnt = 0
+            symbol_id = START_SYMBOL + 1 # +1 because PSS is not included
+            print(f'sending SSB at pos = {pos}')
         else:
             dut.SSB_start_i.value = 0
 
@@ -119,10 +124,13 @@ async def test_stream_tb(dut):
         else:
             SC_cnt += 1
 
+        if pos == SSB_POS[1] + 2:
+            assert dut.PBCH_start_o.value == 1
+
         if dut.symbol_start_o.value == 1:
             print('symbol_start')
         if dut.PBCH_start_o.value == 1:
-            print('PBCH_start')
+            print(f'PBCH_start at pos = {pos}')
         clk_cnt += 1
         pos += 1
     print(f'finished after {clk_cnt} clk cycles')
@@ -155,8 +163,5 @@ def test_stream(IN_DW):
         force_compile=True
     )
 
-
 if __name__ == '__main__':
-    # test_PBCH_DMRS_gen(N_ID_1 = 69, N_ID_2 = 2)
-    # test_PBCH_ibar_SSB_det(IN_DW = 32, ibar_SSB = 3)
     test_stream(IN_DW = 32)
