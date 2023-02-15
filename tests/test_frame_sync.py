@@ -40,7 +40,7 @@ class TB(object):
         await RisingEdge(self.dut.clk_i)
 
 @cocotb.test()
-async def test_stream_tb(dut):
+async def stream_tb(dut):
     tb = TB(dut)
     await tb.cycle_reset()
 
@@ -159,7 +159,7 @@ def test_stream(IN_DW):
         module=module,
         parameters=parameters,
         sim_build=sim_build,
-        testcase='test_stream_tb',
+        testcase='stream_tb',
         force_compile=True
     )
 
