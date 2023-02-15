@@ -276,6 +276,8 @@ always @(posedge clk_i) begin
                 debug_ibar_SSB_o <= ibar_SSB_detected;
                 debug_ibar_SSB_valid_o <= 1;
                 state_det_ibar <= '0;
+                ibar_SSB_detected <= '0;
+                for(integer i = 0; i < 8; i = i + 1)  DMRS_corr[i] <= '0;
             end
         endcase
     end

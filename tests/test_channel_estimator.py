@@ -125,6 +125,90 @@ async def simple_test2(dut):
             assert ibar_SSB_det == ibar_SSB
         cycle_counter += 1
 
+@cocotb.test()
+async def simple_test3(dut):
+    tb = TB(dut)
+    await tb.cycle_reset()
+
+    N_id_1 = 69
+    N_id_2 = 2
+    N_id = N_id_1 * 3 + N_id_2
+    print(f'test N_id_1 = {N_id_1}  N_id_2 = {N_id_2} -> N_id = {N_id}')
+
+    await RisingEdge(dut.clk_i)
+    dut.N_id_i.value = N_id
+    dut.N_id_valid_i.value = 1
+    await RisingEdge(dut.clk_i)
+    dut.N_id_valid_i.value = 0
+
+    handle = sigmf.sigmffile.fromfile(tests_dir + '/30720KSPS_dl_signal.sigmf-data')
+    waveform = handle.read_samples()
+    waveform = scipy.signal.decimate(waveform, 8, ftype='fir')  # decimate to 3.840 MSPS
+
+    CP1_LEN = 20
+    CP2_LEN = 18
+    FFT_LEN = 256
+    L_MAX = 4 # 4 SSBs
+    SSB_pattern = [2, 8, 16, 22]  # case A
+
+    START_POS = 842  #+ int(3.84e6 * 0.001 * int(ibar_SSB / 2)) + 1646 * (ibar_SSB % 2)   # this hack works for ibar_SSB = 0 .. 3
+    START_SYMBOL = 2
+    num_symbols = 50
+    symbol = np.empty((num_symbols,256), 'complex')
+
+    pos = START_POS
+    _, axs = plt.subplots(8, 7, sharex=True, sharey=True)
+    axs = np.ravel(axs)
+    for i in range(num_symbols):
+        new_symbol = np.fft.fftshift(np.fft.fft(waveform[pos:][:FFT_LEN]))
+        if (i+4)%7 == 0:
+            pos += CP1_LEN + FFT_LEN
+        else:
+            pos += CP2_LEN + FFT_LEN
+        axs[i].plot(new_symbol.real, new_symbol.imag, '.r')
+        symbol[i] = new_symbol
+    # plt.show()
+
+    symbol /= max(symbol.real.max(), symbol.imag.max())
+    symbol *= (2 ** (tb.IN_DW // 2 - 1) - 1)
+    symbol = symbol.real.astype(int) + 1j*symbol.imag.astype(int)
+
+    max_wait_cycles = 100000
+    clk_cnt = 0
+    symbol_id = 0
+    SC_cnt = 0
+    ibar_SSB = 0
+    while clk_cnt < max_wait_cycles:
+        await RisingEdge(dut.clk_i)
+
+        # need to wait until the PBCH_DMRS is generated
+        if (clk_cnt > 2000) and (symbol_id < num_symbols):
+            if ((symbol_id + START_SYMBOL) in SSB_pattern) and (SC_cnt == 0):
+                dut.PBCH_start_i.value = 1
+            else:
+                dut.PBCH_start_i.value = 0
+            if SC_cnt == 0:
+                print(f'sending symbol {symbol_id}')
+
+            data = (((int(symbol[symbol_id][SC_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
+                + ((int(symbol[symbol_id][SC_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1)))
+            dut.s_axis_in_tdata.value = data
+            dut.s_axis_in_tvalid.value = 1
+            SC_cnt += 1
+            if SC_cnt == 256:
+                symbol_id += 1
+                SC_cnt = 0
+        else:
+            dut.s_axis_in_tvalid.value = 0
+
+        if dut.debug_ibar_SSB_valid_o.value == 1:
+            ibar_SSB_det = dut.debug_ibar_SSB_o.value.integer
+            print(f'detected ibar_SSB = {ibar_SSB_det}')
+            assert ibar_SSB_det == ibar_SSB
+            ibar_SSB += 1
+        clk_cnt += 1
+    print(f'finished after {clk_cnt} clk cycles')
+
 @pytest.mark.parametrize("N_ID_1", [0, 335])
 @pytest.mark.parametrize("N_ID_2", [0, 1, 2])
 def test_PBCH_DMRS_gen(N_ID_1, N_ID_2):
@@ -188,6 +272,37 @@ def test_PBCH_ibar_SSB_det(IN_DW, ibar_SSB):
         force_compile=True
     )
 
+@pytest.mark.parametrize("IN_DW", [32])
+def test_PBCH_stream(IN_DW):
+    dut = 'channel_estimator'
+    module = os.path.splitext(os.path.basename(__file__))[0]
+    toplevel = dut
+
+    verilog_sources = [
+        os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'LFSR/LFSR.sv'),
+        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
+    ]
+    includes = []
+    parameters = {}
+    parameters['IN_DW'] = IN_DW
+    parameters_dirname = parameters.copy()
+
+    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
+    cocotb_test.simulator.run(
+        python_search=[tests_dir],
+        verilog_sources=verilog_sources,
+        includes=includes,
+        toplevel=toplevel,
+        module=module,
+        parameters=parameters,
+        sim_build=sim_build,
+        testcase='simple_test3',
+        force_compile=True
+    )
+
+
 if __name__ == '__main__':
     # test_PBCH_DMRS_gen(N_ID_1 = 69, N_ID_2 = 2)
-    test_PBCH_ibar_SSB_det(IN_DW = 32, ibar_SSB = 3)
+    # test_PBCH_ibar_SSB_det(IN_DW = 32, ibar_SSB = 3)
+    test_PBCH_stream(IN_DW = 32)
