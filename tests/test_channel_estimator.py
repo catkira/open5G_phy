@@ -227,7 +227,7 @@ def test_PBCH_DMRS_gen(N_ID_1, N_ID_2):
     os.environ['N_ID_2'] = str(N_ID_2)
     parameters = {}
 
-    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters.items()))
+    sim_build='sim_build/test' + '_'.join(('{}={}'.format(*i) for i in parameters.items()))
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
@@ -259,7 +259,7 @@ def test_PBCH_ibar_SSB_det(IN_DW, ibar_SSB):
     parameters_dirname = parameters.copy()
     parameters_dirname['ibar_SSB'] = str(ibar_SSB)
 
-    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
+    sim_build='sim_build/test2' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
@@ -288,7 +288,7 @@ def test_PBCH_stream(IN_DW):
     parameters['IN_DW'] = IN_DW
     parameters_dirname = parameters.copy()
 
-    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
+    sim_build='sim_build/test3' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
