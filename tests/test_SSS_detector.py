@@ -67,11 +67,13 @@ async def simple_test(dut):
         await RisingEdge(dut.clk_i)
         if dut.m_axis_out_tvalid == 1:
             detected_N_id_1 = dut.m_axis_out_tdata.value.integer
+            detected_N_id = dut.N_id_o.value.integer
             print(f'detected_N_id_1 = {detected_N_id_1}')
             break
         cycle_counter += 1
     
     assert detected_N_id_1 == N_id_1
+    assert detected_N_id == N_id_1 * 3 + N_id_2
     # assert dut.m_axis_out_tdata.value == N_id_1
 
 @pytest.mark.parametrize("N_ID_1", [0, 335])
