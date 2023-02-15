@@ -226,8 +226,11 @@ def test_PBCH_DMRS_gen(N_ID_1, N_ID_2):
     os.environ['N_ID_1'] = str(N_ID_1)
     os.environ['N_ID_2'] = str(N_ID_2)
     parameters = {}
+    parameters_dirname = parameters.copy()
+    parameters_dirname['N_ID_1'] = str(N_ID_1)
+    parameters_dirname['N_ID_2'] = str(N_ID_2)
 
-    sim_build='sim_build/test' + '_'.join(('{}={}'.format(*i) for i in parameters.items()))
+    sim_build='sim_build/test' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
