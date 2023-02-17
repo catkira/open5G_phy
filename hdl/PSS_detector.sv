@@ -122,16 +122,43 @@ peak_detector_2_i(
     .peak_detected_o(peak_detected[2])
 );
 
+reg [2 : 0]  state;
+localparam [2 : 0]  SEARCH = 0;
+localparam [2 : 0]  TRACK  = 1;
+localparam SSB_INTERVAL = $rtoi(1920000 * 0.02);
+localparam TRACK_TOLERANCE = 5;
+reg [$clog2(SSB_INTERVAL + TRACK_TOLERANCE) - 1 : 0] sample_cnt;
+
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         N_id_2_o <= '0;
         N_id_2_valid_o <= '0;
+        state <= SEARCH;
+        sample_cnt <= '0;
     end else begin
-        if (peak_detected[0])       N_id_2_o <=  0;
-        else if (peak_detected[1])  N_id_2_o <=  1;
-        else if (peak_detected[2])  N_id_2_o <=  2;
+        case(state)
+            SEARCH : begin
+                if (peak_detected[0])       N_id_2_o <=  0;
+                else if (peak_detected[1])  N_id_2_o <=  1;
+                else if (peak_detected[2])  N_id_2_o <=  2;
 
-        N_id_2_valid_o <= peak_detected != 0;
+                N_id_2_valid_o <= peak_detected != 0;
+                if (peak_detected != 0)  state <= TRACK;
+            end
+            TRACK : begin
+                if ((sample_cnt >= (SSB_INTERVAL - TRACK_TOLERANCE)) && (sample_cnt <= (SSB_INTERVAL + TRACK_TOLERANCE))) begin
+                    if (peak_detected[0])       N_id_2_o <=  0;
+                    else if (peak_detected[1])  N_id_2_o <=  1;
+                    else if (peak_detected[2])  N_id_2_o <=  2;
+
+                    N_id_2_valid_o <= peak_detected != 0;
+                    if (peak_detected != 0) sample_cnt <= '0;
+                end else begin
+                    sample_cnt <= sample_cnt + 1;
+                    N_id_2_valid_o <= 0;
+                end
+            end
+        endcase
     end
 end
 

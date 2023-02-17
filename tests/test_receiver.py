@@ -3,14 +3,12 @@ import scipy
 import os
 import pytest
 import logging
-import importlib
 import matplotlib.pyplot as plt
 import os
 
 import cocotb
 import cocotb_test.simulator
 from cocotb.clock import Clock
-from cocotb.triggers import Timer
 from cocotb.triggers import RisingEdge
 
 import py3gpp
@@ -42,9 +40,6 @@ class TB(object):
         self.log.setLevel(logging.DEBUG)
 
         cocotb.start_soon(Clock(self.dut.clk_i, CLK_PERIOD_NS, units='ns').start())
-
-    async def generate_input(self):
-        pass
 
     async def cycle_reset(self):
         self.dut.s_axis_in_tvalid.value = 0
