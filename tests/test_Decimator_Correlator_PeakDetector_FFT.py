@@ -34,7 +34,6 @@ class TB(object):
         self.OUT_DW = int(dut.OUT_DW.value)
         self.TAP_DW = int(dut.TAP_DW.value)
         self.PSS_LEN = int(dut.PSS_LEN.value)
-        self.PSS_LOCAL = int(dut.PSS_LOCAL.value)
         self.ALGO = int(dut.ALGO.value)
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
         self.CP_ADVANCE = int(dut.CP_ADVANCE.value)
@@ -74,7 +73,6 @@ async def simple_test(dut):
     rx_counter = 0
     in_counter = 0
     received = []
-    received_correlator = []
     received_fft = []
     received_fft_demod = []
     rx_ADC_data = []
@@ -84,7 +82,7 @@ async def simple_test(dut):
     CP_LEN = 18
     CP_ADVANCE = int(dut.CP_ADVANCE.value)
     FFT_SIZE = 256
-    DETECTOR_LATENCY = 17
+    DETECTOR_LATENCY = 18
     FFT_OUT_DW = 32
     while len(received_SSS) < FFT_SIZE:
         await RisingEdge(dut.clk_i)
@@ -95,9 +93,6 @@ async def simple_test(dut):
 
         #print(f"data[{in_counter}] = {(int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x} {(int(waveform[in_counter].real)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x}")
         in_counter += 1
-
-        if dut.m_axis_correlator_debug_tvalid == 1:
-            received_correlator.append(dut.m_axis_correlator_debug_tdata.value.integer)
 
         received.append(dut.peak_detected_debug_o.value.integer)
         rx_counter += 1
@@ -216,7 +211,7 @@ async def simple_test(dut):
     assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
 
     # assert np.array_equal(received_PBCH, received_PBCH_ideal)
-    assert peak_pos == 840
+    assert peak_pos == 841
     corr = np.zeros(335)
     for i in range(335):
         sss = py3gpp.nrSSS(i)
@@ -240,6 +235,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE):
     unisim_dir = os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/unisims')
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'PSS_detector.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'FFT_demod.sv'),
@@ -276,21 +272,20 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE):
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['CP_ADVANCE'] = CP_ADVANCE
-
-    # imaginary part is in upper 16 Bit
-    PSS = np.zeros(PSS_LEN, 'complex')
-    PSS[0:-1] = py3gpp.nrPSS(2)
-    taps = np.fft.ifft(np.fft.fftshift(PSS))
-    taps /= max(taps.real.max(), taps.imag.max())
-    taps *= 2 ** (TAP_DW // 2 - 1)
-    parameters['PSS_LOCAL'] = 0
-    for i in range(len(taps)):
-        parameters['PSS_LOCAL'] += \
-            ((int(np.round(np.imag(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i + TAP_DW // 2)) \
-            + ((int(np.round(np.real(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
-    extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     parameters_no_taps = parameters.copy()
-    del parameters_no_taps['PSS_LOCAL']
+
+    for i in range(3):
+        # imaginary part is in upper 16 Bit
+        PSS = np.zeros(PSS_LEN, 'complex')
+        PSS[0:-1] = py3gpp.nrPSS(i)
+        taps = np.fft.ifft(np.fft.fftshift(PSS))
+        taps /= max(taps.real.max(), taps.imag.max())
+        taps *= 2 ** (TAP_DW // 2 - 1)
+        parameters[f'PSS_LOCAL_{i}'] = 0
+        for k in range(len(taps)):
+            parameters[f'PSS_LOCAL_{i}'] += ((int(np.round(np.imag(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k + TAP_DW // 2)) \
+                                    + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
+    extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
 
     sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     cocotb_test.simulator.run(
