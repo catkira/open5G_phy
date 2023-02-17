@@ -22,7 +22,7 @@ module channel_estimator #(
     // debug ports
     output  reg        [1 : 0]                      debug_PBCH_DMRS_o,
     output  reg                                     debug_PBCH_DMRS_valid_o,
-    output  reg        [3 : 0]                      debug_ibar_SSB_o,
+    output  reg        [2 : 0]                      debug_ibar_SSB_o,
     output  reg                                     debug_ibar_SSB_valid_o
 );
 

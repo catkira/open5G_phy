@@ -13,8 +13,7 @@ module receiver
     parameter WINDOW_LEN = 8,
     parameter CP_ADVANCE = 9,
     localparam FFT_OUT_DW = 32,
-    localparam N_id_1_MAX = 335,
-    localparam detected_N_id_2 = 2
+    localparam N_id_1_MAX = 335
 )
 (
     input                                           clk_i,
@@ -84,7 +83,8 @@ wire correlator_tvalid;
 assign m_axis_correlator_debug_tdata = correlator_tdata;
 assign m_axis_correlator_debug_tvalid = correlator_tvalid;
 
-wire peak_detected;
+reg N_id_2_valid;
+wire [1 : 0] N_id_2;
 
 PSS_detector #(
     .IN_DW(IN_DW),
@@ -102,10 +102,11 @@ PSS_detector_i(
     .s_axis_in_tdata(m_axis_cic_tdata),
     .s_axis_in_tvalid(m_axis_cic_tvalid),
 
-    .N_id_2_valid_o(peak_detected)
+    .N_id_2_valid_o(N_id_2_valid),
+    .N_id_2_o(N_id_2)
 );
 
-assign peak_detected_debug_o = peak_detected;
+assign peak_detected_debug_o = N_id_2_valid;
 
 wire [FFT_OUT_DW - 1 : 0] fft_result, fft_result_demod;
 wire [FFT_OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
@@ -117,7 +118,7 @@ assign fft_sync_debug_o = fft_sync;
 
 // this delay line is needed because peak_detected goes high
 // at the end of SSS symbol plus some additional delay
-localparam DELAY_LINE_LEN = 15;
+localparam DELAY_LINE_LEN = 16;
 reg [IN_DW-1:0] delay_line_data  [0 : DELAY_LINE_LEN - 1];
 reg             delay_line_valid [0 : DELAY_LINE_LEN - 1];
 always @(posedge clk_i) begin
@@ -150,7 +151,7 @@ frame_sync_i
 (
     .clk_i(clk_i),
     .reset_ni(reset_ni),
-    .SSB_start_i(peak_detected),
+    .SSB_start_i(N_id_2_valid),
     .ibar_SSB_i(ce_ibar_SSB),
     .ibar_SSB_valid_i(ce_ibar_SSB_valid),
     .s_axis_in_tdata(delay_line_data[DELAY_LINE_LEN - 1]),
@@ -183,32 +184,14 @@ FFT_demod_i(
 
 reg [10 : 0] PSS_cnt;
 reg [3 : 0] state;
-localparam SSS_START = 64;
+localparam SSS_START = 63;
 localparam SSS_LEN = 127;
 reg [$clog2(SSS_LEN) - 1 : 0] SSS_wait_cnt;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
-        state <= '0;
-        N_id_2 <= '0;
-        N_id_2_valid <= '0;
+        state <= 2;
         SSS_wait_cnt <= '0;
         SSS_valid <= '0;
-    end else if (state == 0) begin  // wait for PSS
-        if (peak_detected) begin
-            $display("state 1");
-            $display("detected N_id_2 = %d", detected_N_id_2);
-            state <= 1;
-            N_id_2 <= detected_N_id_2;
-            N_id_2_valid <= 1;
-            SSS_valid <= 0;
-        end
-    end else if (state == 1) begin // transfer PSS to SSS detector
-        if (fft_demod_SSS_start_o) begin
-            $display("state 2");
-            SSS_wait_cnt <= SSS_wait_cnt + 1;
-            state <= 2;
-        end
-        N_id_2_valid <= 0;
     end else if (state == 2) begin // wait for SSS bits in SSS symbol
         if (SSS_wait_cnt == SSS_START && SSS_valid_o) begin
             $display("state 3");
@@ -218,14 +201,14 @@ always @(posedge clk_i) begin
         end else if (SSS_valid_o) begin
             SSS_wait_cnt <= SSS_wait_cnt + 1;
         end
-    end else if (state == 3) begin // transfer SSS bytes to SSS detector
+    end else if (state == 3) begin // transfer SSS bites to SSS detector
         if (SSS_wait_cnt == SSS_LEN) begin
             $display("state 0");
             SSS_wait_cnt <= '0;
             SSS_valid <= 0;
             state <= 4;
         end else if (SSS_valid_o) begin
-            $display("SSB bit %d", m_axis_out_tdata[FFT_OUT_DW / 2 - 1]);
+            $display("SSB bit %d", ~m_axis_out_tdata[FFT_OUT_DW / 2 - 1]);
             SSS_wait_cnt <= SSS_wait_cnt + 1;
             SSS_valid <= 1;
         end else begin
@@ -234,13 +217,11 @@ always @(posedge clk_i) begin
     end else if (state == 4) begin // wait for SSS detector to finish
         if (m_axis_SSS_tvalid) begin
             $display("detected N_id_1 %d", m_axis_SSS_tdata);
-            state <= 1;
+            state <= 2;
         end
     end
 end
 
-reg [1 : 0] N_id_2;
-reg         N_id_2_valid;
 reg         SSS_valid;
 SSS_detector
 SSS_detector_i(
@@ -248,7 +229,7 @@ SSS_detector_i(
     .reset_ni(reset_ni),
     .N_id_2_i(N_id_2),
     .N_id_2_valid_i(N_id_2_valid),
-    .s_axis_in_tdata(m_axis_out_tdata[FFT_OUT_DW / 2 - 1]), // BPSK demod by just taking the MSB of the real part
+    .s_axis_in_tdata(~m_axis_out_tdata[FFT_OUT_DW / 2 - 1]), // BPSK demod by just taking the MSB of the real part
     .s_axis_in_tvalid(SSS_valid),
     .m_axis_out_tdata(m_axis_SSS_tdata),
     .m_axis_out_tvalid(m_axis_SSS_tvalid),
@@ -256,7 +237,7 @@ SSS_detector_i(
     .N_id_valid_o(N_id_valid)
 );
 
-reg [3 : 0] ce_ibar_SSB;
+reg [2 : 0] ce_ibar_SSB;
 reg ce_ibar_SSB_valid;
 
 localparam N_ID_MAX = 1007;
@@ -272,6 +253,9 @@ channel_estimator_i(
     .N_id_i(N_id),
     .N_id_valid_i(N_id_valid),
     .PBCH_start_i(fft_demod_PBCH_start_o),
+    .s_axis_in_tdata(m_axis_out_tdata),
+    .s_axis_in_tvalid(PBCH_valid_o),
+
     .m_axis_out_tdata(),
     .m_axis_out_tvalid(),
 
