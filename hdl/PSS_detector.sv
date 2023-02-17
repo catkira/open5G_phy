@@ -36,6 +36,7 @@ assign m_axis_correlator_debug_tdata = correlator_2_tdata;
 assign m_axis_correlator_debug_tvalid = correlator_2_tvalid;
 reg [2 : 0] peak_detected; 
 reg correlator_en;
+reg [IN_DW-1:0] score [0 : 2];
 
 PSS_correlator #(
     .IN_DW(IN_DW),
@@ -97,7 +98,8 @@ peak_detector_0_i(
     .reset_ni(reset_ni),
     .s_axis_in_tdata(correlator_0_tdata),
     .s_axis_in_tvalid(correlator_0_tvalid),
-    .peak_detected_o(peak_detected[0])
+    .peak_detected_o(peak_detected[0]),
+    .score_o(score[0])    
 );
 
 Peak_detector #(
@@ -109,7 +111,8 @@ peak_detector_1_i(
     .reset_ni(reset_ni),
     .s_axis_in_tdata(correlator_1_tdata),
     .s_axis_in_tvalid(correlator_1_tvalid),
-    .peak_detected_o(peak_detected[1])
+    .peak_detected_o(peak_detected[1]),
+    .score_o(score[1])
 );
 
 Peak_detector #(
@@ -121,7 +124,8 @@ peak_detector_2_i(
     .reset_ni(reset_ni),
     .s_axis_in_tdata(correlator_2_tdata),
     .s_axis_in_tvalid(correlator_2_tvalid),
-    .peak_detected_o(peak_detected[2])
+    .peak_detected_o(peak_detected[2]),
+    .score_o(score[2])    
 );
 
 reg [2 : 0]  state;
@@ -176,9 +180,9 @@ always @(posedge clk_i) begin
         N_id_2_o <= '0;
         N_id_2_valid_o <= '0;
     end else begin
-        if (peak_detected[0])       N_id_2_o <=  0;
-        else if (peak_detected[1])  N_id_2_o <=  1;
-        else if (peak_detected[2])  N_id_2_o <=  2;
+        if      ((score[0] > score[1]) && (score[0] > score[2]))  N_id_2_o <=  0;
+        else if ((score[1] > score[0]) && (score[1] > score[2]))  N_id_2_o <=  1;
+        else if ((score[2] > score[0]) && (score[2] > score[1]))  N_id_2_o <=  2;
 
         N_id_2_valid_o <= peak_detected != 0;
     end

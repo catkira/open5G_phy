@@ -10,7 +10,8 @@ module Peak_detector
     input                                       reset_ni,
     input   wire           [IN_DW-1:0]          s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
-    output  reg                                 peak_detected_o
+    output  reg                                 peak_detected_o,
+    output  reg            [IN_DW-1:0]          score_o
 );
 
 reg [IN_DW - 1 : 0] in_buffer [0 : WINDOW_LEN - 1];
@@ -25,6 +26,7 @@ always @(posedge clk_i) begin
             in_buffer[i] = '0;
         peak_detected_o <= '0;
         init_counter <= '0;
+        score_o <= '0;
     end else begin
         if (s_axis_in_tvalid) begin
             if (init_counter < WINDOW_LEN)
@@ -40,11 +42,14 @@ always @(posedge clk_i) begin
             for (integer i = 0; i < WINDOW_LEN - 1; i++) begin
                 average = average + in_buffer[i];
             end
-            if (init_counter == WINDOW_LEN) 
+            if (init_counter == WINDOW_LEN) begin
                 peak_detected_o <= AVERAGE_SHIFT > 0 ? s_axis_in_tdata > (average >> AVERAGE_SHIFT)
                     : s_axis_in_tdata > (average << -AVERAGE_SHIFT);
-            else
+                score_o <= s_axis_in_tdata - (average >> AVERAGE_SHIFT);
+            end else begin
                 peak_detected_o <= '0;
+                score_o <= '0;
+            end
         end
     end
 end
