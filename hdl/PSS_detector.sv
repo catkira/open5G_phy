@@ -180,11 +180,15 @@ always @(posedge clk_i) begin
         N_id_2_o <= '0;
         N_id_2_valid_o <= '0;
     end else begin
-        if      ((score[0] > score[1]) && (score[0] > score[2]))  N_id_2_o <=  0;
-        else if ((score[1] > score[0]) && (score[1] > score[2]))  N_id_2_o <=  1;
-        else if ((score[2] > score[0]) && (score[2] > score[1]))  N_id_2_o <=  2;
-
-        N_id_2_valid_o <= peak_detected != 0;
+        // a peak is considered valid, if exactly one PSS correlator for a single N_id_2 detects a peak
+        if ((peak_detected == 1) || (peak_detected == 2) || (peak_detected == 4)) begin
+            if      ((score[0] >= score[1]) && (score[0] >= score[2]))  N_id_2_o <=  0;
+            else if ((score[1] >= score[0]) && (score[1] >= score[2]))  N_id_2_o <=  1;
+            else if ((score[2] >= score[0]) && (score[2] >= score[1]))  N_id_2_o <=  2;            
+            N_id_2_valid_o <= 1;
+        end else begin
+            N_id_2_valid_o <= 0;
+        end
     end
 end
 
