@@ -1,7 +1,7 @@
 [![Verify](https://github.com/catkira/open5G_rx/actions/workflows/verify.yml/badge.svg)](https://github.com/catkira/open5G_rx/actions/workflows/verify.yml)
 
 # Overview
-This is a verilog HDL core for 5G SSB synchronization optimized for low ressource usage so that it can run on a [PlutoSDR](https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/adalm-pluto.html), which has a Xilinx® Zynq Z-7010 with only 80 DSP slices and 28K logic cells.<br>
+This is a verilog HDL core for a 5G NR receiver. It is optimized for low ressource usage so that it can run on a [PlutoSDR](https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/adalm-pluto.html), which has a Xilinx® Zynq Z-7010 with only 80 DSP slices and 28K logic cells.<br>
 Each PSS correlator only detects one of the possible three different PSS sequences. If a general cell search is needed, 3 PSS correlators need to be instanciated in parallel. If CFOs larger than one subcarrier spacing (15 kHz) are expected, more parallel PSS correlator instances are needed for different CFOs.<br>
 Implemented so far:<br>
 * Decimator which uses [this](https://github.com/catkira/CIC) CIC core
