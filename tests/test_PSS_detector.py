@@ -37,6 +37,7 @@ class TB(object):
         self.ALGO = int(dut.ALGO.value)
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
         self.PSS_LOCAL_2 = int(dut.PSS_LOCAL_2.value)
+        self.USE_TRACK_MODE = int(dut.USE_TRACK_MODE.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -83,7 +84,10 @@ async def simple_test(dut):
 
     await tb.cycle_reset()
 
-    num_items = 2000
+    if tb.USE_TRACK_MODE:
+        num_items = int(1.92e6 * 0.025)
+    else:
+        num_items = 2000
     rx_counter = 0
     in_counter = 0
     received = np.empty(num_items, int)
@@ -106,6 +110,8 @@ async def simple_test(dut):
             print(f'detected N_id_2 = {dut.N_id_2_o.value.integer}')
         received[rx_counter] = dut.N_id_2_valid_o.value.integer
         rx_counter += 1
+        if ((rx_counter % (1920)) == 0):
+            print(f'sim time {rx_counter // 1920} ms')
 
     peak_pos = np.argmax(received)
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
@@ -123,7 +129,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("OUT_DW", [32])
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
+@pytest.mark.parametrize("USE_TRACK_MODE", [0])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_TRACK_MODE):
     dut = 'PSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -143,6 +150,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
     parameters['PSS_LEN'] = PSS_LEN
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
+    parameters['USE_TRACK_MODE'] = USE_TRACK_MODE
     parameters_no_taps = parameters.copy()
 
     for i in range(3):
@@ -174,4 +182,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8)
+    test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_TRACK_MODE=0)
