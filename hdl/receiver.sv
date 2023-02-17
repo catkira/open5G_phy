@@ -6,7 +6,9 @@ module receiver
     parameter OUT_DW = 32,          // correlator output data width
     parameter TAP_DW = 32,
     parameter PSS_LEN = 128,
-    parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
+    parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_0 = {(PSS_LEN * TAP_DW){1'b0}},
+    parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_1 = {(PSS_LEN * TAP_DW){1'b0}},
+    parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_2 = {(PSS_LEN * TAP_DW){1'b0}},
     parameter ALGO = 1,
     parameter WINDOW_LEN = 8,
     parameter CP_ADVANCE = 9,
@@ -82,37 +84,28 @@ wire correlator_tvalid;
 assign m_axis_correlator_debug_tdata = correlator_tdata;
 assign m_axis_correlator_debug_tvalid = correlator_tvalid;
 
-PSS_correlator #(
+wire peak_detected;
+
+PSS_detector #(
     .IN_DW(IN_DW),
     .OUT_DW(OUT_DW),
     .TAP_DW(TAP_DW),
     .PSS_LEN(PSS_LEN),
-    .PSS_LOCAL(PSS_LOCAL),
+    .PSS_LOCAL_0(PSS_LOCAL_0),
+    .PSS_LOCAL_1(PSS_LOCAL_1),
+    .PSS_LOCAL_2(PSS_LOCAL_2),
     .ALGO(ALGO)
 )
-correlator_i(
+PSS_detector_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
     .s_axis_in_tdata(m_axis_cic_tdata),
     .s_axis_in_tvalid(m_axis_cic_tvalid),
-    .m_axis_out_tdata(correlator_tdata),
-    .m_axis_out_tvalid(correlator_tvalid)
+
+    .N_id_2_valid_o(peak_detected)
 );
 
-wire peak_detected;
 assign peak_detected_debug_o = peak_detected;
-
-Peak_detector #(
-    .IN_DW(OUT_DW),
-    .WINDOW_LEN(WINDOW_LEN)
-)
-peak_detector_i(
-    .clk_i(clk_i),
-    .reset_ni(reset_ni),
-    .s_axis_in_tdata(correlator_tdata),
-    .s_axis_in_tvalid(correlator_tvalid),
-    .peak_detected_o(peak_detected)
-);
 
 wire [FFT_OUT_DW - 1 : 0] fft_result, fft_result_demod;
 wire [FFT_OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
