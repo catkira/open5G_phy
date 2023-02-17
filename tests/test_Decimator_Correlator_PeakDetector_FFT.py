@@ -43,27 +43,8 @@ class TB(object):
         self.log.setLevel(logging.DEBUG)
 
         # tests_dir = os.path.abspath(os.path.dirname(__file__))
-        model_file = os.path.abspath(os.path.join(tests_dir, '../model/PSS_correlator.py'))
-        spec = importlib.util.spec_from_file_location('PSS_correlator', model_file)
-        foo = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(foo)
-        self.PSS_correlator_model = foo.Model(self.IN_DW, self.OUT_DW, self.TAP_DW, self.PSS_LEN, self.PSS_LOCAL, self.ALGO) 
-
-        model_file = os.path.abspath(os.path.join(tests_dir, '../model/peak_detector.py'))
-        spec = importlib.util.spec_from_file_location('peak_detector', model_file)
-        foo = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(foo)
-        self.peak_detector_model = foo.Model(self.OUT_DW, self.WINDOW_LEN)
 
         cocotb.start_soon(Clock(self.dut.clk_i, CLK_PERIOD_NS, units='ns').start())
-        cocotb.start_soon(self.model_clk(CLK_PERIOD_NS, 'ns'))
-
-    async def model_clk(self, period, period_units):
-        timer = Timer(period, period_units)
-        while True:
-            self.PSS_correlator_model.tick()
-            self.peak_detector_model.tick()
-            await timer
 
     async def generate_input(self):
         pass
@@ -76,8 +57,6 @@ class TB(object):
         await RisingEdge(self.dut.clk_i)
         self.dut.reset_ni.value = 1
         await RisingEdge(self.dut.clk_i)
-        self.PSS_correlator_model.reset()
-        self.peak_detector_model.reset()
 
 @cocotb.test()
 async def simple_test(dut):
@@ -113,7 +92,6 @@ async def simple_test(dut):
               + ((int(waveform[in_counter].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
         dut.s_axis_in_tdata.value = data
         dut.s_axis_in_tvalid.value = 1
-        tb.PSS_correlator_model.set_data(data)
 
         #print(f"data[{in_counter}] = {(int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x} {(int(waveform[in_counter].real)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x}")
         in_counter += 1
