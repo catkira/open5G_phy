@@ -14,7 +14,6 @@ module Decimator_to_SSS_detector
     parameter CP_ADVANCE = 9,
     localparam FFT_OUT_DW = 32,
     localparam N_id_1_MAX = 335,
-    localparam detected_N_id_2 = 2,
     localparam N_id_MAX = 1007
 )
 (
@@ -78,6 +77,9 @@ cic_imag(
     .m_axis_out_tdata(m_axis_cic_tdata[IN_DW - 1 -: IN_DW / 2])
 );
 
+reg N_id_2_valid;
+wire [1 : 0] N_id_2;
+
 PSS_detector #(
     .IN_DW(IN_DW),
     .OUT_DW(OUT_DW),
@@ -94,10 +96,11 @@ PSS_detector_i(
     .s_axis_in_tdata(m_axis_cic_tdata),
     .s_axis_in_tvalid(m_axis_cic_tvalid),
 
-    .N_id_2_valid_o(peak_detected)
+    .N_id_2_valid_o(N_id_2_valid),
+    .N_id_2_o(N_id_2)
 );
 
-always @(*)  peak_detected_debug_o <= peak_detected;
+always @(*)  peak_detected_debug_o <= N_id_2_valid;
 
 wire [FFT_OUT_DW - 1 : 0] fft_result, fft_result_demod;
 wire [FFT_OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
@@ -135,7 +138,7 @@ FFT_demod #(
 FFT_demod_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
-    .SSB_start_i(peak_detected),
+    .SSB_start_i(N_id_2_valid),
     .s_axis_in_tdata(delay_line_data[DELAY_LINE_LEN - 1]),
     .s_axis_in_tvalid(delay_line_valid[DELAY_LINE_LEN - 1]),
     .m_axis_out_tdata(m_axis_out_tdata),
@@ -148,32 +151,14 @@ FFT_demod_i(
 
 reg [10 : 0] PSS_cnt;
 reg [3 : 0] state;
-localparam SSS_START = 64;
+localparam SSS_START = 63;
 localparam SSS_LEN = 127;
 reg [$clog2(SSS_LEN) - 1 : 0] SSS_wait_cnt;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
-        state <= '0;
-        N_id_2 <= '0;
-        N_id_2_valid <= '0;
+        state <= 2;
         SSS_wait_cnt <= '0;
         SSS_valid <= '0;
-    end else if (state == 0) begin  // wait for PSS
-        if (peak_detected) begin
-            $display("state 1");
-            $display("detected N_id_2 = %d", detected_N_id_2);
-            state <= 1;
-            N_id_2 <= detected_N_id_2;
-            N_id_2_valid <= 1;
-            SSS_valid <= 0;
-        end
-    end else if (state == 1) begin // transfer PSS to SSS detector
-        if (fft_demod_SSS_start_o) begin
-            $display("state 2");
-            SSS_wait_cnt <= SSS_wait_cnt + 1;
-            state <= 2;
-        end
-        N_id_2_valid <= 0;
     end else if (state == 2) begin // wait for SSS bits in SSS symbol
         if (SSS_wait_cnt == SSS_START && SSS_valid_o) begin
             $display("state 3");
@@ -199,13 +184,11 @@ always @(posedge clk_i) begin
     end else if (state == 4) begin // wait for SSS detector to finish
         if (m_axis_SSS_tvalid) begin
             $display("detected N_id_1 %d", m_axis_SSS_tdata);
-            state <= 1;
+            state <= 2;
         end
     end
 end
 
-reg [1 : 0] N_id_2;
-reg         N_id_2_valid;
 reg         SSS_valid;
 SSS_detector
 SSS_detector_i(

@@ -89,7 +89,7 @@ async def simple_test(dut):
     DETECTOR_LATENCY = 18
     FFT_OUT_DW = 32
     max_tx = 2000
-    while in_counter < 50000:
+    while in_counter < 60000:
         await RisingEdge(dut.clk_i)
         if in_counter < max_tx:
             data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
