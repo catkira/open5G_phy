@@ -34,7 +34,6 @@ class TB(object):
         self.OUT_DW = int(dut.OUT_DW.value)
         self.TAP_DW = int(dut.TAP_DW.value)
         self.PSS_LEN = int(dut.PSS_LEN.value)
-        self.PSS_LOCAL = int(dut.PSS_LOCAL.value)
         self.ALGO = int(dut.ALGO.value)
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
         self.CP_ADVANCE = int(dut.CP_ADVANCE.value)
@@ -43,27 +42,8 @@ class TB(object):
         self.log.setLevel(logging.DEBUG)
 
         # tests_dir = os.path.abspath(os.path.dirname(__file__))
-        model_file = os.path.abspath(os.path.join(tests_dir, '../model/PSS_correlator.py'))
-        spec = importlib.util.spec_from_file_location('PSS_correlator', model_file)
-        foo = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(foo)
-        self.PSS_correlator_model = foo.Model(self.IN_DW, self.OUT_DW, self.TAP_DW, self.PSS_LEN, self.PSS_LOCAL, self.ALGO) 
-
-        model_file = os.path.abspath(os.path.join(tests_dir, '../model/peak_detector.py'))
-        spec = importlib.util.spec_from_file_location('peak_detector', model_file)
-        foo = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(foo)
-        self.peak_detector_model = foo.Model(self.OUT_DW, self.WINDOW_LEN)
 
         cocotb.start_soon(Clock(self.dut.clk_i, CLK_PERIOD_NS, units='ns').start())
-        cocotb.start_soon(self.model_clk(CLK_PERIOD_NS, 'ns'))
-
-    async def model_clk(self, period, period_units):
-        timer = Timer(period, period_units)
-        while True:
-            self.PSS_correlator_model.tick()
-            self.peak_detector_model.tick()
-            await timer
 
     async def generate_input(self):
         pass
@@ -76,8 +56,6 @@ class TB(object):
         await RisingEdge(self.dut.clk_i)
         self.dut.reset_ni.value = 1
         await RisingEdge(self.dut.clk_i)
-        self.PSS_correlator_model.reset()
-        self.peak_detector_model.reset()
 
 @cocotb.test()
 async def simple_test(dut):
@@ -108,7 +86,7 @@ async def simple_test(dut):
     CP_LEN = 18
     CP_ADVANCE = tb.CP_ADVANCE
     FFT_SIZE = 256
-    DETECTOR_LATENCY = 17
+    DETECTOR_LATENCY = 18
     FFT_OUT_DW = 32
     max_tx = 2000
     while in_counter < 50000:
@@ -118,7 +96,6 @@ async def simple_test(dut):
                 + ((int(waveform[in_counter].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
             dut.s_axis_in_tdata.value = data
             dut.s_axis_in_tvalid.value = 1
-            tb.PSS_correlator_model.set_data(data)
         else:
             dut.s_axis_in_tvalid.value = 0
 
@@ -242,7 +219,7 @@ async def simple_test(dut):
     assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
 
     # assert np.array_equal(received_PBCH, received_PBCH_ideal)  # TODO: make this pass
-    assert peak_pos == 840
+    assert peak_pos == 841
 
     print(f'detected N_id_1 = {detected_N_id_1}')
     print(f'detected N_id = {detected_N_id}')
@@ -273,6 +250,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
     unisim_dir = os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/unisims')
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'PSS_detector.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'SSS_detector.sv'),
@@ -312,22 +290,21 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['CP_ADVANCE'] = CP_ADVANCE
     os.environ['CFO'] = str(CFO)
-
-    # imaginary part is in upper 16 Bit
-    PSS = np.zeros(PSS_LEN, 'complex')
-    PSS[0:-1] = py3gpp.nrPSS(2)
-    taps = np.fft.ifft(np.fft.fftshift(PSS))
-    taps /= max(taps.real.max(), taps.imag.max())
-    taps *= 2 ** (TAP_DW // 2 - 1)
-    parameters['PSS_LOCAL'] = 0
-    for i in range(len(taps)):
-        parameters['PSS_LOCAL'] += \
-            ((int(np.round(np.imag(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i + TAP_DW // 2)) \
-            + ((int(np.round(np.real(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
-    extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     parameters_dirname = parameters.copy()
-    del parameters_dirname['PSS_LOCAL']
     parameters_dirname['CFO'] = CFO
+
+    for i in range(3):
+        # imaginary part is in upper 16 Bit
+        PSS = np.zeros(PSS_LEN, 'complex')
+        PSS[0:-1] = py3gpp.nrPSS(i)
+        taps = np.fft.ifft(np.fft.fftshift(PSS))
+        taps /= max(taps.real.max(), taps.imag.max())
+        taps *= 2 ** (TAP_DW // 2 - 1)
+        parameters[f'PSS_LOCAL_{i}'] = 0
+        for k in range(len(taps)):
+            parameters[f'PSS_LOCAL_{i}'] += ((int(np.round(np.imag(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k + TAP_DW // 2)) \
+                                    + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
+    extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     
     sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
     cocotb_test.simulator.run(
