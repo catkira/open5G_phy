@@ -7,11 +7,9 @@ import os
 import cocotb
 import cocotb_test.simulator
 from cocotb.clock import Clock
-from cocotb.triggers import Timer
 from cocotb.triggers import RisingEdge
 
 import py3gpp
-import sigmf
 
 CLK_PERIOD_NS = 8
 CLK_PERIOD_S = CLK_PERIOD_NS * 0.000000001
@@ -45,7 +43,7 @@ async def simple_test(dut):
     N_id_1 = int(os.environ['N_ID_1'])
     N_id_2 = int(os.environ['N_ID_2'])
     print(f'test N_id_1 = {N_id_1}  N_id_2 = {N_id_2}')
-    SSS_seq = (py3gpp.nrSSS(3*N_id_1 + N_id_2) - 1) // 2
+    SSS_seq = (py3gpp.nrSSS(3*N_id_1 + N_id_2) + 1) / 2
     # SSS_seq = np.append(SSS_seq, 0)
 
     await RisingEdge(dut.clk_i)
@@ -65,13 +63,13 @@ async def simple_test(dut):
     cycle_counter = 0
     while cycle_counter < max_wait_cycles:
         await RisingEdge(dut.clk_i)
-        if dut.m_axis_out_tvalid == 1:
+        if dut.m_axis_out_tvalid.value.integer == 1:
             detected_N_id_1 = dut.m_axis_out_tdata.value.integer
             detected_N_id = dut.N_id_o.value.integer
             print(f'detected_N_id_1 = {detected_N_id_1}')
             break
         cycle_counter += 1
-    
+
     assert detected_N_id_1 == N_id_1
     assert detected_N_id == N_id_1 * 3 + N_id_2
     # assert dut.m_axis_out_tdata.value == N_id_1
