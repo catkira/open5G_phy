@@ -118,8 +118,8 @@ async def simple_test(dut):
         if dut.fft_demod_SSS_start_o == 1:
             print(f'{rx_counter}: SSS start')
 
-        if dut.m_axis_SSS_tvalid.value.integer == 1:
-            print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
+        # if dut.m_axis_SSS_tvalid.value.integer == 1:
+        #     print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
 
         if dut.PBCH_valid_o.value.integer == 1:
             # print(f"rx PBCH[{len(received_PBCH):3d}] re = {dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1):4x} " \
