@@ -27,26 +27,6 @@ module frame_sync #(
     output  reg                                     SSS_start_o
 );
 
-localparam SFN_MAX = 20;
-localparam SYM_PER_SF = 14;
-localparam FFT_LEN = 256;
-localparam CP1_LEN = 20;
-localparam CP2_LEN = 18;
-reg [$clog2(SFN_MAX) -1 : 0] sfn;
-reg [$clog2(2*SYM_PER_SF) - 1 : 0] sym_cnt;
-reg [$clog2(2*SYM_PER_SF) - 1 : 0] expected_SSB_sym;
-reg [3 : 0] state;
-reg [$clog2(FFT_LEN + MAX_CP_LEN) - 1 : 0] SC_cnt;
-reg [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len;
-reg find_SSB;
-
-localparam SYMS_BTWN_SSB = 14 * 20;
-reg [$clog2(SYMS_BTWN_SSB) - 1 : 0] syms_to_next_SSB;
-
-localparam [1 : 0] PSS_DETECTOR_MODE_SEARCH = 0;
-localparam [1 : 0] PSS_DETECTOR_MODE_FIND   = 1;
-localparam [1 : 0] PSS_DETECTOR_MODE_PAUSE  = 1;
-
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         m_axis_out_tdata <= '0;
@@ -62,12 +42,92 @@ always @(posedge clk_i) begin
     else if (N_id_2_valid_i)  requested_N_id_2_o <= N_id_2_i;
 end
 
+
+// ---------------------------------------------------------------------------------------------------//
+// FSM for controlling PSS detector
+localparam [1 : 0] PSS_DETECTOR_MODE_SEARCH = 0;
+localparam [1 : 0] PSS_DETECTOR_MODE_FIND   = 1;
+localparam [1 : 0] PSS_DETECTOR_MODE_PAUSE  = 1;
+localparam CLK_FREQ = 3840000;
+localparam CLKS_20MS = $rtoi(CLK_FREQ * 0.02);
+localparam CLKS_PSS_EARLY_WAKEUP = $rtoi(CLK_FREQ * 0.0005); // start PSS detector 0.5 ms before expected SSB
+localparam CLKS_PSS_LATE_TOLERANCE = $rtoi(CLK_FREQ * 0.0005); // keep PSS detector running until 0.5ms after expected SSB
+reg [$clog2(CLKS_20MS + CLKS_PSS_LATE_TOLERANCE) - 1 : 0] clks_since_SSB;
+reg [1 : 0] PSS_state;
+localparam [1 : 0] SEARCH_PSS = 0;
+localparam [1 : 0] FIND_PSS = 1;
+localparam [1 : 0] PAUSE_PSS = 2;
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        PSS_state <= SEARCH_PSS;
+        clks_since_SSB <= '0;
+    end else begin
+        PSS_detector_mode_o <= PSS_state;
+        case (PSS_state)
+            SEARCH_PSS : begin  // search PSS with any N_id_2
+                if (N_id_2_valid_i) begin
+                    PSS_state <= PAUSE_PSS;
+                    clks_since_SSB <= 1;
+                end else begin
+                    clks_since_SSB <= clks_since_SSB + 1;
+                end
+            end
+            PAUSE_PSS : begin // PAUSE until next PSS is expected    
+                if (clks_since_SSB > (CLKS_20MS - CLKS_PSS_EARLY_WAKEUP)) begin
+                    PSS_state <= FIND_PSS;
+                end else begin
+                    clks_since_SSB <= clks_since_SSB + 1;
+                end
+            end
+            FIND_PSS : begin  // FIND PSS with same N_id_2 as last one
+                if (clks_since_SSB > (CLKS_20MS + CLKS_PSS_LATE_TOLERANCE)) begin
+                    $display("did not find PSS, going back to SEARCH mode!");
+                    PSS_state <= SEARCH_PSS;
+                end else if (N_id_2_valid_i) begin
+                    $display("found PSS in FIND mode, putting PSS detectore in PAUSE mode");
+                    PSS_state <= PAUSE_PSS;
+                    clks_since_SSB <= 1;
+                end else begin
+                    clks_since_SSB <= clks_since_SSB + 1;
+                end
+            end
+        endcase
+    end
+end
+
+
+// ---------------------------------------------------------------------------------------------------//
+// FSM for keeping track of current subframe number and symbol number within a subframe 
+// and sending the current CP length to the FFT_demod core
+//
+// sfn is the current subframe number
+// sym_cnt is the current symbol number within the current subframe
+localparam SFN_MAX = 20;
+localparam SYM_PER_SF = 14;
+localparam FFT_LEN = 256;
+localparam CP1_LEN = 20;
+localparam CP2_LEN = 18;
+reg [$clog2(SFN_MAX) -1 : 0] sfn;
+reg [$clog2(2*SYM_PER_SF) - 1 : 0] sym_cnt;
+reg [$clog2(2*SYM_PER_SF) - 1 : 0] expected_SSB_sym;
+reg [$clog2(FFT_LEN + MAX_CP_LEN) - 1 : 0] SC_cnt;
+reg [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len;
+reg find_SSB;
+
+localparam SYMS_BTWN_SSB = 14 * 20;
+reg [$clog2(SYMS_BTWN_SSB) - 1 : 0] syms_to_next_SSB;
+
+reg [1 : 0] state;
+localparam [1 : 0] WAIT_FOR_SSB = 0;
+localparam [1 : 0] WAIT_FOR_IBAR = 1;
+localparam [1 : 0] SYNCED = 2;
+
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         sfn <= '0;
         sym_cnt = '0;
         SC_cnt <= '0;
-        state <= '0;
+        state <= WAIT_FOR_SSB;
         current_CP_len <= CP2_LEN;
         expected_SSB_sym <= '0;
         find_SSB <= '0;
@@ -78,7 +138,7 @@ always @(posedge clk_i) begin
         PSS_detector_mode_o <= PSS_DETECTOR_MODE_SEARCH;
     end else begin
         case (state)
-            0: begin    // wait for SSB_start
+            WAIT_FOR_SSB: begin
                 PSS_detector_mode_o <= PSS_DETECTOR_MODE_SEARCH;
                 if (N_id_2_valid_i) begin
                     SC_cnt <= 1;
@@ -88,14 +148,14 @@ always @(posedge clk_i) begin
                     current_CP_len <= CP2_LEN;
                     sym_cnt = 3;
                     expected_SSB_sym <= 3;
-                    state <= 1;
+                    state <= WAIT_FOR_IBAR;
                     syms_to_next_SSB <= '0;
                     PBCH_start_o <= 1;
                 end else begin
                     PBCH_start_o <= '0;
                 end
-            end        // wait for ibar_SSB
-            1: begin
+            end
+            WAIT_FOR_IBAR: begin
                 PBCH_start_o <= '0;
                 PSS_detector_mode_o <= PSS_DETECTOR_MODE_PAUSE;
                 if (ibar_SSB_valid_i) begin
@@ -109,7 +169,7 @@ always @(posedge clk_i) begin
                             sym_cnt = sym_cnt - SYM_PER_SF;
                         end
                     end
-                    state <= 2;
+                    state <= SYNCED;
                 end
 
                 if (N_id_2_valid_i) $display("unexpected SSB_start in state 1 !");
@@ -130,7 +190,7 @@ always @(posedge clk_i) begin
                     end
                 end
             end
-            2: begin  // synced
+            SYNCED: begin  // synced
                 PSS_detector_mode_o <= PSS_DETECTOR_MODE_PAUSE;
                 if (ibar_SSB_valid_i) begin
                     // TODO throw error if ibar_SSB does not match expected ibar_SSB
@@ -159,7 +219,7 @@ always @(posedge clk_i) begin
                         // go back to search mode (state 0)
                         $display("could not find SSB, connection is lost!");
                         find_SSB <= '0;
-                        state <= 0;
+                        state <= WAIT_FOR_SSB;
                     end
                 end else begin
                     if (N_id_2_valid_i) begin
