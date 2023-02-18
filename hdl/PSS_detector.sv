@@ -11,13 +11,16 @@ module PSS_detector
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_2 = {(PSS_LEN * TAP_DW){1'b0}},
     parameter ALGO = 1,
     parameter WINDOW_LEN = 8,
-    parameter USE_TRACK_MODE = 0
+    parameter USE_MODE = 0
 )
 (
     input                                       clk_i,
     input                                       reset_ni,
     input   wire           [IN_DW-1:0]          s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
+
+    input                  [1 : 0]              mode_i,
+    input                  [1 : 0]              requested_N_id_2_i,
     
     output  reg            [1 : 0]              N_id_2_o,
     output  reg                                 N_id_2_valid_o,
@@ -128,9 +131,9 @@ peak_detector_2_i(
     .score_o(score[2])    
 );
 
-reg [2 : 0]  state;
-localparam [2 : 0]  SEARCH = 0;
-localparam [2 : 0]  TRACK  = 1;
+localparam [1 : 0]  SEARCH = 0;
+localparam [1 : 0]  FIND   = 1;
+localparam [1 : 0]  PAUSE  = 2;
 localparam SSB_INTERVAL = $rtoi(1920000 * 0.02);
 localparam TRACK_TOLERANCE = 100;
 localparam CORRELATOR_DELAY = 160;
@@ -140,47 +143,37 @@ always @(posedge clk_i) begin
     if (!reset_ni) begin
         N_id_2_o <= '0;
         N_id_2_valid_o <= '0;
-        state <= SEARCH;
-        sample_cnt <= '0;
         correlator_en <= '0;
-    end else begin
-        case(state)
+    end else if (USE_MODE) begin
+        case(mode_i)
             SEARCH : begin
                 correlator_en <= 1;
-                 if (s_axis_in_tvalid)  sample_cnt <= sample_cnt + 1;
-
-                 if (USE_TRACK_MODE) begin
-                    if (peak_detected != 0)  state <= TRACK;
-                 end
-            end
-            TRACK : begin
-                if (sample_cnt >= (SSB_INTERVAL - TRACK_TOLERANCE - CORRELATOR_DELAY))   correlator_en <= 1;
-                else  correlator_en <= 0;
-                    
-                if ((sample_cnt >= (SSB_INTERVAL - TRACK_TOLERANCE)) && (sample_cnt <= (SSB_INTERVAL + TRACK_TOLERANCE))) begin
-                    if (peak_detected != 0) begin 
-                        sample_cnt <= '0;
-                        $display("PSS in track mode detected at offset %d", sample_cnt - SSB_INTERVAL);
-                    end
-                    if (s_axis_in_tvalid) sample_cnt <= sample_cnt + 1;
-                end else if (sample_cnt > (SSB_INTERVAL + TRACK_TOLERANCE)) begin
-                    $display("expected PSS was not detected, going back to SEARCH mode");
-                    state <= SEARCH;
+                if ((peak_detected == 1) || (peak_detected == 2) || (peak_detected == 4)) begin
+                    if      ((score[0] >= score[1]) && (score[0] >= score[2]))  N_id_2_o <=  0;
+                    else if ((score[1] >= score[0]) && (score[1] >= score[2]))  N_id_2_o <=  1;
+                    else if ((score[2] >= score[0]) && (score[2] >= score[1]))  N_id_2_o <=  2;            
+                    N_id_2_valid_o <= 1;
                 end else begin
-                    if (s_axis_in_tvalid) sample_cnt <= sample_cnt + 1;
                     N_id_2_valid_o <= 0;
                 end
             end
+            FIND : begin
+                correlator_en <= 1;
+                if (peak_detected[requested_N_id_2_i] && 
+                    ((peak_detected == 1) || (peak_detected == 2) || (peak_detected == 4))) begin
+                    N_id_2_o <= requested_N_id_2_i;
+                    N_id_2_valid_o <= 1;
+                end else begin
+                    N_id_2_valid_o <= 0;
+                end
+            end
+            PAUSE : begin
+                correlator_en <= 0;
+                N_id_2_valid_o <= 0;
+            end
         endcase
-    end    
-end
-
-always @(posedge clk_i) begin
-    if (!reset_ni) begin
-        N_id_2_o <= '0;
-        N_id_2_valid_o <= '0;
     end else begin
-        // a peak is considered valid, if exactly one PSS correlator for a single N_id_2 detects a peak
+        correlator_en <= 1;
         if ((peak_detected == 1) || (peak_detected == 2) || (peak_detected == 4)) begin
             if      ((score[0] >= score[1]) && (score[0] >= score[2]))  N_id_2_o <=  0;
             else if ((score[1] >= score[0]) && (score[1] >= score[2]))  N_id_2_o <=  1;
@@ -188,7 +181,7 @@ always @(posedge clk_i) begin
             N_id_2_valid_o <= 1;
         end else begin
             N_id_2_valid_o <= 0;
-        end
+        end        
     end
 end
 

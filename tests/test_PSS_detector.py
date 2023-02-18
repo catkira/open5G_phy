@@ -37,7 +37,7 @@ class TB(object):
         self.ALGO = int(dut.ALGO.value)
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
         self.PSS_LOCAL_2 = int(dut.PSS_LOCAL_2.value)
-        self.USE_TRACK_MODE = int(dut.USE_TRACK_MODE.value)
+        self.USE_MODE = int(dut.USE_MODE.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -84,7 +84,7 @@ async def simple_test(dut):
 
     await tb.cycle_reset()
 
-    if tb.USE_TRACK_MODE:
+    if tb.USE_MODE:
         num_items = int(1.92e6 * 0.025)
     else:
         num_items = 2000
@@ -129,8 +129,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("OUT_DW", [32])
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
-@pytest.mark.parametrize("USE_TRACK_MODE", [0])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_TRACK_MODE):
+@pytest.mark.parametrize("USE_MODE", [0])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_MODE):
     dut = 'PSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -150,7 +150,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_TRACK_MODE):
     parameters['PSS_LEN'] = PSS_LEN
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
-    parameters['USE_TRACK_MODE'] = USE_TRACK_MODE
+    parameters['USE_MODE'] = USE_MODE
     parameters_no_taps = parameters.copy()
 
     for i in range(3):
@@ -182,4 +182,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_TRACK_MODE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_TRACK_MODE=0)
+    test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0)
