@@ -96,7 +96,8 @@ PSS_detector #(
     .PSS_LOCAL_0(PSS_LOCAL_0),
     .PSS_LOCAL_1(PSS_LOCAL_1),
     .PSS_LOCAL_2(PSS_LOCAL_2),
-    .ALGO(ALGO)
+    .ALGO(ALGO),
+    .USE_MODE(1)
 )
 PSS_detector_i(
     .clk_i(clk_i),
@@ -273,7 +274,7 @@ channel_estimator_i(
 
 `ifdef COCOTB_SIM
 initial begin
-  $dumpfile ("debug.vcd");
+  $dumpfile ("receiver.vcd");
   $dumpvars (0, receiver);
 end
 `endif

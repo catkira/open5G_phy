@@ -97,6 +97,7 @@ always @(posedge clk_i) begin
             end        // wait for ibar_SSB
             1: begin
                 PBCH_start_o <= '0;
+                PSS_detector_mode_o <= PSS_DETECTOR_MODE_PAUSE;
                 if (ibar_SSB_valid_i) begin
                     if (ibar_SSB_i != 0) begin
                         // sym_cnt needs to be corrected for ibar_SSB != 0
@@ -130,6 +131,7 @@ always @(posedge clk_i) begin
                 end
             end
             2: begin  // synced
+                PSS_detector_mode_o <= PSS_DETECTOR_MODE_PAUSE;
                 if (ibar_SSB_valid_i) begin
                     // TODO throw error if ibar_SSB does not match expected ibar_SSB
                 end
