@@ -92,14 +92,14 @@ async def stream_tb(dut):
         await RisingEdge(dut.clk_i)
 
         if pos in SSB_POS:
-            dut.SSB_start_i.value = 1
+            dut.N_id_2_valid_i.value = 1
             # assume SSB arrives at symbol 3
             current_CP_len = CP2_LEN
             SC_cnt = 0
             symbol_id = START_SYMBOL + 1 # +1 because PSS is not included
             print(f'sending SSB at pos = {pos}')
         else:
-            dut.SSB_start_i.value = 0
+            dut.N_id_2_valid_i.value = 0
 
         if pos == ibar_SSB_DEALAY:
             dut.ibar_SSB_i.value = 0

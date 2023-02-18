@@ -85,6 +85,8 @@ assign m_axis_correlator_debug_tvalid = correlator_tvalid;
 
 reg N_id_2_valid;
 wire [1 : 0] N_id_2;
+wire [1 : 0] PSS_detector_mode;
+wire [1 : 0] requested_N_id_2;
 
 PSS_detector #(
     .IN_DW(IN_DW),
@@ -101,6 +103,8 @@ PSS_detector_i(
     .reset_ni(reset_ni),
     .s_axis_in_tdata(m_axis_cic_tdata),
     .s_axis_in_tvalid(m_axis_cic_tvalid),
+    .mode_i(PSS_detector_mode),
+    .requested_N_id_2_i(requested_N_id_2),
 
     .N_id_2_valid_o(N_id_2_valid),
     .N_id_2_o(N_id_2)
@@ -151,11 +155,15 @@ frame_sync_i
 (
     .clk_i(clk_i),
     .reset_ni(reset_ni),
-    .SSB_start_i(N_id_2_valid),
+    .N_id_2_i(N_id_2),
+    .N_id_2_valid_i(N_id_2_valid),
     .ibar_SSB_i(ce_ibar_SSB),
     .ibar_SSB_valid_i(ce_ibar_SSB_valid),
     .s_axis_in_tdata(delay_line_data[DELAY_LINE_LEN - 1]),
     .s_axis_in_tvalid(delay_line_valid[DELAY_LINE_LEN - 1]),
+
+    .PSS_detector_mode_o(PSS_detector_mode),
+    .requested_N_id_2_o(requested_N_id_2),
 
     .m_axis_out_tdata(fs_out_tdata),
     .m_axis_out_tvalid(fs_out_tvalid),

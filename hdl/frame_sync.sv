@@ -11,9 +11,13 @@ module frame_sync #(
     input   wire       [IN_DW - 1 : 0]              s_axis_in_tdata,
     input                                           s_axis_in_tvalid,
 
-    input                                           SSB_start_i,
+    input              [1 : 0]                      N_id_2_i,
+    input                                           N_id_2_valid_i,
     input              [2 : 0]                      ibar_SSB_i,
     input                                           ibar_SSB_valid_i,
+
+    output  reg        [1 : 0]                      PSS_detector_mode_o,
+    output  reg        [1 : 0]                      requested_N_id_2_o,
 
     output  reg        [OUT_DW - 1 : 0]             m_axis_out_tdata,
     output  reg                                     m_axis_out_tvalid,
@@ -39,6 +43,10 @@ reg find_SSB;
 localparam SYMS_BTWN_SSB = 14 * 20;
 reg [$clog2(SYMS_BTWN_SSB) - 1 : 0] syms_to_next_SSB;
 
+localparam [1 : 0] PSS_DETECTOR_MODE_SEARCH = 0;
+localparam [1 : 0] PSS_DETECTOR_MODE_FIND   = 1;
+localparam [1 : 0] PSS_DETECTOR_MODE_PAUSE  = 1;
+
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         m_axis_out_tdata <= '0;
@@ -47,6 +55,11 @@ always @(posedge clk_i) begin
         m_axis_out_tdata <= s_axis_in_tdata;
         m_axis_out_tvalid <= s_axis_in_tvalid;
     end
+end
+
+always @(posedge clk_i) begin
+    if (!reset_ni)  requested_N_id_2_o <= '0;
+    else if (N_id_2_valid_i)  requested_N_id_2_o <= N_id_2_i;
 end
 
 always @(posedge clk_i) begin
@@ -62,10 +75,12 @@ always @(posedge clk_i) begin
         PBCH_start_o <= '0;
         SSS_start_o <= '0;
         syms_to_next_SSB <= '0;
+        PSS_detector_mode_o <= PSS_DETECTOR_MODE_SEARCH;
     end else begin
         case (state)
             0: begin    // wait for SSB_start
-                if (SSB_start_i) begin
+                PSS_detector_mode_o <= PSS_DETECTOR_MODE_SEARCH;
+                if (N_id_2_valid_i) begin
                     SC_cnt <= 1;
                     // whether we are on symbol 3 or symbol 9 depends on ibar_SSB
                     // assume for now that we are at symbol 3
@@ -96,7 +111,7 @@ always @(posedge clk_i) begin
                     state <= 2;
                 end
 
-                if (SSB_start_i) $display("unexpected SSB_start in state 1 !");
+                if (N_id_2_valid_i) $display("unexpected SSB_start in state 1 !");
 
                 if (s_axis_in_tvalid) begin
                     if (SC_cnt == (FFT_LEN + current_CP_len - 1)) begin
@@ -120,7 +135,7 @@ always @(posedge clk_i) begin
                 end
 
                 if (find_SSB) begin
-                    if (SSB_start_i) begin
+                    if (N_id_2_valid_i) begin
                         // expected SC_cnt is 0, if actual SC_cnt deviates +-1, perform realignment
                         if (SC_cnt == 0) begin
                             // SSB arrives as expected, no STO correction needed
@@ -145,12 +160,12 @@ always @(posedge clk_i) begin
                         state <= 0;
                     end
                 end else begin
-                    if (SSB_start_i) begin
+                    if (N_id_2_valid_i) begin
                         $display("ignoring SSB");
                     end
                 end
 
-                if (SSB_start_i && find_SSB)  PBCH_start_o <= '1;
+                if (N_id_2_valid_i && find_SSB)  PBCH_start_o <= '1;
                 else                          PBCH_start_o <= '0;
 
                 if (s_axis_in_tvalid) begin
