@@ -193,6 +193,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, USE_TAP_FILE):
         # every parameter combination needs to have its own TAP_FILE to allow parallel tests!
         parameters['TAP_FILE'] = f'\"../{folder}_PSS_taps.txt\"'
         os.environ["TAP_FILE"] = f'../{folder}_PSS_taps.txt'
+        os.makedirs("sim_build", exist_ok=True)
         np.savetxt(sim_build + '_PSS_taps.txt', PSS_taps.T, fmt = '%x', delimiter = ' ')
 
     cocotb_test.simulator.run(

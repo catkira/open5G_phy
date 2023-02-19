@@ -18,6 +18,10 @@ module receiver
     parameter ALGO `VL_RD = 1,
     parameter WINDOW_LEN `VL_RD = 8,
     parameter CP_ADVANCE `VL_RD = 9,
+    parameter USE_TAP_FILE = 0,
+    parameter string TAP_FILE_0,
+    parameter string TAP_FILE_1,
+    parameter string TAP_FILE_2,
     localparam FFT_OUT_DW `VL_RD = 32,
     localparam N_id_1_MAX `VL_RD = 335
 )
@@ -103,7 +107,11 @@ PSS_detector #(
     .PSS_LOCAL_1(PSS_LOCAL_1),
     .PSS_LOCAL_2(PSS_LOCAL_2),
     .ALGO(ALGO),
-    .USE_MODE(1)
+    .USE_MODE(1),
+    .USE_TAP_FILE(USE_TAP_FILE),
+    .TAP_FILE_0(TAP_FILE_0),
+    .TAP_FILE_1(TAP_FILE_1),
+    .TAP_FILE_2(TAP_FILE_2)
 )
 PSS_detector_i(
     .clk_i(clk_i),
@@ -277,13 +285,6 @@ channel_estimator_i(
     .debug_ibar_SSB_o(ce_ibar_SSB),
     .debug_ibar_SSB_valid_o(ce_ibar_SSB_valid)
 );
-
-`ifdef COCOTB_SIM
-initial begin
-  $dumpfile ("receiver.vcd");
-  $dumpvars (0, receiver);
-end
-`endif
 
 endmodule
 

@@ -272,6 +272,10 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
         os.path.join(rtl_dir, 'fft-core')
     ]
 
+    # verilator cannot handle long parameters, therefore use TAP_FILE 
+    # iverilog cannot pass down string parameters, therefore use long parameters
+    USE_TAP_FILE = int(os.environ.get('SIM') == 'verilator')    
+
     PSS_LEN = 128
     parameters = {}
     parameters['IN_DW'] = IN_DW
@@ -281,10 +285,12 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['CP_ADVANCE'] = CP_ADVANCE
+    parameters['USE_TAP_FILE'] = USE_TAP_FILE    
     os.environ['CFO'] = str(CFO)
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
-
+    folder = '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
+    sim_build='sim_build/' + folder
 
     for i in range(3):
         # imaginary part is in upper 16 Bit
@@ -294,43 +300,41 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
         taps /= max(taps.real.max(), taps.imag.max())
         taps *= 2 ** (TAP_DW // 2 - 1)
         parameters[f'PSS_LOCAL_{i}'] = 0
+        PSS_taps = np.empty(PSS_LEN, int)
         for k in range(len(taps)):
-            parameters[f'PSS_LOCAL_{i}'] += ((int(np.round(np.imag(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k + TAP_DW // 2)) \
-                                    + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
+            if not USE_TAP_FILE:
+                parameters[f'PSS_LOCAL_{i}'] += ((int(np.round(np.imag(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k + TAP_DW // 2)) \
+                                        + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
+            PSS_taps[k] = ((int(np.imag(taps[k])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW // 2)) \
+                                    + (int(np.real(taps[k])) & (2 ** (TAP_DW // 2) - 1))
+        if USE_TAP_FILE:
+            parameters[f'TAP_FILE_{i}'] = f'\"../{folder}_PSS_{i}_taps.txt\"'
+            os.environ[f'TAP_FILE_{i}'] = f'../{folder}_PSS_{i}_taps.txt'
+            os.makedirs("sim_build", exist_ok=True)
+            np.savetxt(sim_build + f'_PSS_{i}_taps.txt', PSS_taps, fmt = '%x', delimiter = ' ')
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     
-    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
-    os.environ['SIM'] = 'verilator'
+    compile_args = []
     if os.environ.get('SIM') == 'verilator':
-        cocotb_test.simulator.run(
-            python_search=[tests_dir],
-            verilog_sources=verilog_sources,
-            includes=includes,
-            toplevel=toplevel,
-            module=module,
-            parameters=parameters,
-            sim_build=sim_build,
-            extra_env=extra_env,
-            testcase='simple_test',
-            force_compile=True,
-            waves=True,
-            compile_args = ['--no-timing', '-Wno-fatal', '-y', '/mnt/d/git/5G_SSB_sync/submodules/verilator-unisims']
-        )
+        compile_args = ['--no-timing', '-Wno-fatal', '-y', '/mnt/d/git/5G_SSB_sync/submodules/verilator-unisims']
     else:
-        cocotb_test.simulator.run(
-            python_search=[tests_dir],
-            verilog_sources=verilog_sources,
-            includes=includes,
-            toplevel=toplevel,
-            module=module,
-            parameters=parameters,
-            sim_build=sim_build,
-            extra_env=extra_env,
-            testcase='simple_test',
-            force_compile=True,
-            compile_args = ['-sglbl', '-y' + unisim_dir]
-        )
+        compile_args = ['-sglbl', '-y' + unisim_dir]
+    cocotb_test.simulator.run(
+        python_search=[tests_dir],
+        verilog_sources=verilog_sources,
+        includes=includes,
+        toplevel=toplevel,
+        module=module,
+        parameters=parameters,
+        sim_build=sim_build,
+        extra_env=extra_env,
+        testcase='simple_test',
+        force_compile=True,
+        waves=True,
+        compile_args = compile_args
+    )
 
 if __name__ == '__main__':
-    os.environ['PLOTS'] = "1"
+    os.environ['PLOTS'] = '1'
+    # os.environ['SIM'] = 'verilator'
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=100, CP_ADVANCE = 18)
