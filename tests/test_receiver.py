@@ -333,5 +333,5 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
-    # os.environ['SIM'] = 'verilator'
+    os.environ['SIM'] = 'verilator'
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=100, CP_ADVANCE = 18, USE_TAP_FILE = 1)
