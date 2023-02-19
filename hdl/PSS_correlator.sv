@@ -10,7 +10,9 @@ module PSS_correlator
     parameter TAP_DW = 32,
     parameter PSS_LEN = 128,
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
-    parameter ALGO = 1
+    parameter ALGO = 1,
+    parameter USE_TAP_FILE = 0,
+    parameter string TAP_FILE = "../../PSS_taps.txt"
 )
 (
     input                                       clk_i,
@@ -36,8 +38,13 @@ reg signed [IN_OP_DW - 1 : 0] in_im [0 : PSS_LEN - 1];
 reg valid;
 reg signed [REQUIRED_OUT_DW - 1 : 0] sum_im, sum_re;
 
+reg [TAP_DW - 1 : 0] taps [0 : PSS_LEN - 1];
 initial begin
+    if (USE_TAP_FILE)  $readmemh(TAP_FILE, taps);
     for (integer i = 0; i < PSS_LEN; i = i + 1) begin
+        // tap_im = get_tap_im(i);
+        // tap_re = get_tap_re(i);
+        // $display("PSS_LOCAL[%d] = %d + j%d", i, tap_re, tap_im);
         // tap_re = PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
         // tap_im = PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];
         // $display("PSS_LOCAL[%d] = %d + j%d", i, tap_re, tap_im);
@@ -46,6 +53,23 @@ initial begin
         // $display("PSS_LOCAL[%d] = %d + j%d", PSS_LEN-i-1, tap_re, tap_im);
     end
 end
+
+function [TAP_OP_DW - 1 : 0] get_tap_im;
+    input integer arg;
+begin
+    if (USE_TAP_FILE)  get_tap_im = taps[arg] >> TAP_OP_DW;
+    else               get_tap_im = PSS_LOCAL[arg * TAP_DW + TAP_DW - 1 -: TAP_OP_DW];
+end
+endfunction
+
+function [TAP_OP_DW - 1 : 0] get_tap_re;
+    input integer arg;
+begin
+    if (USE_TAP_FILE)  get_tap_re = taps[arg][TAP_OP_DW - 1 : 0];
+    else               get_tap_re = PSS_LOCAL[arg * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
+end
+endfunction
+
 
 reg [REQUIRED_OUT_DW - 1: 0] filter_result;
 // assign filter_result = sum_im * sum_im + sum_re * sum_re;
@@ -78,6 +102,7 @@ for (ii = 0; ii < PSS_LEN; ii++) begin
     end
 end
 
+
 always @(posedge clk_i) begin // cannot use $display inside always_ff with iverilog
     if (!reset_ni) begin
         m_axis_out_tdata <= '0;
@@ -92,8 +117,8 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
             if (ALGO == 0) begin
                 // 4*PSS_LEN multiplications
                 for (integer i = 0; i < PSS_LEN; i++) begin            
-                    tap_re = PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
-                    tap_im = PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
+                    tap_re = get_tap_re(i);
+                    tap_im = get_tap_im(i);
                     sum_re = sum_re + in_re[i] * tap_re - in_im[i] * tap_im;
                     sum_im = sum_im + in_re[i] * tap_im + in_im[i] * tap_re;
                 end
@@ -108,20 +133,20 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                     // another source for error is that the taps are not perfectly symmetric,
                     // when truncation is used, because rounding is not implemented in that case
                     // these 2 taps can also be discarded for simplicity
-                    tap_re =  PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
-                    tap_im =  PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
+                    tap_re = get_tap_re(i);
+                    tap_im = get_tap_im(i);
                     sum_re = sum_re + in_re[i] * tap_re - in_im[i] * tap_im;
                     sum_im = sum_im + in_re[i] * tap_im + in_im[i] * tap_re;
                     i = 64;
-                    tap_re =  PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
-                    tap_im =  PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
+                    tap_re = get_tap_re(i);
+                    tap_im = get_tap_im(i);
                     sum_re = sum_re + in_re[i] * tap_re - in_im[i] * tap_im;
                     sum_im = sum_im + in_re[i] * tap_im + in_im[i] * tap_re;
                 end
 
                 for (i = 1; i < PSS_LEN / 2; i++) begin
-                    tap_re = PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
-                    tap_im = PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];
+                    tap_re = get_tap_re(i);
+                    tap_im = get_tap_im(i);
                     sum_re = sum_re + (in_re[PSS_LEN - i] + in_re[i]) * tap_re
                                     + (in_im[PSS_LEN - i] - in_im[i]) * tap_im;
                     sum_im = sum_im + (in_im[PSS_LEN - i] + in_im[i]) * tap_re

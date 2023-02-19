@@ -135,7 +135,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("OUT_DW", [24, 48])
 @pytest.mark.parametrize("TAP_DW", [18, 32])
 @pytest.mark.parametrize("CFO", [0, 7500])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
+@pytest.mark.parametrize("USE_TAP_FILE", [0, 1])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, USE_TAP_FILE):
     dut = 'PSS_correlator'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -152,6 +153,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
     parameters['TAP_DW'] = TAP_DW
     parameters['PSS_LEN'] = PSS_LEN
     parameters['ALGO'] = ALGO
+    parameters['USE_TAP_FILE'] = USE_TAP_FILE
 
     # imaginary part is in upper 16 Bit
     PSS = np.zeros(PSS_LEN, 'complex')
@@ -162,14 +164,23 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
     # for i in range(10):
     #     print(f'taps[{i}] = {taps[i]}')
     parameters['PSS_LOCAL'] = 0
+    PSS_taps = np.empty(PSS_LEN, int)
     for i in range(len(taps)):
         parameters['PSS_LOCAL'] += ((int(np.imag(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i + TAP_DW // 2)) \
                                 +  ((int(np.real(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
+        PSS_taps[i] = ((int(np.imag(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW // 2)) \
+                                + (int(np.real(taps[i])) & (2 ** (TAP_DW // 2) - 1))
+
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     os.environ['CFO'] = str(CFO)
     parameters_no_taps = parameters.copy()
     del parameters_no_taps['PSS_LOCAL']
-    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
+    folder = '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
+    sim_build='sim_build/' + folder
+    if USE_TAP_FILE:
+        parameters['TAP_FILE'] = f'\"../{folder}_PSS_taps.txt\"'
+        np.savetxt(sim_build + '_PSS_taps.txt', PSS_taps, fmt = '%x', delimiter = ' ')
+
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
@@ -185,4 +196,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 24, TAP_DW = 18, ALGO = 0, CFO = 10000)
+    test(IN_DW = 32, OUT_DW = 24, TAP_DW = 18, ALGO = 0, CFO = 10000, USE_TAP_FILE = 1)
