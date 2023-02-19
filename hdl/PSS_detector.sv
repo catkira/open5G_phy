@@ -9,6 +9,10 @@ module PSS_detector
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_0 = {(PSS_LEN * TAP_DW){1'b0}},
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_1 = {(PSS_LEN * TAP_DW){1'b0}},
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_2 = {(PSS_LEN * TAP_DW){1'b0}},
+    parameter USE_TAP_FILE = 0,
+    parameter string TAP_FILE_0 = "",
+    parameter string TAP_FILE_1 = "",
+    parameter string TAP_FILE_2 = "",
     parameter ALGO = 1,
     parameter WINDOW_LEN = 8,
     parameter USE_MODE = 0
@@ -29,7 +33,8 @@ module PSS_detector
     output  wire           [IN_DW-1:0]          m_axis_cic_debug_tdata,
     output  wire                                m_axis_cic_debug_tvalid,
     output  wire           [OUT_DW - 1 : 0]     m_axis_correlator_debug_tdata,
-    output  wire                                m_axis_correlator_debug_tvalid
+    output  wire                                m_axis_correlator_debug_tvalid,
+    output                 [TAP_DW - 1 : 0]     taps_2_o [0 : PSS_LEN - 1]
 );
 
 
@@ -41,56 +46,120 @@ reg [2 : 0] peak_detected;
 reg correlator_en;
 reg [IN_DW-1:0] score [0 : 2];
 
-PSS_correlator #(
-    .IN_DW(IN_DW),
-    .OUT_DW(OUT_DW),
-    .TAP_DW(TAP_DW),
-    .PSS_LEN(PSS_LEN),
-    .PSS_LOCAL(PSS_LOCAL_0),
-    .ALGO(ALGO)
-)
-correlator_0_i(
-    .clk_i(clk_i),
-    .reset_ni(reset_ni),
-    .s_axis_in_tdata(s_axis_in_tdata),
-    .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
-    .m_axis_out_tdata(correlator_0_tdata),
-    .m_axis_out_tvalid(correlator_0_tvalid)
-);
+if (USE_TAP_FILE) begin
+    PSS_correlator #(
+        .IN_DW(IN_DW),
+        .OUT_DW(OUT_DW),
+        .TAP_DW(TAP_DW),
+        .PSS_LEN(PSS_LEN),
+        .PSS_LOCAL(PSS_LOCAL_0),
+        .USE_TAP_FILE(USE_TAP_FILE),
+        .TAP_FILE(TAP_FILE_0),
+        .ALGO(ALGO)
+    )
+    correlator_0_i(
+        .clk_i(clk_i),
+        .reset_ni(reset_ni),
+        .s_axis_in_tdata(s_axis_in_tdata),
+        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .m_axis_out_tdata(correlator_0_tdata),
+        .m_axis_out_tvalid(correlator_0_tvalid)
+    );
 
-PSS_correlator #(
-    .IN_DW(IN_DW),
-    .OUT_DW(OUT_DW),
-    .TAP_DW(TAP_DW),
-    .PSS_LEN(PSS_LEN),
-    .PSS_LOCAL(PSS_LOCAL_1),
-    .ALGO(ALGO)
-)
-correlator_1_i(
-    .clk_i(clk_i),
-    .reset_ni(reset_ni),
-    .s_axis_in_tdata(s_axis_in_tdata),
-    .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
-    .m_axis_out_tdata(correlator_1_tdata),
-    .m_axis_out_tvalid(correlator_1_tvalid)
-);
+    PSS_correlator #(
+        .IN_DW(IN_DW),
+        .OUT_DW(OUT_DW),
+        .TAP_DW(TAP_DW),
+        .PSS_LEN(PSS_LEN),
+        .PSS_LOCAL(PSS_LOCAL_1),
+        .USE_TAP_FILE(USE_TAP_FILE),
+        .TAP_FILE(TAP_FILE_1),
+        .ALGO(ALGO)
+    )
+    correlator_1_i(
+        .clk_i(clk_i),
+        .reset_ni(reset_ni),
+        .s_axis_in_tdata(s_axis_in_tdata),
+        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .m_axis_out_tdata(correlator_1_tdata),
+        .m_axis_out_tvalid(correlator_1_tvalid)
+    );
 
-PSS_correlator #(
-    .IN_DW(IN_DW),
-    .OUT_DW(OUT_DW),
-    .TAP_DW(TAP_DW),
-    .PSS_LEN(PSS_LEN),
-    .PSS_LOCAL(PSS_LOCAL_2),
-    .ALGO(ALGO)
-)
-correlator_2_i(
-    .clk_i(clk_i),
-    .reset_ni(reset_ni),
-    .s_axis_in_tdata(s_axis_in_tdata),
-    .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
-    .m_axis_out_tdata(correlator_2_tdata),
-    .m_axis_out_tvalid(correlator_2_tvalid)
-);
+    PSS_correlator #(
+        .IN_DW(IN_DW),
+        .OUT_DW(OUT_DW),
+        .TAP_DW(TAP_DW),
+        .PSS_LEN(PSS_LEN),
+        .PSS_LOCAL(PSS_LOCAL_2),
+        .USE_TAP_FILE(USE_TAP_FILE),
+        .TAP_FILE(TAP_FILE_2),
+        .ALGO(ALGO)
+    )
+    correlator_2_i(
+        .clk_i(clk_i),
+        .reset_ni(reset_ni),
+        .s_axis_in_tdata(s_axis_in_tdata),
+        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .m_axis_out_tdata(correlator_2_tdata),
+        .m_axis_out_tvalid(correlator_2_tvalid),
+        .taps_o(taps_2_o)
+    );
+end else begin
+    PSS_correlator #(
+        .IN_DW(IN_DW),
+        .OUT_DW(OUT_DW),
+        .TAP_DW(TAP_DW),
+        .PSS_LEN(PSS_LEN),
+        .PSS_LOCAL(PSS_LOCAL_0),
+        .USE_TAP_FILE(USE_TAP_FILE),
+        .ALGO(ALGO)
+    )
+    correlator_0_i(
+        .clk_i(clk_i),
+        .reset_ni(reset_ni),
+        .s_axis_in_tdata(s_axis_in_tdata),
+        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .m_axis_out_tdata(correlator_0_tdata),
+        .m_axis_out_tvalid(correlator_0_tvalid)
+    );
+
+    PSS_correlator #(
+        .IN_DW(IN_DW),
+        .OUT_DW(OUT_DW),
+        .TAP_DW(TAP_DW),
+        .PSS_LEN(PSS_LEN),
+        .PSS_LOCAL(PSS_LOCAL_1),
+        .USE_TAP_FILE(USE_TAP_FILE),
+        .ALGO(ALGO)
+    )
+    correlator_1_i(
+        .clk_i(clk_i),
+        .reset_ni(reset_ni),
+        .s_axis_in_tdata(s_axis_in_tdata),
+        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .m_axis_out_tdata(correlator_1_tdata),
+        .m_axis_out_tvalid(correlator_1_tvalid)
+    );
+
+    PSS_correlator #(
+        .IN_DW(IN_DW),
+        .OUT_DW(OUT_DW),
+        .TAP_DW(TAP_DW),
+        .PSS_LEN(PSS_LEN),
+        .PSS_LOCAL(PSS_LOCAL_2),
+        .USE_TAP_FILE(USE_TAP_FILE),
+        .ALGO(ALGO)
+    )
+    correlator_2_i(
+        .clk_i(clk_i),
+        .reset_ni(reset_ni),
+        .s_axis_in_tdata(s_axis_in_tdata),
+        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .m_axis_out_tdata(correlator_2_tdata),
+        .m_axis_out_tvalid(correlator_2_tvalid),
+        .taps_o(taps_2_o)
+    );    
+end
 
 Peak_detector #(
     .IN_DW(OUT_DW),

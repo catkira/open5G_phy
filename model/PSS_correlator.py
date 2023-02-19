@@ -7,7 +7,7 @@ def _twos_comp(val, bits):
     return int(val)
 
 class Model:
-    def __init__(self, IN_DW, OUT_DW, TAP_DW, PSS_LEN, PSS_LOCAL, ALGO):
+    def __init__(self, IN_DW, OUT_DW, TAP_DW, PSS_LEN, PSS_LOCAL, ALGO, USE_TAP_FILE = 0, TAP_FILE = ''):
         self.PSS_LEN = int(PSS_LEN)
         self.OUT_DW = int(OUT_DW)
         self.TAP_DW = int(TAP_DW)
@@ -31,11 +31,19 @@ class Model:
         else:
             round_bits = 0
 
+        if USE_TAP_FILE:
+            print(f'using tap file {TAP_FILE}')
+            temp_taps = np.loadtxt(TAP_FILE, delimiter = ' ', dtype = int, converters={0:lambda s: int(s, 16)})
+
         for i in range(PSS_LEN):
-            self.taps[i] =    _twos_comp(((PSS_LOCAL >> (self.TAP_DW * i))                    & (2 ** (self.TAP_DW // 2) - 1)),
-                            self.TAP_DW // 2) \
-                         + 1j*_twos_comp(((PSS_LOCAL >> (self.TAP_DW * i + self.TAP_DW // 2)) & (2 ** (self.TAP_DW // 2) - 1)),
-                            self.TAP_DW // 2)
+            if USE_TAP_FILE:
+                self.taps[i] = _twos_comp(temp_taps[i]                          & (2 ** (self.TAP_DW // 2) - 1), self.TAP_DW // 2) \
+                        + 1j * _twos_comp((temp_taps[i] >> (self.TAP_DW // 2))  & (2 ** (self.TAP_DW // 2) - 1), self.TAP_DW // 2)
+            else:
+                self.taps[i] =    _twos_comp(((PSS_LOCAL >> (self.TAP_DW * i))                    & (2 ** (self.TAP_DW // 2) - 1)),
+                                self.TAP_DW // 2) \
+                            + 1j*_twos_comp(((PSS_LOCAL >> (self.TAP_DW * i + self.TAP_DW // 2)) & (2 ** (self.TAP_DW // 2) - 1)),
+                                self.TAP_DW // 2)
 
         # for i in range(PSS_LEN):
         #     print(f'taps[{i}] = {self.taps[i]}')

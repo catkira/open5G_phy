@@ -20,7 +20,10 @@ module PSS_correlator
     input   wire           [IN_DW-1:0]          s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
     output  reg            [OUT_DW-1:0]         m_axis_out_tdata,
-    output  reg                                 m_axis_out_tvalid
+    output  reg                                 m_axis_out_tvalid,
+
+    // debug outputs
+    output                 [TAP_DW - 1 : 0]     taps_o [0 : PSS_LEN - 1]
 );
 
 localparam IN_OP_DW  = IN_DW / 2;
@@ -39,6 +42,7 @@ reg valid;
 reg signed [REQUIRED_OUT_DW - 1 : 0] sum_im, sum_re;
 
 reg [TAP_DW - 1 : 0] taps [0 : PSS_LEN - 1];
+assign taps_o = taps;
 initial begin
     if (USE_TAP_FILE)  $readmemh(TAP_FILE, taps);
     for (integer i = 0; i < PSS_LEN; i = i + 1) begin

@@ -36,8 +36,8 @@ class TB(object):
         self.PSS_LEN = int(dut.PSS_LEN.value)
         self.ALGO = int(dut.ALGO.value)
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
-        self.PSS_LOCAL_2 = int(dut.PSS_LOCAL_2.value)
         self.USE_MODE = int(dut.USE_MODE.value)
+        self.USE_TAP_FILE = int(dut.USE_TAP_FILE.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -47,7 +47,14 @@ class TB(object):
         spec = importlib.util.spec_from_file_location('PSS_correlator', model_file)
         foo = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(foo)
-        self.PSS_correlator_model = foo.Model(self.IN_DW, self.OUT_DW, self.TAP_DW, self.PSS_LEN, self.PSS_LOCAL_2, self.ALGO)
+        if self.USE_TAP_FILE:
+            self.TAP_FILE_2 = os.environ["TAP_FILE_2"]
+            self.PSS_LOCAL_2 = 0
+        else:
+            self.TAP_FILE_2 = ""
+            self.PSS_LOCAL_2 =  int(dut.PSS_LOCAL_2.value)
+
+        self.PSS_correlator_model = foo.Model(self.IN_DW, self.OUT_DW, self.TAP_DW, self.PSS_LEN, self.PSS_LOCAL_2, self.ALGO, self.USE_TAP_FILE, self.TAP_FILE_2)
 
         cocotb.start_soon(Clock(self.dut.clk_i, CLK_PERIOD_NS, units='ns').start())
         cocotb.start_soon(self.model_clk(CLK_PERIOD_NS, 'ns'))
@@ -142,6 +149,10 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_MODE):
     ]
     includes = []
 
+    # verilator cannot handle long parameters, therefore use TAP_FILE 
+    # iverilog cannot pass down string parameters, therefore use long parameters
+    USE_TAP_FILE = int(os.environ.get('SIM') == 'verilator')
+
     PSS_LEN = 128
     parameters = {}
     parameters['IN_DW'] = IN_DW
@@ -151,7 +162,10 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_MODE):
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['USE_MODE'] = USE_MODE
+    parameters['USE_TAP_FILE'] = USE_TAP_FILE
     parameters_no_taps = parameters.copy()
+    folder = '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
+    sim_build='sim_build/' + folder
 
     for i in range(3):
         # imaginary part is in upper 16 Bit
@@ -161,14 +175,19 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_MODE):
         taps /= max(taps.real.max(), taps.imag.max())
         taps *= 2 ** (TAP_DW // 2 - 1)
         parameters[f'PSS_LOCAL_{i}'] = 0
+        PSS_taps = np.empty(PSS_LEN, int)
         for k in range(len(taps)):
-            parameters[f'PSS_LOCAL_{i}'] += ((int(np.round(np.imag(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k + TAP_DW // 2)) \
-                                    + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
+            if not USE_TAP_FILE:
+                parameters[f'PSS_LOCAL_{i}'] += ((int(np.round(np.imag(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k + TAP_DW // 2)) \
+                                        + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
+            PSS_taps[k] = ((int(np.imag(taps[k])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW // 2)) \
+                                    + (int(np.real(taps[k])) & (2 ** (TAP_DW // 2) - 1))
+        if USE_TAP_FILE:
+            parameters[f'TAP_FILE_{i}'] = f'\"../{folder}_PSS_{i}_taps.txt\"'
+            os.environ[f'TAP_FILE_{i}'] = f'../{folder}_PSS_{i}_taps.txt'
+            np.savetxt(sim_build + f'_PSS_{i}_taps.txt', PSS_taps, fmt = '%x', delimiter = ' ')
 
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
-    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
-
-    # os.environ['SIM'] = 'verilator'
 
     compile_args = []
     if os.environ.get('SIM') == 'verilator':
@@ -191,4 +210,5 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_MODE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
+    # os.environ['SIM'] = 'verilator'
     test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0)

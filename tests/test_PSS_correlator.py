@@ -28,8 +28,9 @@ class TB(object):
         self.OUT_DW = int(dut.OUT_DW.value)
         self.TAP_DW = int(dut.TAP_DW.value)
         self.PSS_LEN = int(dut.PSS_LEN.value)
-        self.PSS_LOCAL = int(dut.PSS_LOCAL.value)
         self.ALGO = int(dut.ALGO.value)
+        self.USE_TAP_FILE = int(dut.USE_TAP_FILE.value)
+        self.TAP_FILE = dut.TAP_FILE.value
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -39,7 +40,14 @@ class TB(object):
         spec = importlib.util.spec_from_file_location('PSS_correlator', model_dir)
         foo = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(foo)
-        self.model = foo.Model(self.IN_DW, self.OUT_DW, self.TAP_DW, self.PSS_LEN, self.PSS_LOCAL, self.ALGO)
+
+        if self.USE_TAP_FILE:
+            self.TAP_FILE = os.environ["TAP_FILE"]
+            self.PSS_LOCAL = 0
+        else:
+            self.TAP_FILE = ""
+            self.PSS_LOCAL =  int(dut.PSS_LOCAL.value)        
+        self.model = foo.Model(self.IN_DW, self.OUT_DW, self.TAP_DW, self.PSS_LEN, self.PSS_LOCAL, self.ALGO, self.USE_TAP_FILE, self.TAP_FILE)
 
         cocotb.start_soon(Clock(self.dut.clk_i, CLK_PERIOD_NS, units='ns').start())
         cocotb.start_soon(self.model_clk(CLK_PERIOD_NS, 'ns'))
@@ -110,7 +118,9 @@ async def simple_test(dut):
         _, (ax, ax2) = plt.subplots(2, 1)
         print(f'{type(received.dtype)} {type(received_model.dtype)}')
         ax.plot(np.sqrt(received))
+        ax.set_title('hdl')
         ax2.plot(np.sqrt(received_model), 'r-')
+        ax.set_title('model')
         ax.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
         plt.show()
     print(f'max correlation is {received[ssb_start]} at {ssb_start}')
@@ -166,10 +176,12 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, USE_TAP_FILE):
     parameters['PSS_LOCAL'] = 0
     PSS_taps = np.empty(PSS_LEN, int)
     for i in range(len(taps)):
-        parameters['PSS_LOCAL'] += ((int(np.imag(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i + TAP_DW // 2)) \
-                                +  ((int(np.real(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
-        PSS_taps[i] = ((int(np.imag(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW // 2)) \
-                                + (int(np.real(taps[i])) & (2 ** (TAP_DW // 2) - 1))
+        if not USE_TAP_FILE:
+            parameters['PSS_LOCAL'] += ((int(np.imag(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i + TAP_DW // 2)) \
+                                    +  ((int(np.real(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
+        else:
+            PSS_taps[i] = ((int(np.imag(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW // 2)) \
+                                    + (int(np.real(taps[i])) & (2 ** (TAP_DW // 2) - 1))
 
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     os.environ['CFO'] = str(CFO)
@@ -178,8 +190,10 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, USE_TAP_FILE):
     folder = '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     sim_build='sim_build/' + folder
     if USE_TAP_FILE:
+        # every parameter combination needs to have its own TAP_FILE to allow parallel tests!
         parameters['TAP_FILE'] = f'\"../{folder}_PSS_taps.txt\"'
-        np.savetxt(sim_build + '_PSS_taps.txt', PSS_taps, fmt = '%x', delimiter = ' ')
+        os.environ["TAP_FILE"] = f'../{folder}_PSS_taps.txt'
+        np.savetxt(sim_build + '_PSS_taps.txt', PSS_taps.T, fmt = '%x', delimiter = ' ')
 
     cocotb_test.simulator.run(
         python_search=[tests_dir],
