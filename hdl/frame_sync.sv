@@ -50,8 +50,8 @@ localparam [1 : 0] PSS_DETECTOR_MODE_FIND   = 1;
 localparam [1 : 0] PSS_DETECTOR_MODE_PAUSE  = 1;
 localparam CLK_FREQ = 3840000;
 localparam CLKS_20MS = $rtoi(CLK_FREQ * 0.02);
-localparam CLKS_PSS_EARLY_WAKEUP = $rtoi(CLK_FREQ * 0.0005); // start PSS detector 0.5 ms before expected SSB
-localparam CLKS_PSS_LATE_TOLERANCE = $rtoi(CLK_FREQ * 0.0005); // keep PSS detector running until 0.5ms after expected SSB
+localparam CLKS_PSS_EARLY_WAKEUP = $rtoi(CLK_FREQ * 0.0001); // start PSS detector 0.1 ms before expected SSB
+localparam CLKS_PSS_LATE_TOLERANCE = $rtoi(CLK_FREQ * 0.0001); // keep PSS detector running until 0.1ms after expected SSB
 reg [$clog2(CLKS_20MS + CLKS_PSS_LATE_TOLERANCE) - 1 : 0] clks_since_SSB;
 reg [1 : 0] PSS_state;
 localparam [1 : 0] SEARCH_PSS = 0;
@@ -102,6 +102,8 @@ end
 //
 // sfn is the current subframe number
 // sym_cnt is the current symbol number within the current subframe
+//
+// TODO: add timeout to WAIT_FOR_IBAR state
 localparam SFN_MAX = 20;
 localparam SYM_PER_SF = 14;
 localparam FFT_LEN = 256;
@@ -254,12 +256,5 @@ always @(posedge clk_i) begin
         endcase
     end
 end
-
-// `ifdef COCOTB_SIM
-// initial begin
-//   $dumpfile ("debug.vcd");
-//   $dumpvars (0, frame_sync);
-// end
-// `endif
 
 endmodule
