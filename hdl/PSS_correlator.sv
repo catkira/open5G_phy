@@ -12,7 +12,7 @@ module PSS_correlator
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
     parameter ALGO = 1,
     parameter USE_TAP_FILE = 0,
-    parameter string TAP_FILE = "../../PSS_taps.txt"
+    parameter TAP_FILE = "../../PSS_taps.txt"
 )
 (
     input                                       clk_i,

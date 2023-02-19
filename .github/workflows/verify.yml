@@ -27,6 +27,11 @@ jobs:
         cd cocotb
         pip3 install -e .
         sudo apt install -y --no-install-recommends iverilog
+        #git clone https://github.com/steveicarus/iverilog.git
+        #cd iverilog
+        #git reset --hard 3612577b52d1a1e1980610b218c8f2487a7bb0fe
+        #./configure
+        #make -j20 install
     - name: Verify with cocotb & icarus
       run: |
         pytest -v --workers=10 tests/test_PSS_correlator.py

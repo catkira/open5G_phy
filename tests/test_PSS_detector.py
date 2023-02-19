@@ -137,7 +137,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("USE_MODE", [0])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_MODE):
+@pytest.mark.parametrize("USE_TAP_FILE", [0, 1])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_MODE, USE_TAP_FILE):
     dut = 'PSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -148,10 +149,6 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_MODE):
         os.path.join(rtl_dir, 'PSS_correlator.sv')
     ]
     includes = []
-
-    # verilator cannot handle long parameters, therefore use TAP_FILE 
-    # iverilog cannot pass down string parameters, therefore use long parameters
-    USE_TAP_FILE = int(os.environ.get('SIM') == 'verilator')
 
     PSS_LEN = 128
     parameters = {}
@@ -211,4 +208,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_MODE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0)
+    test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0, USE_TAP_FILE=1)

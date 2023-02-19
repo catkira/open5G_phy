@@ -229,7 +229,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("CFO", [0, 100])
 @pytest.mark.parametrize("CP_ADVANCE", [9, 18])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
+@pytest.mark.parametrize("USE_TAP_FILE", [0, 1])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -271,10 +272,6 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
         os.path.join(rtl_dir, 'CIC'),
         os.path.join(rtl_dir, 'fft-core')
     ]
-
-    # verilator cannot handle long parameters, therefore use TAP_FILE 
-    # iverilog cannot pass down string parameters, therefore use long parameters
-    USE_TAP_FILE = int(os.environ.get('SIM') == 'verilator')    
 
     PSS_LEN = 128
     parameters = {}
@@ -337,4 +334,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=100, CP_ADVANCE = 18)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=100, CP_ADVANCE = 18, USE_TAP_FILE = 1)

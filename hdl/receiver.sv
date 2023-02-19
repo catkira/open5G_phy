@@ -19,9 +19,9 @@ module receiver
     parameter WINDOW_LEN `VL_RD = 8,
     parameter CP_ADVANCE `VL_RD = 9,
     parameter USE_TAP_FILE = 0,
-    parameter string TAP_FILE_0,
-    parameter string TAP_FILE_1,
-    parameter string TAP_FILE_2,
+    parameter TAP_FILE_0 = "",
+    parameter TAP_FILE_1 = "",
+    parameter TAP_FILE_2 = "",
     localparam FFT_OUT_DW `VL_RD = 32,
     localparam N_id_1_MAX `VL_RD = 335
 )
