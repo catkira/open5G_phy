@@ -13,7 +13,8 @@ module test_CFO_correction
     parameter DDS_OUT_DW = 32,
     parameter DDS_PHASE_DW = 20,
     parameter COMPL_MULT_OUT_DW = 32,   // has to be multiple of 16
-    parameter CIC_OUT_DW = 34
+    parameter CIC_OUT_DW = 34,
+    parameter PSS_CORRELATOR_MR = 1
 )
 (
     input                                       clk_i,
@@ -148,25 +149,46 @@ wire correlator_tvalid;
 assign m_axis_correlator_debug_tdata = correlator_tdata;
 assign m_axis_correlator_debug_tvalid = correlator_tvalid;
 
-PSS_correlator_mr #(
-    .IN_DW(CIC_OUT_DW),
-    .OUT_DW(OUT_DW),
-    .TAP_DW(TAP_DW),
-    .PSS_LEN(PSS_LEN),
-    .PSS_LOCAL(PSS_LOCAL),
-    .ALGO(ALGO),
-    .MULT_REUSE(MULT_REUSE)
-)
-correlator(
-    .clk_i(clk_i),
-    .reset_ni(reset_ni),
-    .s_axis_in_tdata(m_axis_cic_tdata),
-    .s_axis_in_tvalid(m_axis_cic_tvalid),
-    .m_axis_out_tdata(correlator_tdata),
-    .m_axis_out_tvalid(correlator_tvalid),
-    .C0(C0),
-    .C1(C1)
-);
+if (PSS_CORRELATOR_MR) begin
+    PSS_correlator_mr #(
+        .IN_DW(CIC_OUT_DW),
+        .OUT_DW(OUT_DW),
+        .TAP_DW(TAP_DW),
+        .PSS_LEN(PSS_LEN),
+        .PSS_LOCAL(PSS_LOCAL),
+        .ALGO(ALGO),
+        .MULT_REUSE(MULT_REUSE)
+    )
+    correlator(
+        .clk_i(clk_i),
+        .reset_ni(reset_ni),
+        .s_axis_in_tdata(m_axis_cic_tdata),
+        .s_axis_in_tvalid(m_axis_cic_tvalid),
+        .m_axis_out_tdata(correlator_tdata),
+        .m_axis_out_tvalid(correlator_tvalid),
+        .C0(C0),
+        .C1(C1)
+    );
+end else begin
+    PSS_correlator #(
+        .IN_DW(CIC_OUT_DW),
+        .OUT_DW(OUT_DW),
+        .TAP_DW(TAP_DW),
+        .PSS_LEN(PSS_LEN),
+        .PSS_LOCAL(PSS_LOCAL),
+        .ALGO(ALGO)
+    )
+    correlator(
+        .clk_i(clk_i),
+        .reset_ni(reset_ni),
+        .s_axis_in_tdata(m_axis_cic_tdata),
+        .s_axis_in_tvalid(m_axis_cic_tvalid),
+        .m_axis_out_tdata(correlator_tdata),
+        .m_axis_out_tvalid(correlator_tvalid),
+        .C0_o(C0),
+        .C1_o(C1)
+    );    
+end
 
 Peak_detector #(
     .IN_DW(OUT_DW),

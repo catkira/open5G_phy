@@ -162,11 +162,4 @@ always @(posedge clk_i) begin
     end
 end
 
-// `ifdef COCOTB_SIM
-// initial begin
-//   $dumpfile ("debug.vcd");
-//   $dumpvars (0, CFO_calc);
-// end
-// `endif
-
 endmodule

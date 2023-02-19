@@ -185,7 +185,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("CFO", [0, 6500, -5500])
 @pytest.mark.parametrize("MULT_REUSE", [1, 16])
 @pytest.mark.parametrize("CFO_CORR", [0, 1000, -1000])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE, CFO_CORR):
+@pytest.mark.parametrize("PSS_CORRELATOR_MR", [0, 1])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE, CFO_CORR, PSS_CORRELATOR_MR):
     dut = 'test_CFO_correction'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -193,6 +194,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE, CFO_CORR):
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
+        os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'PSS_correlator_mr.sv'),
         os.path.join(rtl_dir, 'CIC/cic_d.sv'),
         os.path.join(rtl_dir, 'CIC/comb.sv'),
@@ -213,6 +215,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE, CFO_CORR):
     parameters['PSS_LEN'] = PSS_LEN
     parameters['ALGO'] = ALGO
     parameters['MULT_REUSE'] = MULT_REUSE
+    parameters['PSS_CORRELATOR_MR'] = PSS_CORRELATOR_MR
 
     # imaginary part is in upper 16 Bit
     PSS = np.zeros(PSS_LEN, 'complex')
@@ -252,6 +255,6 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE, CFO_CORR):
     )
 
 if __name__ == '__main__':
-    os.environ['PLOTS'] = "1"
+    # os.environ['PLOTS'] = "1"
     # this setup does not require output truncation
-    test(IN_DW = 32, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 2500, MULT_REUSE = 16, CFO_CORR = 0)
+    test(IN_DW = 32, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 2500, MULT_REUSE = 16, CFO_CORR = 0, PSS_CORRELATOR_MR = 0)

@@ -12,7 +12,8 @@ module PSS_correlator
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
     parameter ALGO = 1,
     parameter USE_TAP_FILE = 0,
-    parameter TAP_FILE = "../../PSS_taps.txt"
+    parameter TAP_FILE = "../../PSS_taps.txt",
+    localparam C_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN)
 )
 (
     input                                       clk_i,
@@ -21,6 +22,8 @@ module PSS_correlator
     input                                       s_axis_in_tvalid,
     output  reg            [OUT_DW-1:0]         m_axis_out_tdata,
     output  reg                                 m_axis_out_tvalid,
+    output  reg            [C_DW - 1 : 0]       C0_o,
+    output  reg            [C_DW - 1 : 0]       C1_o,
 
     // debug outputs
     output                 [TAP_DW - 1 : 0]     taps_o [0 : PSS_LEN - 1]
@@ -29,6 +32,8 @@ module PSS_correlator
 localparam IN_OP_DW  = IN_DW / 2;
 localparam TAP_OP_DW = TAP_DW / 2;
 localparam REQUIRED_OUT_DW = IN_OP_DW + TAP_OP_DW + 1 + $clog2(PSS_LEN);
+
+reg signed [REQUIRED_OUT_DW - 1 : 0] C0_im, C0_re; // partial sums, used for CFO estimation
 
 wire signed [IN_OP_DW - 1 : 0] axis_in_re, axis_in_im;
 assign axis_in_re = s_axis_in_tdata[IN_DW / 2 - 1 -: IN_OP_DW];
@@ -112,6 +117,10 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
         m_axis_out_tdata <= '0;
         m_axis_out_tvalid <= '0;
         valid <= '0;
+        C0_im <= '0;
+        C0_re <= '0;
+        C0_o <= '0;
+        C1_o <= '0;
     end
     else begin
         valid <= s_axis_in_tvalid;
@@ -125,7 +134,13 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                     tap_im = get_tap_im(i);
                     sum_re = sum_re + in_re[i] * tap_re - in_im[i] * tap_im;
                     sum_im = sum_im + in_re[i] * tap_im + in_im[i] * tap_re;
+                    if (i == PSS_LEN / 2 - 1) begin
+                        C0_im = sum_im;
+                        C0_re = sum_re;
+                    end
                 end
+                C0_o <= {C0_im, C0_re};
+                C1_o <= {sum_im - C0_im, sum_re - C0_re};
             end else begin
                 // 2*PSS_LEN multiplications
                 // simplification by taking into account that PSS is 
@@ -155,7 +170,13 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                                     + (in_im[PSS_LEN - i] - in_im[i]) * tap_im;
                     sum_im = sum_im + (in_im[PSS_LEN - i] + in_im[i]) * tap_re
                                     - (in_re[PSS_LEN - i] - in_re[i]) * tap_im;
+                    if (i == PSS_LEN / 4 - 1) begin
+                        C0_im = sum_im;
+                        C0_re = sum_re;
+                    end
                 end
+                C0_o <= {C0_im, C0_re};
+                C1_o <= {sum_im - C0_im, sum_re - C0_re};
             end
 
             // https://openofdm.readthedocs.io/en/latest/verilog.html

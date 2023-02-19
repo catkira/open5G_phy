@@ -37,9 +37,12 @@ module PSS_detector
     output                 [TAP_DW - 1 : 0]     taps_2_o [0 : PSS_LEN - 1]
 );
 
+localparam C_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN);
 
 wire [OUT_DW - 1 : 0] correlator_0_tdata, correlator_1_tdata, correlator_2_tdata;
 wire correlator_0_tvalid, correlator_1_tvalid, correlator_2_tvalid;
+wire [C_DW - 1 : 0] C0 [0 : 2];
+wire [C_DW - 1 : 0] C1 [0 : 2];
 assign m_axis_correlator_debug_tdata = correlator_2_tdata;
 assign m_axis_correlator_debug_tvalid = correlator_2_tvalid;
 reg [2 : 0] peak_detected; 
@@ -61,6 +64,8 @@ correlator_0_i(
     .reset_ni(reset_ni),
     .s_axis_in_tdata(s_axis_in_tdata),
     .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+    .C0_o(C0[0]),
+    .C1_o(C1[0]),
     .m_axis_out_tdata(correlator_0_tdata),
     .m_axis_out_tvalid(correlator_0_tvalid)
 );
@@ -80,6 +85,8 @@ correlator_1_i(
     .reset_ni(reset_ni),
     .s_axis_in_tdata(s_axis_in_tdata),
     .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+    .C0_o(C0[1]),
+    .C1_o(C1[1]),
     .m_axis_out_tdata(correlator_1_tdata),
     .m_axis_out_tvalid(correlator_1_tvalid)
 );
@@ -99,6 +106,8 @@ correlator_2_i(
     .reset_ni(reset_ni),
     .s_axis_in_tdata(s_axis_in_tdata),
     .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+    .C0_o(C0[2]),
+    .C1_o(C1[2]),
     .m_axis_out_tdata(correlator_2_tdata),
     .m_axis_out_tvalid(correlator_2_tvalid),
     .taps_o(taps_2_o)
@@ -141,6 +150,27 @@ peak_detector_2_i(
     .s_axis_in_tvalid(correlator_2_tvalid),
     .peak_detected_o(peak_detected[2]),
     .score_o(score[2])    
+);
+
+
+localparam CFO_DW = 24;
+reg [C_DW - 1 : 0] C0_in, C1_in;
+reg CFO_calc_valid_in;
+reg CFO_calc_valid_out;
+reg [CFO_DW - 1 : 0] CFO;
+CFO_calc #(
+    .C_DW(C_DW),
+    .CFO_DW(CFO_DW)
+)
+CFO_calc_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+    .C0_i(C0_in),
+    .C1_i(C1_in),
+    .valid_i(CFO_calc_valid_in),
+
+    .CFO_norm_o(CFO),
+    .valid_o(CFO_calc_valid_out)
 );
 
 localparam [1 : 0]  SEARCH = 0;
