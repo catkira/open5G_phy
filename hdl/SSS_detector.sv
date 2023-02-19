@@ -123,8 +123,8 @@ always @(posedge clk_i) begin
             // $display("N_id_2 = %d", N_id_2_i);
             // m_0_start = 5 * N_id_2_i;
             N_id_2 <= N_id_2_i;
-            m_0_start = times_5[N_id_2_i];  // optimized to not use multiplication
-            m_0 <= m_0_start;
+            m_0_start <= times_5[N_id_2_i];  // optimized to not use multiplication
+            m_0 <= times_5[N_id_2_i];
             m_1 <= 0;
         end
         if (s_axis_in_tvalid) begin
@@ -138,7 +138,7 @@ always @(posedge clk_i) begin
         end
     end else if (state == 1) begin // compare input to single SSS sequence
         if (compare_counter == 0) begin
-            acc = '0;
+            // acc = '0;  // this is not needed
             shift_max = '0;
             // $display("N_id_1 = %d  shift_cur = %d", N_id_1, shift_cur);
             // $display("m_0 = %d  m_1 = %d  mod = %d", m_seq_0_pos, m_seq_1_pos, div_112);

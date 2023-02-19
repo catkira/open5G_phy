@@ -264,6 +264,9 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
         os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v')
         #os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v')
     ]
+    if os.environ.get('SIM') != 'verilator':
+        verilog_sources.append(os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v'))
+
     includes = [
         os.path.join(rtl_dir, 'CIC'),
         os.path.join(rtl_dir, 'fft-core')
@@ -298,7 +301,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
     
     sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
     os.environ['SIM'] = 'verilator'
-    if os.environ['SIM'] == 'verilator':
+    if os.environ.get('SIM') == 'verilator':
         cocotb_test.simulator.run(
             python_search=[tests_dir],
             verilog_sources=verilog_sources,
@@ -310,7 +313,8 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE):
             extra_env=extra_env,
             testcase='simple_test',
             force_compile=True,
-            compile_args = ['-Wno-fatal', '-y', '/mnt/d/git/5G_SSB_sync/submodules/verilator-unisims']
+            waves=True,
+            compile_args = ['--no-timing', '-Wno-fatal', '-y', '/mnt/d/git/5G_SSB_sync/submodules/verilator-unisims']
         )
     else:
         cocotb_test.simulator.run(

@@ -14,10 +14,10 @@ module FFT_demod #(
     input                                       SSB_start_i,
     output  reg        [OUT_DW - 1 : 0]         m_axis_out_tdata,
     output  reg                                 m_axis_out_tvalid,
-    output  reg                                 PBCH_start_o,
-    output  reg                                 SSS_start_o,
-    output  reg                                 PBCH_valid_o,
-    output  reg                                 SSS_valid_o,
+    output                                      PBCH_start_o,
+    output                                      SSS_start_o,
+    output                                      PBCH_valid_o,
+    output                                      SSS_valid_o,
     output  reg                                 symbol_start_o
 );
 
@@ -91,8 +91,6 @@ always @(posedge clk_i) begin
                 // $display("state = 2");
                 // $display("current_out_symbol = %d", current_out_symbol);
             end
-            SSS_valid_o <= '0;
-            PBCH_valid_o <= '0;
         end else if (state == 2) begin // output one symbol
             out_cnt <= out_cnt + 1;
             if (out_cnt == (FFT_LEN - 1)) begin
@@ -152,6 +150,13 @@ if (CP_ADVANCE != CP_LEN) begin
     reg [OUT_DW - 1 : 0] out_data_ff;
     reg fft_val_ff;
 
+    reg PBCH_start_f, PBCH_valid_f;
+    reg SSS_start_f, SSS_valid_f;
+    assign PBCH_start_o = PBCH_start_f;
+    assign PBCH_valid_o = PBCH_valid_f;
+    assign SSS_start_o = SSS_start_f;
+    assign SSS_valid_o = SSS_valid_f;
+
     initial begin
         real PI = 3.1415926535;
         real angle_step = 2 * PI * $itor((CP_LEN - CP_ADVANCE)) / $itor((2**NFFT));
@@ -199,10 +204,10 @@ if (CP_ADVANCE != CP_LEN) begin
             PBCH_valid_delay <= '0;
             SSS_start_delay <= '0;
             SSS_valid_delay <= '0;
-            PBCH_start_o <= '0;
-            SSS_start_o <= '0;
-            SSS_valid_o <= '0;
-            PBCH_valid_o <= '0;
+            PBCH_start_f <= '0;
+            SSS_start_f <= '0;
+            SSS_valid_f <= '0;
+            PBCH_valid_f <= '0;
         end else begin
             fft_val_f <= fft_val;
             fft_val_ff <= fft_val_f;
@@ -218,24 +223,20 @@ if (CP_ADVANCE != CP_LEN) begin
                 PBCH_start_delay[i+1] <= PBCH_start_delay[i];
                 PBCH_valid_delay[i+1] <= PBCH_valid_delay[i];
             end
-            SSS_start_o <= SSS_start_delay[MULT_DELAY - 1];
-            SSS_valid_o <= SSS_valid_delay[MULT_DELAY - 1];
-            PBCH_start_o <= PBCH_start_delay[MULT_DELAY - 1];
-            PBCH_valid_o <= PBCH_valid_delay[MULT_DELAY - 1];
+            SSS_start_f <= SSS_start_delay[MULT_DELAY - 1];
+            SSS_valid_f <= SSS_valid_delay[MULT_DELAY - 1];
+            PBCH_start_f <= PBCH_start_delay[MULT_DELAY - 1];
+            PBCH_valid_f <= PBCH_valid_delay[MULT_DELAY - 1];
 
             if (fft_sync) coeff_idx <= '0;
             else coeff_idx <= coeff_idx + 1;
         end
     end
 end else begin
-    // this comb block will eliminate some regs
-    // use of logic type would make this cleaner
-    always @(*) begin
-        SSS_start_o = SSS_start;
-        SSS_valid_o = SSS_valid;
-        PBCH_start_o = PBCH_start;
-        PBCH_valid_o = PBCH_valid;
-    end
+    assign SSS_start_o = SSS_start;
+    assign SSS_valid_o = SSS_valid;
+    assign PBCH_start_o = PBCH_start;
+    assign PBCH_valid_o = PBCH_valid;
 
     always @(posedge clk_i) begin
         if (!reset_ni) begin

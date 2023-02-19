@@ -57,29 +57,35 @@ begin
 end
 endfunction
 
+localparam OUTPUT_PAD_BITS = REQUIRED_OUT_DW >= OUT_DW ? 0 : OUT_DW - REQUIRED_OUT_DW;
+
+genvar ii;
+for (ii = 0; ii < PSS_LEN; ii++) begin
+    always @(posedge clk_i) begin
+        if (!reset_ni) begin
+            in_re[ii] <= '0;
+            in_im[ii] <= '0;
+        end else if (s_axis_in_tvalid) begin
+            if (ii == 0) begin
+                in_re[0] <= axis_in_re;
+                in_im[0] <= axis_in_im;
+            end
+            if (ii < PSS_LEN - 1) begin
+                in_re[ii + 1] <= in_re[ii];
+                in_im[ii + 1] <= in_im[ii];
+            end
+        end
+    end
+end
+
 always @(posedge clk_i) begin // cannot use $display inside always_ff with iverilog
     if (!reset_ni) begin
         m_axis_out_tdata <= '0;
         m_axis_out_tvalid <= '0;
         valid <= '0;
-        for (integer i = 0; i < PSS_LEN; i++) begin
-            in_re[i] <= '0;
-            in_im[i] <= '0;
-        end        
     end
     else begin
-        if (s_axis_in_tvalid) begin
-            in_re[0] <= axis_in_re;
-            in_im[0] <= axis_in_im;
-            for (integer i = 0; i < (PSS_LEN - 1); i++) begin
-                in_re[i + 1] <= in_re[i];
-                in_im[i + 1] <= in_im[i];
-            end
-            valid <= 1'b1;
-        end else begin
-            valid <= '0;
-        end
-
+        valid <= s_axis_in_tvalid;
         if (valid) begin
             sum_im = '0;
             sum_re = '0;
@@ -131,7 +137,8 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                 m_axis_out_tdata <= filter_result[REQUIRED_OUT_DW - 1 -: OUT_DW];
             end else begin
                 // do zero padding
-                m_axis_out_tdata <= {{(OUT_DW - REQUIRED_OUT_DW){1'b0}}, filter_result};
+                // m_axis_out_tdata <= {{(OUT_DW - REQUIRED_OUT_DW){1'b0}}, filter_result};
+                m_axis_out_tdata <= {{(OUTPUT_PAD_BITS){1'b0}}, filter_result};
             end
             m_axis_out_tvalid <= '1;
         end else begin

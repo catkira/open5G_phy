@@ -91,8 +91,8 @@ for (ii = 0; ii < 8; ii = ii + 1) begin : LFSR_1
                 // $display("cinit = %x", c_init);
             end
             if (state_PBCH_DMRS == 3) begin
-                if (PBCH_DMRS_cnt[0] == 0) PBCH_DMRS[ii][PBCH_DMRS_cnt >> 1][1] <= (lfsr_out_0 ^ out);
-                else                       PBCH_DMRS[ii][PBCH_DMRS_cnt >> 1][0] <= (lfsr_out_0 ^ out);
+                if (PBCH_DMRS_cnt[0] == 0) PBCH_DMRS[ii][PBCH_DMRS_cnt >> 1][1] = (lfsr_out_0 ^ out);
+                else                       PBCH_DMRS[ii][PBCH_DMRS_cnt >> 1][0] = (lfsr_out_0 ^ out);
 
                 // if ((ii == 1) && !PBCH_DMRS_cnt[0] && (PBCH_DMRS_cnt > 1)) begin
                 //     $display("dmrs[%d] = %b", (PBCH_DMRS_cnt >> 1) - 1,  PBCH_DMRS[ii][(PBCH_DMRS_cnt >> 1) - 1]);
@@ -122,9 +122,6 @@ end
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         state_PBCH_DMRS <= '0;
-        for (integer i = 0; i < PBCH_DMRS_LEN; i = i + 1) begin
-            for (integer i2 = 0; i2 < 8; i2 = i2 + 1)  PBCH_DMRS[i2][i] <= '0;
-        end
         PBCH_DMRS_cnt <= '0;
         LFSR_reset_n <= '0;
         LFSR_load_config <= '0;
@@ -216,7 +213,7 @@ always @(posedge clk_i) begin
         PBCH_SC_used_idx <= '0;
         PBCH_DMRS_idx <= 0;
         for (integer i = 0; i < 8; i = i + 1)   DMRS_corr[i] <= '0;
-        ibar_SSB_detected <= '0;
+        ibar_SSB_detected = '0;
         debug_ibar_SSB_o <= '0;
         debug_ibar_SSB_valid_o <= '0;
     end else begin
@@ -253,7 +250,7 @@ always @(posedge clk_i) begin
                             PBCH_DMRS_idx <= PBCH_DMRS_idx + 1;
                             for (integer i = 0; i < 8; i = i + 1) begin
                                 DMRS_corr[i] = DMRS_corr[i] + (PBCH_DMRS[i][PBCH_DMRS_idx][0] == in_demod[0]);
-                                DMRS_corr[i] <= DMRS_corr[i] + (PBCH_DMRS[i][PBCH_DMRS_idx][1] == in_demod[1]);
+                                DMRS_corr[i] = DMRS_corr[i] + (PBCH_DMRS[i][PBCH_DMRS_idx][1] == in_demod[1]);
                             end
                         end
                         PBCH_SC_used_idx <= PBCH_SC_used_idx + 1;
@@ -276,7 +273,7 @@ always @(posedge clk_i) begin
                 debug_ibar_SSB_o <= ibar_SSB_detected;
                 debug_ibar_SSB_valid_o <= 1;
                 state_det_ibar <= '0;
-                ibar_SSB_detected <= '0;
+                ibar_SSB_detected = '0;
                 for(integer i = 0; i < 8; i = i + 1)  DMRS_corr[i] <= '0;
             end
         endcase

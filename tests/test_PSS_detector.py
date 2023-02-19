@@ -167,6 +167,13 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_MODE):
 
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
+
+    # os.environ['SIM'] = 'verilator'
+
+    compile_args = []
+    if os.environ.get('SIM') == 'verilator':
+        compile_args = ['--no-timing', '-Wno-fatal']
+
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
@@ -177,7 +184,9 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_MODE):
         sim_build=sim_build,
         extra_env=extra_env,
         testcase='simple_test',
-        force_compile=True
+        force_compile=True,
+        waves=True,
+        compile_args=compile_args
     )
 
 if __name__ == '__main__':
