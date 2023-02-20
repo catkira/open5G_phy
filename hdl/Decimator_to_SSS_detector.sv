@@ -12,6 +12,7 @@ module Decimator_to_SSS_detector
     parameter ALGO = 1,
     parameter WINDOW_LEN = 8,
     parameter CP_ADVANCE = 9,
+    parameter CFO_LIMIT = 0,
     localparam FFT_OUT_DW = 32,
     localparam N_id_1_MAX = 335,
     localparam N_id_MAX = 1007
@@ -88,7 +89,8 @@ PSS_detector #(
     .PSS_LOCAL_0(PSS_LOCAL_0),
     .PSS_LOCAL_1(PSS_LOCAL_1),
     .PSS_LOCAL_2(PSS_LOCAL_2),
-    .ALGO(ALGO)
+    .ALGO(ALGO),
+    .CFO_LIMIT(CFO_LIMIT)
 )
 PSS_detector_i(
     .clk_i(clk_i),
@@ -112,7 +114,7 @@ assign fft_sync_debug_o = fft_sync;
 
 // this delay line is needed because peak_detected goes high
 // at the end of SSS symbol plus some additional delay
-localparam DELAY_LINE_LEN = 16;
+localparam DELAY_LINE_LEN = CFO_LIMIT ? 16 + 30 : 16;
 reg [IN_DW-1:0] delay_line_data  [0 : DELAY_LINE_LEN - 1];
 reg             delay_line_valid [0 : DELAY_LINE_LEN - 1];
 always @(posedge clk_i) begin
@@ -205,12 +207,4 @@ SSS_detector_i(
     .N_id_o(N_id_o)
 );
 
-`ifdef COCOTB_SIM
-initial begin
-  $dumpfile ("debug.vcd");
-  $dumpvars (0, Decimator_to_SSS_detector);
-end
-`endif
-
 endmodule
-
