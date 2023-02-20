@@ -93,7 +93,7 @@ always @(posedge clk_i) begin
         CFO_norm_o <= '0;
         state <= WAIT_FOR_MULT;
         inv_div_result <= '0;
-        atan <= '0;
+        atan = '0;
     end else begin
         case (state)
         WAIT_FOR_MULT : begin

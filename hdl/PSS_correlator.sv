@@ -117,8 +117,8 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
         m_axis_out_tdata <= '0;
         m_axis_out_tvalid <= '0;
         valid <= '0;
-        C0_im <= '0;
-        C0_re <= '0;
+        C0_im = '0;
+        C0_re = '0;
         C0_o <= '0;
         C1_o <= '0;
     end

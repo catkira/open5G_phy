@@ -241,6 +241,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
         os.path.join(rtl_dir, 'frame_sync.sv'),
         os.path.join(rtl_dir, 'channel_estimator.sv'),
         os.path.join(rtl_dir, 'PSS_detector.sv'),
+        os.path.join(rtl_dir, 'CFO_calc.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'SSS_detector.sv'),
@@ -313,7 +314,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
     
     compile_args = []
     if os.environ.get('SIM') == 'verilator':
-        compile_args = ['--no-timing', '-Wno-fatal', '-y', '/mnt/d/git/5G_SSB_sync/submodules/verilator-unisims']
+        compile_args = ['--no-timing', '-Wno-fatal', '-y', tests_dir + '/../submodules/verilator-unisims']
     else:
         compile_args = ['-sglbl', '-y' + unisim_dir]
     cocotb_test.simulator.run(
