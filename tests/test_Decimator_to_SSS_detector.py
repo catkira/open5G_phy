@@ -37,6 +37,7 @@ class TB(object):
         self.ALGO = int(dut.ALGO.value)
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
         self.CP_ADVANCE = int(dut.CP_ADVANCE.value)
+        self.USE_TAP_FILE = int(dut.USE_TAP_FILE.value)
         self.CFO_LIMIT = int(dut.CFO_LIMIT.value)
 
         self.log = logging.getLogger('cocotb.tb')
@@ -244,8 +245,9 @@ async def simple_test(dut):
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("CFO", [0, 100])
 @pytest.mark.parametrize("CP_ADVANCE", [9, 18])
+@pytest.mark.parametrize("USE_TAP_FILE", [1])
 @pytest.mark.parametrize("CFO_LIMIT", [0, 1])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, CFO_LIMIT):
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE, CFO_LIMIT):
     dut = 'Decimator_to_SSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -276,9 +278,10 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, CFO_LIMIT):
         os.path.join(rtl_dir, 'FFT/delay/int_delay_line.v'),
         os.path.join(rtl_dir, 'FFT/buffers/inbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/outbuf_half_path.v'),
-        os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v'),
-        os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v')
+        os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v')
     ]
+    if os.environ.get('SIM') != 'verilator':
+        verilog_sources.append(os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v'))    
     includes = [
         os.path.join(rtl_dir, 'CIC'),
         os.path.join(rtl_dir, 'fft-core')
@@ -293,10 +296,13 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, CFO_LIMIT):
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['CP_ADVANCE'] = CP_ADVANCE
+    parameters['USE_TAP_FILE'] = USE_TAP_FILE
     parameters['CFO_LIMIT'] = CFO_LIMIT
     os.environ['CFO'] = str(CFO)
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
+    folder = '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
+    sim_build='sim_build/' + folder
 
     for i in range(3):
         # imaginary part is in upper 16 Bit
@@ -306,12 +312,26 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, CFO_LIMIT):
         taps /= max(taps.real.max(), taps.imag.max())
         taps *= 2 ** (TAP_DW // 2 - 1)
         parameters[f'PSS_LOCAL_{i}'] = 0
+        PSS_taps = np.empty(PSS_LEN, int)
         for k in range(len(taps)):
-            parameters[f'PSS_LOCAL_{i}'] += ((int(np.round(np.imag(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k + TAP_DW // 2)) \
-                                    + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
+            if not USE_TAP_FILE:
+                parameters[f'PSS_LOCAL_{i}'] += ((int(np.round(np.imag(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k + TAP_DW // 2)) \
+                                        + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
+            else:
+                PSS_taps[k] = ((int(np.imag(taps[k])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW // 2)) \
+                                        + (int(np.real(taps[k])) & (2 ** (TAP_DW // 2) - 1))                                 
+        if USE_TAP_FILE:
+            parameters[f'TAP_FILE_{i}'] = f'\"../{folder}_PSS_{i}_taps.txt\"'
+            os.environ[f'TAP_FILE_{i}'] = f'../{folder}_PSS_{i}_taps.txt'
+            os.makedirs("sim_build", exist_ok=True)
+            np.savetxt(sim_build + f'_PSS_{i}_taps.txt', PSS_taps, fmt = '%x', delimiter = ' ')  
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     
-    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
+    compile_args = []
+    if os.environ.get('SIM') == 'verilator':
+        compile_args = ['--no-timing', '-Wno-fatal', '-y', tests_dir + '/../submodules/verilator-unisims']
+    else:
+        compile_args = ['-sglbl', '-y' + unisim_dir]
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
@@ -323,9 +343,10 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, CFO_LIMIT):
         extra_env=extra_env,
         testcase='simple_test',
         force_compile=True,
-        compile_args = ['-sglbl', '-y' + unisim_dir]
+        compile_args = compile_args
     )
 
 if __name__ == '__main__':
-    os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, CP_ADVANCE = 9, CFO_LIMIT = 1)
+    os.environ['PLOTS'] = '1'
+    # os.environ['SIM'] = 'verilator'
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, CP_ADVANCE = 9, USE_TAP_FILE = 1, CFO_LIMIT = 1)

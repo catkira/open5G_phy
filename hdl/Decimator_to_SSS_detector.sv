@@ -12,6 +12,10 @@ module Decimator_to_SSS_detector
     parameter ALGO = 1,
     parameter WINDOW_LEN = 8,
     parameter CP_ADVANCE = 9,
+    parameter USE_TAP_FILE = 0,
+    parameter TAP_FILE_0 = "",
+    parameter TAP_FILE_1 = "",
+    parameter TAP_FILE_2 = "",
     parameter CFO_LIMIT = 0,
     localparam FFT_OUT_DW = 32,
     localparam N_id_1_MAX = 335,
@@ -34,7 +38,7 @@ module Decimator_to_SSS_detector
     // debug outputs
     output  wire    [IN_DW-1:0]                     m_axis_cic_debug_tdata,
     output  wire                                    m_axis_cic_debug_tvalid,
-    output  reg                                     peak_detected_debug_o,
+    output                                          peak_detected_debug_o,
     output  wire    [FFT_OUT_DW-1:0]                fft_result_debug_o,
     output  wire                                    fft_sync_debug_o,
     output  wire    [15:0]                          sync_wait_counter_debug_o,
@@ -89,6 +93,10 @@ PSS_detector #(
     .PSS_LOCAL_0(PSS_LOCAL_0),
     .PSS_LOCAL_1(PSS_LOCAL_1),
     .PSS_LOCAL_2(PSS_LOCAL_2),
+    .USE_TAP_FILE(USE_TAP_FILE),
+    .TAP_FILE_0(TAP_FILE_0),
+    .TAP_FILE_1(TAP_FILE_1),
+    .TAP_FILE_2(TAP_FILE_2),
     .ALGO(ALGO),
     .CFO_LIMIT(CFO_LIMIT)
 )
@@ -102,7 +110,7 @@ PSS_detector_i(
     .N_id_2_o(N_id_2)
 );
 
-always @(*)  peak_detected_debug_o <= N_id_2_valid;
+assign peak_detected_debug_o = N_id_2_valid;
 
 wire [FFT_OUT_DW - 1 : 0] fft_result, fft_result_demod;
 wire [FFT_OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
