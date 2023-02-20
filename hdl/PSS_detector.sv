@@ -15,7 +15,9 @@ module PSS_detector
     parameter TAP_FILE_2 = "",
     parameter ALGO = 1,
     parameter WINDOW_LEN = 8,
-    parameter USE_MODE = 0
+    parameter USE_MODE = 0,
+    parameter CFO_LIMIT = 0,
+    localparam CFO_DW = 24
 )
 (
     input                                       clk_i,
@@ -27,7 +29,9 @@ module PSS_detector
     input                  [1 : 0]              requested_N_id_2_i,
     
     output  reg            [1 : 0]              N_id_2_o,
-    output  reg                                 N_id_2_valid_o,
+    output                                      N_id_2_valid_o,
+    output  reg            [CFO_DW - 1 : 0]     CFO_norm_o,
+    output  reg                                 CFO_norm_valid_o,
     
     // debug outputs
     output  wire           [IN_DW-1:0]          m_axis_cic_debug_tdata,
@@ -153,7 +157,6 @@ peak_detector_2_i(
 );
 
 
-localparam CFO_DW = 24;
 reg [C_DW - 1 : 0] C0_in, C1_in;
 reg CFO_calc_valid_in;
 reg CFO_calc_valid_out;
@@ -180,23 +183,85 @@ localparam SSB_INTERVAL = $rtoi(1920000 * 0.02);
 localparam TRACK_TOLERANCE = 100;
 localparam CORRELATOR_DELAY = 160;
 reg [$clog2(SSB_INTERVAL + TRACK_TOLERANCE) - 1 : 0] sample_cnt;
+reg peak_valid;
+
+reg [1 : 0] CFO_state;
+localparam [1 : 0] WAIT_FOR_PEAK = 0;
+localparam [1 : 0] DISABLE_CFO_IN = 1;
+localparam [1 : 0] WAIT_FOR_CFO = 2;
+
+//-------------------------------------------------------------------------------
+// FSM to control CFO_calc
+// it is not sensitive to new incoming peaks while it waits for CFO_calc to finish
+// this can cause a peak to be ignored if it follows close after another peak
+// 
+// TODO: signal a valid N_id_2 only of the calculated CFO is below a certain threshold,
+// i.e. +- 100 Hz, if it is above, wait for next SSB with corrected CFO
+reg N_id_2_valid;
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        CFO_state <= WAIT_FOR_PEAK;
+        N_id_2_valid <= '0;
+        CFO_norm_o <= '0;
+        CFO_norm_valid_o <= '0;
+    end else begin
+        case (CFO_state)
+            WAIT_FOR_PEAK : begin
+                N_id_2_valid <= '0;
+                CFO_norm_valid_o <= '0;
+                if (peak_valid) begin
+                    C0_in <= C0[N_id_2_o];
+                    C1_in <= C1[N_id_2_o];
+                    CFO_calc_valid_in <= 1;
+                    CFO_state <= DISABLE_CFO_IN;
+                end
+            end
+            DISABLE_CFO_IN : begin
+                CFO_calc_valid_in <= '0;
+                CFO_state <= WAIT_FOR_CFO;
+            end
+            WAIT_FOR_CFO : begin
+                if (CFO_calc_valid_out) begin
+                    CFO_state <= WAIT_FOR_PEAK;
+                    N_id_2_valid <= 1;
+                    CFO_norm_o <= CFO;
+                    CFO_norm_valid_o <= 1;
+                end
+            end
+        endcase
+    end
+end
+
+//-------------------------------------------------------------------------------
+// FSM for detection of peaks
+// mode can be controlled by mode_i when the USE_MODE parameter is 1
+//
+// In SEARCH mode a valid peak is detected if one and only one PSS correlator signals peak_detected.
+// In FIND mode, a peak is detected same as in SEARCH mode, except that search is limited to a certain N_id_2
+// in PAUSE mode, the PSS correlators are disabled
+//
+// If USE_MODE is 0, the FSM is permanently in SEARCH mode
+wire [1 : 0] mode_select;
+assign mode_select = USE_MODE ? mode_i : SEARCH;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         N_id_2_o <= '0;
-        N_id_2_valid_o <= '0;
+        peak_valid <= '0;
         correlator_en <= '0;
-    end else if (USE_MODE) begin
-        case(mode_i)
+    end else begin
+        case(mode_select)
             SEARCH : begin
                 correlator_en <= 1;
                 if ((peak_detected == 1) || (peak_detected == 2) || (peak_detected == 4)) begin
-                    if      ((score[0] >= score[1]) && (score[0] >= score[2]))  N_id_2_o <=  0;
-                    else if ((score[1] >= score[0]) && (score[1] >= score[2]))  N_id_2_o <=  1;
-                    else if ((score[2] >= score[0]) && (score[2] >= score[1]))  N_id_2_o <=  2;            
-                    N_id_2_valid_o <= 1;
+                    case (peak_detected)
+                        0 : N_id_2_o <= 0;
+                        2 : N_id_2_o <= 1;
+                        4 : N_id_2_o <= 2;
+                    endcase
+                    peak_valid <= 1;
                 end else begin
-                    N_id_2_valid_o <= 0;
+                    peak_valid <= 0;
                 end
             end
             FIND : begin
@@ -204,27 +269,19 @@ always @(posedge clk_i) begin
                 if (peak_detected[requested_N_id_2_i] && 
                     ((peak_detected == 1) || (peak_detected == 2) || (peak_detected == 4))) begin
                     N_id_2_o <= requested_N_id_2_i;
-                    N_id_2_valid_o <= 1;
+                    peak_valid <= 1;
                 end else begin
-                    N_id_2_valid_o <= 0;
+                    peak_valid <= 0;
                 end
             end
             PAUSE : begin
                 correlator_en <= 0;
-                N_id_2_valid_o <= 0;
+                peak_valid <= 0;
             end
         endcase
-    end else begin
-        correlator_en <= 1;
-        if ((peak_detected == 1) || (peak_detected == 2) || (peak_detected == 4)) begin
-            if      ((score[0] >= score[1]) && (score[0] >= score[2]))  N_id_2_o <=  0;
-            else if ((score[1] >= score[0]) && (score[1] >= score[2]))  N_id_2_o <=  1;
-            else if ((score[2] >= score[0]) && (score[2] >= score[1]))  N_id_2_o <=  2;            
-            N_id_2_valid_o <= 1;
-        end else begin
-            N_id_2_valid_o <= 0;
-        end        
     end
 end
+
+assign N_id_2_valid_o = CFO_LIMIT ? N_id_2_valid : peak_valid;
 
 endmodule
