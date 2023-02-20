@@ -18,7 +18,9 @@ module PSS_detector
     parameter USE_MODE = 0,
     parameter CFO_LIMIT = 0,
     parameter CFO_DW = 24,
-    parameter DDS_DW = 20
+    parameter DDS_DW = 20,
+
+    localparam SAMPLE_RATE = 1920000
 )
 (
     input                                       clk_i,
@@ -43,7 +45,10 @@ module PSS_detector
     output                 [TAP_DW - 1 : 0]     taps_2_o [0 : PSS_LEN - 1]
 );
 
-localparam C_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN);
+// TODO
+// C_DW has to be multiple of 16 because of complex_multiplier!
+// but it currently isn't !!!
+localparam C_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN);  
 
 wire [OUT_DW - 1 : 0] correlator_0_tdata, correlator_1_tdata, correlator_2_tdata;
 wire correlator_0_tvalid, correlator_1_tvalid, correlator_2_tvalid;
@@ -162,8 +167,8 @@ peak_detector_2_i(
 reg [C_DW - 1 : 0] C0_in, C1_in;
 reg CFO_calc_valid_in;
 reg CFO_calc_valid_out;
-reg [CFO_DW - 1 : 0] CFO_angle;
-reg [DDS_DW - 1 : 0] CFO_DDS_inc;
+reg signed [CFO_DW - 1 : 0] CFO_angle;
+reg signed [DDS_DW - 1 : 0] CFO_DDS_inc;
 CFO_calc #(
     .C_DW(C_DW),
     .CFO_DW(CFO_DW),
@@ -233,6 +238,8 @@ always @(posedge clk_i) begin
                     CFO_angle_o <= CFO_angle;
                     CFO_DDS_inc_o <= CFO_DDS_inc;
                     CFO_valid_o <= 1;
+                    $display("PSS_detector: detected CFO angle is %d deg", $itor(CFO_angle) / $itor((2**(CFO_DW - 1) - 1)) * $itor(180));
+                    $display("PSS_detector: detected CFO frequency is %d Hz", $itor(CFO_angle) * SAMPLE_RATE / 64 / (2**(CFO_DW - 1) - 1));
                 end
             end
         endcase

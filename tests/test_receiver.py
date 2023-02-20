@@ -331,7 +331,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
         testcase='simple_test',
         force_compile=True,
         waves=True,
-        defines = {'LUT_PATH=\"../../tests\"'},
+        defines = ['LUT_PATH=\"../../tests\"'],
         compile_args = compile_args
     )
 

@@ -80,10 +80,10 @@ initial begin
         // $display("atan %d  = %d", i, atan_lut[i]);
     end
 end
-wire signed [CFO_DW-1 : 0] LUT_OUT_EXT = {{(3){atan_lut[div][LUT_OUT_DW-1]}}, atan_lut[div]};
-reg [LUT_IN_DW-1 : 0] div;
-reg [10 : 0] div_pos;
-reg signed [CFO_DW-1 : 0] atan;
+wire signed [CFO_DW - 1 : 0] LUT_OUT_EXT = {{(3){atan_lut[div][LUT_OUT_DW - 1]}}, atan_lut[div]};
+reg [LUT_IN_DW - 1 : 0] div;
+reg [$clog2(LUT_IN_DW) : 0] div_pos;
+reg signed [CFO_DW - 1 : 0] atan;
 
 reg [LUT_IN_DW - 1 : 0] numerator, denominator;
 reg [LUT_IN_DW + ATAN_IN_DW - 1 : 0] numerator_wide, denominator_wide;
@@ -139,7 +139,7 @@ always @(posedge clk_i) begin
             if (div_pos == 0)   state <= CALC_ATAN;
         end
         CALC_ATAN: begin
-            // $display("div = %d", div);
+            $display("atan lut-index = %d", div);
             // $display("sign(re) = %d  sign(im) = %d", sign(prod_re), sign(prod_im));
             if (inv_div_result)         atan = PI_QUARTER - LUT_OUT_EXT;
             else                        atan = LUT_OUT_EXT;
