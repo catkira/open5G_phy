@@ -69,7 +69,7 @@ reg                             DDS_phase_valid;
 reg [COMPL_MULT_OUT_DW - 1 : 0] mult_out_tdata;
 reg                             mult_out_tvalid;
 
-reg [DDS_PHASE_DW - 1 : 0] CFO_DDS_inc, CFO_DDS_inc_f;
+reg signed [DDS_PHASE_DW - 1 : 0] CFO_DDS_inc, CFO_DDS_inc_f;
 reg                        CFO_valid;
 always @(posedge clk_i) begin
     if (!reset_ni) begin

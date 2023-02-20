@@ -31,8 +31,8 @@ module PSS_detector
     
     output  reg            [1 : 0]              N_id_2_o,
     output                                      N_id_2_valid_o,
-    output  reg            [CFO_DW - 1 : 0]     CFO_angle_o,
-    output  reg            [DDS_DW - 1 : 0]     CFO_DDS_inc_o,
+    output  reg signed     [CFO_DW - 1 : 0]     CFO_angle_o,
+    output  reg signed     [DDS_DW - 1 : 0]     CFO_DDS_inc_o,
     output  reg                                 CFO_valid_o,
     
     // debug outputs

@@ -10,12 +10,12 @@ module CFO_calc
 (
     input                                                       clk_i,
     input                                                       reset_ni,
-    input           [C_DW - 1 : 0]                              C0_i,
-    input           [C_DW - 1 : 0]                              C1_i,
+    input                   [C_DW - 1 : 0]                      C0_i,
+    input                   [C_DW - 1 : 0]                      C1_i,
     input                                                       valid_i,
 
-    output  reg     [CFO_DW - 1 : 0]                            CFO_angle_o,
-    output  reg     [DDS_DW - 1 : 0]                            CFO_DDS_inc_o,
+    output  reg  signed     [CFO_DW - 1 : 0]                    CFO_angle_o,
+    output  reg  signed     [DDS_DW - 1 : 0]                    CFO_DDS_inc_o,
     output  reg                                                 valid_o
 );
 
