@@ -112,7 +112,7 @@ always @(posedge clk_i) begin
                 denominator = abs(prod_re);
                 inv_div_result <= '0;
             end else begin
-                $display("reverse");
+                // $display("reverse");
                 inv_div_result <= 1;
                 numerator = abs(prod_re);
                 denominator = abs(prod_im);
@@ -135,21 +135,21 @@ always @(posedge clk_i) begin
             if (div_pos == 0)   state <= CALC_ATAN;
         end
         CALC_ATAN: begin
-            $display("div = %d", div);
-            $display("sign(re) = %d  sign(im) = %d", sign(prod_re), sign(prod_im));
+            // $display("div = %d", div);
+            // $display("sign(re) = %d  sign(im) = %d", sign(prod_re), sign(prod_im));
             if (inv_div_result)         atan = PI_QUARTER - LUT_OUT_EXT;
             else                        atan = LUT_OUT_EXT;
 
             // 1. quadrant
+            if (sign(prod_im) && (sign(prod_re))) ;
                 // do nothing
             // 2. quadrant      
-            if (sign(prod_im) && (!sign(prod_re)))              atan = -atan + PI_HALF;
+            else if (sign(prod_im) && (!sign(prod_re)))         atan = -atan + PI_HALF;
             // 3. quadrant
             else if ((!sign(prod_im)) && (!sign(prod_re)))      atan = atan - PI_HALF;
             // 4. quadrant
             else if ((!sign(prod_im)) && sign(prod_re))         atan = -atan;
 
-            else  $display("ERROR!");
             state <= OUTPUT;
         end
         OUTPUT : begin
