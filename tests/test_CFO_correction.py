@@ -146,7 +146,7 @@ async def simple_test(dut):
         prod = C0[ssb_start+PSS_LEN] * np.conj(C1[ssb_start+PSS_LEN])
         # detectedCFO = np.arctan2(prod.imag, prod.real)
         detectedCFO = np.angle(prod)
-        detectedCFO_Hz = detectedCFO / (2*np.pi) * (fs/decimation_factor/2) / 64 # there is another 2x decimation inside the hdl 
+        detectedCFO_Hz = detectedCFO / (2*np.pi) * (fs/decimation_factor/2) / 64 # there is another 2x decimation inside the hdl
         print(f'detected CFO = {detectedCFO_Hz} Hz')
     else:
         print('CFO estimation is not possible with ALGO=1')

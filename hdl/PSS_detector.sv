@@ -17,7 +17,8 @@ module PSS_detector
     parameter WINDOW_LEN = 8,
     parameter USE_MODE = 0,
     parameter CFO_LIMIT = 0,
-    localparam CFO_DW = 24
+    parameter CFO_DW = 24,
+    parameter DDS_DW = 20
 )
 (
     input                                       clk_i,
@@ -30,8 +31,9 @@ module PSS_detector
     
     output  reg            [1 : 0]              N_id_2_o,
     output                                      N_id_2_valid_o,
-    output  reg            [CFO_DW - 1 : 0]     CFO_norm_o,
-    output  reg                                 CFO_norm_valid_o,
+    output  reg            [CFO_DW - 1 : 0]     CFO_angle_o,
+    output  reg            [DDS_DW - 1 : 0]     CFO_DDS_inc_o,
+    output  reg                                 CFO_valid_o,
     
     // debug outputs
     output  wire           [IN_DW-1:0]          m_axis_cic_debug_tdata,
@@ -160,10 +162,12 @@ peak_detector_2_i(
 reg [C_DW - 1 : 0] C0_in, C1_in;
 reg CFO_calc_valid_in;
 reg CFO_calc_valid_out;
-reg [CFO_DW - 1 : 0] CFO;
+reg [CFO_DW - 1 : 0] CFO_angle;
+reg [DDS_DW - 1 : 0] CFO_DDS_inc;
 CFO_calc #(
     .C_DW(C_DW),
-    .CFO_DW(CFO_DW)
+    .CFO_DW(CFO_DW),
+    .DDS_DW(DDS_DW)
 )
 CFO_calc_i(
     .clk_i(clk_i),
@@ -172,7 +176,8 @@ CFO_calc_i(
     .C1_i(C1_in),
     .valid_i(CFO_calc_valid_in),
 
-    .CFO_norm_o(CFO),
+    .CFO_angle_o(CFO_angle),
+    .CFO_DDS_inc_o(CFO_DDS_inc),
     .valid_o(CFO_calc_valid_out)
 );
 
@@ -202,13 +207,14 @@ always @(posedge clk_i) begin
     if (!reset_ni) begin
         CFO_state <= WAIT_FOR_PEAK;
         N_id_2_valid <= '0;
-        CFO_norm_o <= '0;
-        CFO_norm_valid_o <= '0;
+        CFO_angle_o <= '0;
+        CFO_DDS_inc_o <= '0;
+        CFO_valid_o <= '0;
     end else begin
         case (CFO_state)
             WAIT_FOR_PEAK : begin
                 N_id_2_valid <= '0;
-                CFO_norm_valid_o <= '0;
+                CFO_valid_o <= '0;
                 if (peak_valid) begin
                     C0_in <= C0[N_id_2_o];
                     C1_in <= C1[N_id_2_o];
@@ -224,8 +230,9 @@ always @(posedge clk_i) begin
                 if (CFO_calc_valid_out) begin
                     CFO_state <= WAIT_FOR_PEAK;
                     N_id_2_valid <= 1;
-                    CFO_norm_o <= CFO;
-                    CFO_norm_valid_o <= 1;
+                    CFO_angle_o <= CFO_angle;
+                    CFO_DDS_inc_o <= CFO_DDS_inc;
+                    CFO_valid_o <= 1;
                 end
             end
         endcase

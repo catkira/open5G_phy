@@ -28,6 +28,7 @@ class TB(object):
         self.dut = dut
         self.C_DW = int(dut.C_DW.value)
         self.CFO_DW = int(dut.CFO_DW.value)
+        self.DDS_DW = int(dut.DDS_DW.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -65,16 +66,19 @@ async def simple_test(dut):
         await RisingEdge(dut.clk_i)
         clk_cnt += 1
         if (dut.valid_o.value == 1):
-            received_angle = _twos_comp(dut.CFO_norm_o.value.integer, tb.CFO_DW) / (2**(tb.CFO_DW-2) - 1) * 180
+            received_angle = _twos_comp(dut.CFO_angle_o.value.integer, tb.CFO_DW) / (2**(tb.CFO_DW-2) - 1) * 180
             print(f'received CFO {received_angle} deg')
+            DDS_inc = _twos_comp(dut.CFO_DDS_inc_o.value.integer, tb.DDS_DW)
+            print(f'received DDS inc {DDS_inc}')
             break
 
     assert np.abs(received_angle + angle) < 1
 
 @pytest.mark.parametrize("C_DW", [32])
 @pytest.mark.parametrize("CFO_DW", [20])
+@pytest.mark.parametrize("DDS_DW", [20])
 @pytest.mark.parametrize("ANGLE", [20, 60, 100, 150, 170, -20, -60, -100, -150, -170])
-def test(C_DW, CFO_DW, ANGLE):
+def test(C_DW, CFO_DW, DDS_DW, ANGLE):
     dut = 'CFO_calc'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -88,6 +92,7 @@ def test(C_DW, CFO_DW, ANGLE):
     parameters = {}
     parameters['C_DW'] = C_DW
     parameters['CFO_DW'] = CFO_DW
+    parameters['DDS_DW'] = DDS_DW
     os.environ['ANGLE'] = str(ANGLE)
 
     parameters_dir = parameters.copy()
@@ -107,4 +112,4 @@ def test(C_DW, CFO_DW, ANGLE):
     )
 
 if __name__ == '__main__':
-    test(C_DW = 32, CFO_DW = 32, ANGLE=25)
+    test(C_DW = 32, CFO_DW = 32, DDS_DW = 32, ANGLE=14)

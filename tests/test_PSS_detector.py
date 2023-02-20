@@ -129,7 +129,7 @@ async def simple_test(dut):
         plt.show()
     print(f'highest peak at {peak_pos}')
     CFO_CALC_LATENCY = 30
-    assert peak_pos == 417 if not tb.CFO_LIMIT else 417
+    assert peak_pos == (417 if not tb.CFO_LIMIT else 417 + CFO_CALC_LATENCY)
 
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
@@ -137,11 +137,13 @@ async def simple_test(dut):
 @pytest.mark.parametrize("IN_DW", [32])
 @pytest.mark.parametrize("OUT_DW", [32])
 @pytest.mark.parametrize("TAP_DW", [32])
+@pytest.mark.parametrize("CFO_DW", [24])
+@pytest.mark.parametrize("DDS_DW", [24])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("USE_MODE", [0])
 @pytest.mark.parametrize("USE_TAP_FILE", [0, 1])
 @pytest.mark.parametrize("CFO_LIMIT", [0, 1])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_MODE, USE_TAP_FILE, CFO_LIMIT):
+def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_TAP_FILE, CFO_LIMIT):
     dut = 'PSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -160,6 +162,8 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_MODE, USE_TAP_FILE, CFO_LI
     parameters['IN_DW'] = IN_DW
     parameters['OUT_DW'] = OUT_DW
     parameters['TAP_DW'] = TAP_DW
+    parameters['CFO_DW'] = CFO_DW
+    parameters['DDS_DW'] = DDS_DW
     parameters['PSS_LEN'] = PSS_LEN
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
@@ -214,4 +218,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, USE_MODE, USE_TAP_FILE, CFO_LI
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0, USE_TAP_FILE=1, CFO_LIMIT=0)
+    test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0, USE_TAP_FILE=1, CFO_LIMIT=1, DDS_DW = 24, CFO_DW = 24)

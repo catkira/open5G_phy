@@ -3,7 +3,9 @@
 module CFO_calc
 #(
     parameter C_DW = 32,
-    parameter CFO_DW = 20
+    parameter CFO_DW = 20,
+    parameter DDS_DW = 20,
+    localparam SAMPLE_RATE = 3840000
 )
 (
     input                                                       clk_i,
@@ -12,7 +14,8 @@ module CFO_calc
     input           [C_DW - 1 : 0]                              C1_i,
     input                                                       valid_i,
 
-    output  reg     [CFO_DW - 1 : 0]                            CFO_norm_o,
+    output  reg     [CFO_DW - 1 : 0]                            CFO_angle_o,
+    output  reg     [DDS_DW - 1 : 0]                            CFO_DDS_inc_o,
     output  reg                                                 valid_o
 );
 
@@ -90,7 +93,8 @@ localparam signed [CFO_DW - 1 : 0] PI_QUARTER = 2 ** (CFO_DW - 3) - 1;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         valid_o <= '0;
-        CFO_norm_o <= '0;
+        CFO_angle_o <= '0;
+        CFO_DDS_inc_o <= '0;
         state <= WAIT_FOR_MULT;
         inv_div_result <= '0;
         atan = '0;
@@ -153,7 +157,14 @@ always @(posedge clk_i) begin
             state <= OUTPUT;
         end
         OUTPUT : begin
-            CFO_norm_o <= atan;
+            CFO_angle_o <= atan;
+            if (CFO_DW >= DDS_DW) begin
+                // take upper MSBs
+                CFO_DDS_inc_o <= atan[CFO_DW - 1 -: DDS_DW];
+            end else begin
+                // sign extend
+                CFO_DDS_inc_o <= {{(DDS_DW - CFO_DW){atan[CFO_DW - 1]}}, atan};
+            end
             valid_o <= 1;
             state <= WAIT_FOR_MULT;
         end

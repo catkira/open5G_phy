@@ -22,8 +22,13 @@ module receiver
     parameter TAP_FILE_0 = "",
     parameter TAP_FILE_1 = "",
     parameter TAP_FILE_2 = "",
+
     localparam FFT_OUT_DW `VL_RD = 32,
-    localparam N_id_1_MAX `VL_RD = 335
+    localparam N_id_1_MAX `VL_RD = 335,
+    localparam DDS_PHASE_DW = 20,
+    localparam DDS_OUT_DW = 32,
+    localparam CFO_DW = 20,
+    localparam COMPL_MULT_OUT_DW = 32   // has to be multiple of 16    
 )
 (
     input                                           clk_i,
@@ -56,6 +61,72 @@ wire                 m_axis_cic_tvalid;
 assign m_axis_cic_debug_tdata = m_axis_cic_tdata;
 assign m_axis_cic_debug_tvalid = m_axis_cic_tvalid;
 
+wire [DDS_OUT_DW - 1 : 0]       DDS_out;
+wire DDS_out_valid;
+reg [DDS_PHASE_DW - 1 : 0]      DDS_phase;
+reg                             DDS_phase_valid;
+
+reg [COMPL_MULT_OUT_DW - 1 : 0] mult_out_tdata;
+reg                             mult_out_tvalid;
+
+reg [DDS_PHASE_DW - 1 : 0] CFO_DDS_inc, CFO_DDS_inc_f;
+reg                        CFO_valid;
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        DDS_phase <= '0;
+        DDS_phase_valid <= '0;
+        CFO_DDS_inc_f <= '0;
+    end 
+    else begin
+        if (CFO_valid) begin
+            CFO_DDS_inc_f <= '0; // deactive CFO correction for now
+            // CFO_DDS_inc_f <= CFO_DDS_inc;  
+        end
+        if(s_axis_in_tvalid) begin
+            DDS_phase <= DDS_phase + CFO_DDS_inc_f;
+            DDS_phase_valid <= 1;
+        end
+    end
+end
+
+dds #(
+    .PHASE_DW(DDS_PHASE_DW),
+    .OUT_DW(DDS_OUT_DW/2),
+    .USE_TAYLOR(1),
+    .LUT_DW(16),
+    .SIN_COS(1),
+    .NEGATIVE_SINE(0),
+    .NEGATIVE_COSINE(0)
+)
+dds_i(
+    .clk(clk_i),
+    .reset_n(reset_ni),
+    .s_axis_phase_tdata(DDS_phase),
+    .s_axis_phase_tvalid(DDS_phase_valid),
+
+    .m_axis_out_tdata(DDS_out),
+    .m_axis_out_tvalid(DDS_out_valid)
+);
+
+complex_multiplier #(
+    .OPERAND_WIDTH_A(DDS_OUT_DW/2),
+    .OPERAND_WIDTH_B(IN_DW/2),
+    .OPERAND_WIDTH_OUT(COMPL_MULT_OUT_DW/2),
+    .BLOCKING(0),
+    .GROWTH_BITS(-2)  // input is rotating vector with length 2^(IN_DW/2 - 1), therefore bit growth is 2 bits less than worst case
+)
+complex_multiplier_i(
+    .aclk(clk_i),
+    .aresetn(reset_ni),
+    .s_axis_a_tdata(DDS_out),
+    .s_axis_a_tvalid(DDS_out_valid),
+    .s_axis_b_tdata(s_axis_in_tdata),
+    .s_axis_b_tvalid(s_axis_in_tvalid),
+
+    .m_axis_dout_tdata(mult_out_tdata),
+    .m_axis_dout_tvalid(mult_out_tvalid)
+);
+
 cic_d #(
     .INP_DW(IN_DW/2),
     .OUT_DW(IN_DW/2),
@@ -66,8 +137,11 @@ cic_d #(
 cic_real(
     .clk(clk_i),
     .reset_n(reset_ni),
-    .s_axis_in_tdata(s_axis_in_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
-    .s_axis_in_tvalid(s_axis_in_tvalid),
+    // .s_axis_in_tdata(s_axis_in_tdata[IN_DW / 2 - 1 : 0]),
+    // .s_axis_in_tvalid(s_axis_in_tvalid),
+    .s_axis_in_tdata(mult_out_tdata[COMPL_MULT_OUT_DW / 2 - 1 -: COMPL_MULT_OUT_DW / 2]),
+    .s_axis_in_tvalid(mult_out_tvalid),
+
     .m_axis_out_tdata(m_axis_cic_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
     .m_axis_out_tvalid(m_axis_cic_tvalid)
 );
@@ -82,9 +156,13 @@ cic_d #(
 cic_imag(
     .clk(clk_i),
     .reset_n(reset_ni),
-    .s_axis_in_tdata(s_axis_in_tdata[IN_DW - 1 -: IN_DW / 2]),
-    .s_axis_in_tvalid(s_axis_in_tvalid),
-    .m_axis_out_tdata(m_axis_cic_tdata[IN_DW - 1 -: IN_DW / 2])
+    // .s_axis_in_tdata(s_axis_in_tdata[IN_DW - 1 : IN_DW / 2]),
+    // .s_axis_in_tvalid(s_axis_in_tvalid),
+    .s_axis_in_tdata(mult_out_tdata[COMPL_MULT_OUT_DW - 1 -: COMPL_MULT_OUT_DW / 2]),
+    .s_axis_in_tvalid(mult_out_tvalid),
+
+    .m_axis_out_tdata(m_axis_cic_tdata[IN_DW - 1 -: IN_DW / 2]),
+    .m_axis_out_tvalid()
 );
 
 
@@ -102,6 +180,8 @@ PSS_detector #(
     .IN_DW(IN_DW),
     .OUT_DW(OUT_DW),
     .TAP_DW(TAP_DW),
+    .CFO_DW(CFO_DW),
+    .DDS_DW(DDS_PHASE_DW),
     .PSS_LEN(PSS_LEN),
     .PSS_LOCAL_0(PSS_LOCAL_0),
     .PSS_LOCAL_1(PSS_LOCAL_1),
@@ -122,7 +202,10 @@ PSS_detector_i(
     .requested_N_id_2_i(requested_N_id_2),
 
     .N_id_2_valid_o(N_id_2_valid),
-    .N_id_2_o(N_id_2)
+    .N_id_2_o(N_id_2),
+    .CFO_DDS_inc_o(CFO_DDS_inc),
+    .CFO_angle_o(),
+    .CFO_valid_o(CFO_valid)
 );
 
 assign peak_detected_debug_o = N_id_2_valid;
@@ -147,8 +230,10 @@ always @(posedge clk_i) begin
             delay_line_valid[i] = '0;
         end
     end else begin
-        delay_line_data[0] <= s_axis_in_tdata;
-        delay_line_valid[0] <= s_axis_in_tvalid;
+        delay_line_data[0] <= mult_out_tdata;
+        delay_line_valid[0] <= mult_out_tvalid;
+        // delay_line_data[0] <= s_axis_in_tdata;
+        // delay_line_valid[0] <= s_axis_in_tvalid;
         for (integer i = 0; i < DELAY_LINE_LEN - 1; i = i + 1) begin
             delay_line_data[i+1] <= delay_line_data[i];
             delay_line_valid[i+1] <= delay_line_valid[i];

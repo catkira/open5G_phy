@@ -80,7 +80,8 @@ async def simple_test(dut):
     CP2_LEN = 18
     CP_ADVANCE = tb.CP_ADVANCE
     FFT_SIZE = 256
-    DETECTOR_LATENCY = 18
+    # DETECTOR_LATENCY = 18
+    DETECTOR_LATENCY = 25
     FFT_OUT_DW = 32
     max_tx = int(0.025 * fs) # simulate 25ms tx data
     while in_counter < max_tx + 10000:
@@ -212,7 +213,7 @@ async def simple_test(dut):
     assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
 
     # assert np.array_equal(received_PBCH, received_PBCH_ideal)  # TODO: make this pass
-    assert peak_pos == 840
+    assert peak_pos == 848
     corr = np.zeros(335)
     for i in range(335):
         sss = py3gpp.nrSSS(i)
@@ -245,9 +246,10 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'SSS_detector.sv'),
-        os.path.join(rtl_dir, 'LFSR/LFSR.sv'),        
+        os.path.join(rtl_dir, 'LFSR/LFSR.sv'),       
         os.path.join(rtl_dir, 'FFT_demod.sv'),
-        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v'),        
+        os.path.join(rtl_dir, 'DDS', 'dds.sv'),
+        os.path.join(rtl_dir, 'complex_multiplier', 'complex_multiplier.v'),
         os.path.join(rtl_dir, 'CIC/cic_d.sv'),
         os.path.join(rtl_dir, 'CIC/comb.sv'),
         os.path.join(rtl_dir, 'CIC/downsampler.sv'),
@@ -329,10 +331,11 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
         testcase='simple_test',
         force_compile=True,
         waves=True,
+        defines = {'LUT_PATH=\"../../tests\"'},
         compile_args = compile_args
     )
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=100, CP_ADVANCE = 18, USE_TAP_FILE = 1)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=150, CP_ADVANCE = 18, USE_TAP_FILE = 1)
