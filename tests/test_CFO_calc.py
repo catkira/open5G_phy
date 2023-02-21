@@ -74,7 +74,7 @@ async def simple_test(dut):
 
     assert np.abs(received_angle + angle) < 1
 
-@pytest.mark.parametrize("C_DW", [32])  # C_DW has to be multiple of 16 because of complex_multiplier !
+@pytest.mark.parametrize("C_DW", [30, 32])
 @pytest.mark.parametrize("CFO_DW", [20, 32])
 @pytest.mark.parametrize("DDS_DW", [20])
 @pytest.mark.parametrize("ANGLE", [20, 60, 100, 150, 170, -20, -60, -100, -150, -170])
@@ -112,4 +112,4 @@ def test(C_DW, CFO_DW, DDS_DW, ANGLE):
     )
 
 if __name__ == '__main__':
-    test(C_DW = 32, CFO_DW = 20, DDS_DW = 32, ANGLE=14)
+    test(C_DW = 30, CFO_DW = 20, DDS_DW = 32, ANGLE=14)

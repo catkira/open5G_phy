@@ -55,7 +55,8 @@ complex_multiplier #(
     .OPERAND_WIDTH_A(C_DW/2),
     .OPERAND_WIDTH_B(C_DW/2),
     .OPERAND_WIDTH_OUT(ATAN_IN_DW),
-    .BLOCKING(0)
+    .BLOCKING(0),
+    .BYTE_ALIGNED(0)
 )
 complex_multiplier_i(
     .aclk(clk_i),
