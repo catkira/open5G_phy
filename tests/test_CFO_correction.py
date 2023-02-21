@@ -92,6 +92,7 @@ async def simple_test(dut):
     requested_CFO_corr = int(os.environ['CFO_CORR'])
     print(f'requested CFO correction is {requested_CFO_corr} Hz')
     eff_CFO_corr_norm = int(np.round(requested_CFO_corr) / 3840000 * (2**tb.DDS_PHASE_DW - 1))
+    print(f'DDS_inc is {eff_CFO_corr_norm}')
     eff_CFO_corr_hz = eff_CFO_corr_norm * 3840000 / (2**tb.DDS_PHASE_DW - 1)
     print(f'effictive CFO correction is {eff_CFO_corr_hz} Hz')
 
@@ -257,4 +258,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE, CFO_CORR, PSS_CORRELATOR_
 if __name__ == '__main__':
     # os.environ['PLOTS'] = "1"
     # this setup does not require output truncation
-    test(IN_DW = 32, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 2500, MULT_REUSE = 16, CFO_CORR = 0, PSS_CORRELATOR_MR = 0)
+    test(IN_DW = 32, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 2500, MULT_REUSE = 16, CFO_CORR = -200, PSS_CORRELATOR_MR = 0)

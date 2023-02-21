@@ -16,7 +16,6 @@ module Decimator_to_SSS_detector
     parameter TAP_FILE_0 = "",
     parameter TAP_FILE_1 = "",
     parameter TAP_FILE_2 = "",
-    parameter CFO_LIMIT = 0,
     localparam FFT_OUT_DW = 32,
     localparam N_id_1_MAX = 335,
     localparam N_id_MAX = 1007
@@ -97,8 +96,7 @@ PSS_detector #(
     .TAP_FILE_0(TAP_FILE_0),
     .TAP_FILE_1(TAP_FILE_1),
     .TAP_FILE_2(TAP_FILE_2),
-    .ALGO(ALGO),
-    .CFO_LIMIT(CFO_LIMIT)
+    .ALGO(ALGO)
 )
 PSS_detector_i(
     .clk_i(clk_i),
@@ -122,7 +120,7 @@ assign fft_sync_debug_o = fft_sync;
 
 // this delay line is needed because peak_detected goes high
 // at the end of SSS symbol plus some additional delay
-localparam DELAY_LINE_LEN = CFO_LIMIT ? 16 + 30 : 16;
+localparam DELAY_LINE_LEN = 16;
 reg [IN_DW-1:0] delay_line_data  [0 : DELAY_LINE_LEN - 1];
 reg             delay_line_valid [0 : DELAY_LINE_LEN - 1];
 always @(posedge clk_i) begin

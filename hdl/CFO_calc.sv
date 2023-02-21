@@ -122,6 +122,7 @@ always @(posedge clk_i) begin
     end else begin
         case (state)
         WAIT_FOR_INPUT : begin
+            valid_o <= 0;
             if (valid_i) begin
                 state <= INPUT_SCALING;
                 // mult_valid_in <= 1;
@@ -161,7 +162,6 @@ always @(posedge clk_i) begin
                 state <= CALC_DIV;
                 // $display("go to state CALC_DIV");
             end
-            valid_o <= '0;
         end
         CALC_DIV : begin
             // $display("prod_im = %d  abs(prod_im) = %d", prod_im, abs(prod_im));
@@ -220,10 +220,10 @@ always @(posedge clk_i) begin
             CFO_angle_o <= atan;
             if (CFO_DW >= DDS_DW) begin
                 // take upper MSBs
-                CFO_DDS_inc_o <= atan[CFO_DW - 1 -: DDS_DW];
+                CFO_DDS_inc_o <= atan[CFO_DW - 1 -: DDS_DW] >>> 6; // >>> 6 for divide by 64
             end else begin
                 // sign extend
-                CFO_DDS_inc_o <= {{(DDS_DW - CFO_DW){atan[CFO_DW - 1]}}, atan};
+                CFO_DDS_inc_o <= {{(DDS_DW - CFO_DW){atan[CFO_DW - 1]}}, atan} >>> 6;
             end
             valid_o <= 1;
             state <= WAIT_FOR_INPUT;

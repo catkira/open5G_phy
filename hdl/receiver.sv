@@ -28,7 +28,7 @@ module receiver
     localparam DDS_PHASE_DW = 20,
     localparam DDS_OUT_DW = 32,
     localparam CFO_DW = 20,
-    localparam COMPL_MULT_OUT_DW = 32   // has to be multiple of 16    
+    localparam COMPL_MULT_OUT_DW = 32
 )
 (
     input                                           clk_i,
@@ -79,8 +79,8 @@ always @(posedge clk_i) begin
     end 
     else begin
         if (CFO_valid) begin
-            CFO_DDS_inc_f <= '0; // deactive CFO correction for now
-            // CFO_DDS_inc_f <= -CFO_DDS_inc;  
+            // CFO_DDS_inc_f <= '0; // deactive CFO correction for now
+            CFO_DDS_inc_f <= -CFO_DDS_inc;  
         end
         if(s_axis_in_tvalid) begin
             DDS_phase <= DDS_phase + CFO_DDS_inc_f;
@@ -113,7 +113,8 @@ complex_multiplier #(
     .OPERAND_WIDTH_B(IN_DW/2),
     .OPERAND_WIDTH_OUT(COMPL_MULT_OUT_DW/2),
     .BLOCKING(0),
-    .GROWTH_BITS(-2)  // input is rotating vector with length 2^(IN_DW/2 - 1), therefore bit growth is 2 bits less than worst case
+    .GROWTH_BITS(-2),  // input is rotating vector with length 2^(IN_DW/2 - 1), therefore bit growth is 2 bits less than worst case
+    .BYTE_ALIGNED(0)
 )
 complex_multiplier_i(
     .aclk(clk_i),
@@ -191,8 +192,7 @@ PSS_detector #(
     .USE_TAP_FILE(USE_TAP_FILE),
     .TAP_FILE_0(TAP_FILE_0),
     .TAP_FILE_1(TAP_FILE_1),
-    .TAP_FILE_2(TAP_FILE_2),
-    .CFO_LIMIT(0)
+    .TAP_FILE_2(TAP_FILE_2)
 )
 PSS_detector_i(
     .clk_i(clk_i),

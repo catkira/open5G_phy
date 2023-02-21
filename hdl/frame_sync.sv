@@ -61,6 +61,7 @@ always @(posedge clk_i) begin
     if (!reset_ni) begin
         PSS_state <= SEARCH_PSS;
         clks_since_SSB <= '0;
+        PSS_detector_mode_o <= '0;
     end else begin
         PSS_detector_mode_o <= PSS_state;
         case (PSS_state)
@@ -137,11 +138,9 @@ always @(posedge clk_i) begin
         PBCH_start_o <= '0;
         SSS_start_o <= '0;
         syms_to_next_SSB <= '0;
-        PSS_detector_mode_o <= PSS_DETECTOR_MODE_SEARCH;
     end else begin
         case (state)
             WAIT_FOR_SSB: begin
-                PSS_detector_mode_o <= PSS_DETECTOR_MODE_SEARCH;
                 if (N_id_2_valid_i) begin
                     SC_cnt <= 1;
                     // whether we are on symbol 3 or symbol 9 depends on ibar_SSB
@@ -159,7 +158,6 @@ always @(posedge clk_i) begin
             end
             WAIT_FOR_IBAR: begin
                 PBCH_start_o <= '0;
-                PSS_detector_mode_o <= PSS_DETECTOR_MODE_PAUSE;
                 if (ibar_SSB_valid_i) begin
                     if (ibar_SSB_i != 0) begin
                         // sym_cnt needs to be corrected for ibar_SSB != 0
@@ -193,7 +191,6 @@ always @(posedge clk_i) begin
                 end
             end
             SYNCED: begin  // synced
-                PSS_detector_mode_o <= PSS_DETECTOR_MODE_PAUSE;
                 if (ibar_SSB_valid_i) begin
                     // TODO throw error if ibar_SSB does not match expected ibar_SSB
                 end

@@ -38,7 +38,6 @@ class TB(object):
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
         self.CP_ADVANCE = int(dut.CP_ADVANCE.value)
         self.USE_TAP_FILE = int(dut.USE_TAP_FILE.value)
-        self.CFO_LIMIT = int(dut.CFO_LIMIT.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -89,7 +88,6 @@ async def simple_test(dut):
     CP_ADVANCE = tb.CP_ADVANCE
     FFT_SIZE = 256
     DETECTOR_LATENCY = 18
-    CFO_CALC_LATENCY = 30 if tb.CFO_LIMIT else 0
     FFT_OUT_DW = 32
     max_tx = 2000
     while in_counter < 60000:
@@ -119,7 +117,7 @@ async def simple_test(dut):
             print(f'peak pos = {in_counter}')
 
         if dut.peak_detected_debug_o.value.integer == 1 or len(rx_ADC_data) > 0:
-            rx_ADC_data.append(waveform[in_counter - DETECTOR_LATENCY - CFO_CALC_LATENCY])
+            rx_ADC_data.append(waveform[in_counter - DETECTOR_LATENCY])
 
         if dut.fft_demod_PBCH_start_o == 1:
             print(f'{rx_counter}: PBCH start')
@@ -222,7 +220,7 @@ async def simple_test(dut):
     assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
 
     # assert np.array_equal(received_PBCH, received_PBCH_ideal)  # TODO: make this pass
-    assert peak_pos == 841 + CFO_CALC_LATENCY
+    assert peak_pos == 841
 
     print(f'detected N_id_1 = {detected_N_id_1}')
     print(f'detected N_id = {detected_N_id}')
@@ -246,8 +244,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("CFO", [0, 100])
 @pytest.mark.parametrize("CP_ADVANCE", [9, 18])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
-@pytest.mark.parametrize("CFO_LIMIT", [0])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE, CFO_LIMIT):
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE):
     dut = 'Decimator_to_SSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -297,7 +294,6 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE,
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['CP_ADVANCE'] = CP_ADVANCE
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
-    parameters['CFO_LIMIT'] = CFO_LIMIT
     os.environ['CFO'] = str(CFO)
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
@@ -349,4 +345,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE,
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, CP_ADVANCE = 9, USE_TAP_FILE = 1, CFO_LIMIT = 0)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, CP_ADVANCE = 9, USE_TAP_FILE = 1)

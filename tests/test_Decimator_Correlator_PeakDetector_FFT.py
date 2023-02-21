@@ -37,7 +37,6 @@ class TB(object):
         self.ALGO = int(dut.ALGO.value)
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
         self.CP_ADVANCE = int(dut.CP_ADVANCE.value)
-        self.CFO_LIMIT = int(dut.CFO_LIMIT.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -85,7 +84,6 @@ async def simple_test(dut):
     FFT_SIZE = 256
     DETECTOR_LATENCY = 18
     FFT_OUT_DW = 32
-    CFO_CALC_LATENCY = 30 if tb.CFO_LIMIT else 0
     while len(received_SSS) < FFT_SIZE:
         await RisingEdge(dut.clk_i)
         data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
@@ -110,7 +108,7 @@ async def simple_test(dut):
             print(f'peak pos = {in_counter}')
 
         if dut.peak_detected_debug_o.value.integer == 1 or len(rx_ADC_data) > 0:
-            rx_ADC_data.append(waveform[in_counter - DETECTOR_LATENCY - CFO_CALC_LATENCY])
+            rx_ADC_data.append(waveform[in_counter - DETECTOR_LATENCY])
             # print(f'pos = {in_counter - DETECTOR_LATENCY - CFO_CALC_LATENCY}     ---------------------------- ')
 
         if dut.fft_demod_PBCH_start_o == 1:
@@ -214,7 +212,7 @@ async def simple_test(dut):
     assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
 
     # assert np.array_equal(received_PBCH, received_PBCH_ideal)
-    assert peak_pos == 841 + CFO_CALC_LATENCY
+    assert peak_pos == 841
 
     corr = np.zeros(335)
     for i in range(335):
@@ -231,8 +229,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("CP_ADVANCE", [9, 18])
-@pytest.mark.parametrize("CFO_LIMIT", [0, 1])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE, CFO_LIMIT):
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE):
     dut = 'Decimator_Correlator_PeakDetector_FFT'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -278,7 +275,6 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE, CFO_LIMIT):
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['CP_ADVANCE'] = CP_ADVANCE
-    parameters['CFO_LIMIT'] = CFO_LIMIT
     parameters_no_taps = parameters.copy()
 
     for i in range(3):
@@ -311,4 +307,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE, CFO_LIMIT):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CP_ADVANCE = 9, CFO_LIMIT = 1)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CP_ADVANCE = 9)

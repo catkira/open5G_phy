@@ -154,6 +154,7 @@ async def simple_test(dut):
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         ax = plt.subplot(4, 2, 1)
+        ax.set_title('model')
         ax.plot(np.abs(ideal_SSS_sym))
         ax = plt.subplot(4, 2, 2)
         ax.plot(np.abs(ideal_SSS))
@@ -165,6 +166,7 @@ async def simple_test(dut):
         ax.plot(np.real(ideal_SSS), np.imag(ideal_SSS), '.')
 
         ax = plt.subplot(4, 2, 5)
+        ax.set_title('hdl')
         ax.plot(np.abs((received_SSS_sym)))
         ax = plt.subplot(4, 2, 6)
         ax.plot(np.abs(received_SSS))
@@ -338,4 +340,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=200, CP_ADVANCE = 18, USE_TAP_FILE = 1)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=1500, CP_ADVANCE = 18, USE_TAP_FILE = 1)

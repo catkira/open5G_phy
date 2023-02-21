@@ -16,7 +16,6 @@ module PSS_detector
     parameter ALGO = 1,
     parameter WINDOW_LEN = 8,
     parameter USE_MODE = 0,
-    parameter CFO_LIMIT = 0,
     parameter CFO_DW = 24,
     parameter DDS_DW = 20,
 
@@ -204,18 +203,15 @@ localparam [1 : 0] WAIT_FOR_CFO = 2;
 // 
 // TODO: signal a valid N_id_2 only of the calculated CFO is below a certain threshold,
 // i.e. +- 100 Hz, if it is above, wait for next SSB with corrected CFO
-reg N_id_2_valid;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         CFO_state <= WAIT_FOR_PEAK;
-        N_id_2_valid <= '0;
         CFO_angle_o <= '0;
         CFO_DDS_inc_o <= '0;
         CFO_valid_o <= '0;
     end else begin
         case (CFO_state)
             WAIT_FOR_PEAK : begin
-                N_id_2_valid <= '0;
                 CFO_valid_o <= '0;
                 if (peak_valid) begin
                     C0_in <= C0[N_id_2_o];
@@ -237,13 +233,6 @@ always @(posedge clk_i) begin
                     CFO_angle_o <= CFO_angle;
                     CFO_DDS_inc_o <= CFO_DDS_inc;
                     CFO_valid_o <= 1;
-                    if (CFO_LIMIT) begin
-                        if ((CFO_angle > 1) || (CFO_angle < -1)) begin
-                            $display("PSS_detector: CFO too large, waiting for next SSB");
-                        end else begin
-                            N_id_2_valid <= 1;
-                        end
-                    end
                 end
             end
         endcase
@@ -300,6 +289,6 @@ always @(posedge clk_i) begin
     end
 end
 
-assign N_id_2_valid_o = CFO_LIMIT ? N_id_2_valid : peak_valid;
+assign N_id_2_valid_o = peak_valid;
 
 endmodule
