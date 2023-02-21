@@ -45,9 +45,6 @@ module PSS_detector
     output                 [TAP_DW - 1 : 0]     taps_2_o [0 : PSS_LEN - 1]
 );
 
-// TODO
-// C_DW has to be multiple of 16 because of complex_multiplier!
-// but it currently isn't !!!
 localparam C_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN);  
 
 wire [OUT_DW - 1 : 0] correlator_0_tdata, correlator_1_tdata, correlator_2_tdata;
@@ -233,13 +230,20 @@ always @(posedge clk_i) begin
             end
             WAIT_FOR_CFO : begin
                 if (CFO_calc_valid_out) begin
+                    $display("PSS_detector: detected CFO angle is %f deg", $itor(CFO_angle) / $itor((2**(CFO_DW - 1) - 1)) * $itor(180));
+                    $display("PSS_detector: detected CFO frequency is %f Hz", $itor(CFO_angle) * SAMPLE_RATE / 64 / (2**(CFO_DW - 1) - 1));
+                    $display("PSS detector: detected CFO DDS_inc is %d", CFO_DDS_inc);
                     CFO_state <= WAIT_FOR_PEAK;
-                    N_id_2_valid <= 1;
                     CFO_angle_o <= CFO_angle;
                     CFO_DDS_inc_o <= CFO_DDS_inc;
                     CFO_valid_o <= 1;
-                    $display("PSS_detector: detected CFO angle is %d deg", $itor(CFO_angle) / $itor((2**(CFO_DW - 1) - 1)) * $itor(180));
-                    $display("PSS_detector: detected CFO frequency is %d Hz", $itor(CFO_angle) * SAMPLE_RATE / 64 / (2**(CFO_DW - 1) - 1));
+                    if (CFO_LIMIT) begin
+                        if ((CFO_angle > 1) || (CFO_angle < -1)) begin
+                            $display("PSS_detector: CFO too large, waiting for next SSB");
+                        end else begin
+                            N_id_2_valid <= 1;
+                        end
+                    end
                 end
             end
         endcase

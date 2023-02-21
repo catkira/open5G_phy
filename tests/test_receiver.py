@@ -289,7 +289,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
     os.environ['CFO'] = str(CFO)
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
-    folder = '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
+    folder = 'receiver_' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
     sim_build='sim_build/' + folder
 
     for i in range(3):
@@ -316,7 +316,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
     
     compile_args = []
     if os.environ.get('SIM') == 'verilator':
-        compile_args = ['--no-timing', '-Wno-fatal', '-y', tests_dir + '/../submodules/verilator-unisims']
+        compile_args = ['--no-timing', '-Wno-fatal', '-Wno-PINMISSING','-y', tests_dir + '/../submodules/verilator-unisims']
     else:
         compile_args = ['-sglbl', '-y' + unisim_dir]
     cocotb_test.simulator.run(
@@ -338,4 +338,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=150, CP_ADVANCE = 18, USE_TAP_FILE = 1)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=200, CP_ADVANCE = 18, USE_TAP_FILE = 1)

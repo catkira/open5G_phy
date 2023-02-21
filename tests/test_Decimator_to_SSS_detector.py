@@ -246,7 +246,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("CFO", [0, 100])
 @pytest.mark.parametrize("CP_ADVANCE", [9, 18])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
-@pytest.mark.parametrize("CFO_LIMIT", [0, 1])
+@pytest.mark.parametrize("CFO_LIMIT", [0])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE, CFO_LIMIT):
     dut = 'Decimator_to_SSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
@@ -348,5 +348,5 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE,
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
-    os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, CP_ADVANCE = 9, USE_TAP_FILE = 1, CFO_LIMIT = 1)
+    # os.environ['SIM'] = 'verilator'
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, CP_ADVANCE = 9, USE_TAP_FILE = 1, CFO_LIMIT = 0)

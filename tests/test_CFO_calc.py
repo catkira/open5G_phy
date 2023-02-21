@@ -8,7 +8,6 @@ import os
 import cocotb
 import cocotb_test.simulator
 from cocotb.clock import Clock
-from cocotb.triggers import Timer
 from cocotb.triggers import RisingEdge
 
 
@@ -47,6 +46,7 @@ class TB(object):
 async def simple_test(dut):
     tb = TB(dut)
 
+    dut.valid_i.value = 0
     await tb.cycle_reset()
     angle = int(os.environ['ANGLE'])
     C0 = 1
@@ -56,7 +56,7 @@ async def simple_test(dut):
     dut.C1_i.value = ((int(C1.imag*MAX_VAL) & int(2**(tb.C_DW//2)-1)) << (tb.C_DW//2)) + (int(C1.real*MAX_VAL) & int(2**(tb.C_DW//2)-1))
     dut.valid_i.value = 1
 
-    await tb.cycle_reset()
+    await RisingEdge(dut.clk_i)
     dut.valid_i.value = 0
     received_angle = 0
 
@@ -108,8 +108,9 @@ def test(C_DW, CFO_DW, DDS_DW, ANGLE):
         parameters=parameters,
         sim_build=sim_build,
         testcase='simple_test',
-        force_compile=True
+        force_compile=True,
+        waves=True
     )
 
 if __name__ == '__main__':
-    test(C_DW = 30, CFO_DW = 20, DDS_DW = 32, ANGLE=14)
+    test(C_DW = 32, CFO_DW = 20, DDS_DW = 32, ANGLE=24)

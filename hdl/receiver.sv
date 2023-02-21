@@ -80,7 +80,7 @@ always @(posedge clk_i) begin
     else begin
         if (CFO_valid) begin
             CFO_DDS_inc_f <= '0; // deactive CFO correction for now
-            // CFO_DDS_inc_f <= CFO_DDS_inc;  
+            // CFO_DDS_inc_f <= -CFO_DDS_inc;  
         end
         if(s_axis_in_tvalid) begin
             DDS_phase <= DDS_phase + CFO_DDS_inc_f;
@@ -191,7 +191,8 @@ PSS_detector #(
     .USE_TAP_FILE(USE_TAP_FILE),
     .TAP_FILE_0(TAP_FILE_0),
     .TAP_FILE_1(TAP_FILE_1),
-    .TAP_FILE_2(TAP_FILE_2)
+    .TAP_FILE_2(TAP_FILE_2),
+    .CFO_LIMIT(0)
 )
 PSS_detector_i(
     .clk_i(clk_i),
