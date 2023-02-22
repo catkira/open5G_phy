@@ -19,7 +19,8 @@ module PSS_detector
     parameter CFO_DW = 24,
     parameter DDS_DW = 20,
 
-    localparam SAMPLE_RATE = 1920000
+    localparam SAMPLE_RATE = 1920000,
+    localparam AXI_ADDRESS_WIDTH = 11
 )
 (
     input                                       clk_i,
@@ -35,6 +36,34 @@ module PSS_detector
     output  reg signed     [CFO_DW - 1 : 0]     CFO_angle_o,
     output  reg signed     [DDS_DW - 1 : 0]     CFO_DDS_inc_o,
     output  reg                                 CFO_valid_o,
+
+    // AXI lite interface
+    // write address channel
+    input           [AXI_ADDRESS_WIDTH - 1 : 0] s_axi_awaddr,
+    input                                       s_axi_awvalid,
+    output  reg                                 s_axi_awready,
+    
+    // write data channel
+    input           [31 : 0]                    s_axi_wdata,
+    input           [ 3 : 0]                    s_axi_wstrb,      // not used
+    input                                       s_axi_wvalid,
+    output  reg                                 s_axi_wready,
+
+    // write response channel
+    output          [ 1 : 0]                    s_axi_bresp,
+    output  reg                                 s_axi_bvalid,
+    input                                       s_axi_bready,
+
+    // read address channel
+    input           [AXI_ADDRESS_WIDTH - 1 : 0] s_axi_araddr,
+    input                                       s_axi_arvalid,
+    output  reg                                 s_axi_arready,
+
+    // read data channel
+    output  reg     [31 : 0]                    s_axi_rdata,
+    output          [ 1 : 0]                    s_axi_rresp,
+    output  reg                                 s_axi_rvalid,
+    input                                       s_axi_rready,    
     
     // debug outputs
     output  wire           [IN_DW-1:0]          m_axis_cic_debug_tdata,
@@ -290,5 +319,35 @@ always @(posedge clk_i) begin
 end
 
 assign N_id_2_valid_o = peak_valid;
+
+PSS_detector_regmap #(
+    .ID(0),
+    .ADDRESS_WIDTH(AXI_ADDRESS_WIDTH)
+)
+PSS_detector_regmap_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+
+    .mode_i(mode_i),
+    .CFO_angle_i(CFO_angle_o),
+
+    .s_axi_if_awaddr(s_axi_awaddr),
+    .s_axi_if_awvalid(s_axi_awvalid),
+    .s_axi_if_awready(s_axi_awready),
+    .s_axi_if_wdata(s_axi_wdata),
+    .s_axi_if_wstrb(s_axi_wstrb),
+    .s_axi_if_wvalid(s_axi_wvalid),
+    .s_axi_if_wready(s_axi_wready),
+    .s_axi_if_bresp(s_axi_bresp),
+    .s_axi_if_bvalid(s_axi_bvalid),
+    .s_axi_if_bready(s_axi_bready),
+    .s_axi_if_araddr(s_axi_araddr),
+    .s_axi_if_arvalid(s_axi_arvalid),
+    .s_axi_if_arready(s_axi_arready),
+    .s_axi_if_rdata(s_axi_rdata),
+    .s_axi_if_rresp(s_axi_rresp),
+    .s_axi_if_rvalid(s_axi_rvalid),
+    .s_axi_if_rready(s_axi_rready)
+);
 
 endmodule

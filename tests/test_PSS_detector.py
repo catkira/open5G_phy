@@ -12,6 +12,7 @@ import cocotb_test.simulator
 from cocotb.clock import Clock
 from cocotb.triggers import Timer
 from cocotb.triggers import RisingEdge
+from cocotbext.axi import AxiLiteBus, AxiLiteMaster
 
 import py3gpp
 import sigmf
@@ -38,7 +39,6 @@ class TB(object):
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
         self.USE_MODE = int(dut.USE_MODE.value)
         self.USE_TAP_FILE = int(dut.USE_TAP_FILE.value)
-        self.CFO_LIMIT = int(dut.CFO_LIMIT.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -128,9 +128,7 @@ async def simple_test(dut):
         ax2.plot(received)
         plt.show()
     print(f'highest peak at {peak_pos}')
-    CFO_CALC_LATENCY = 30
-    assert peak_pos == (417 if not tb.CFO_LIMIT else 417 + CFO_CALC_LATENCY)
-
+    assert peak_pos == 417
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
 @pytest.mark.parametrize("ALGO", [0, 1])
@@ -142,8 +140,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("USE_MODE", [0])
 @pytest.mark.parametrize("USE_TAP_FILE", [0, 1])
-@pytest.mark.parametrize("CFO_LIMIT", [0, 1])
-def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_TAP_FILE, CFO_LIMIT):
+def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_TAP_FILE):
     dut = 'PSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -152,6 +149,8 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
+        os.path.join(rtl_dir, 'PSS_detector_regmap.sv'),
+        os.path.join(rtl_dir, 'AXI_lite_interface.sv'),
         os.path.join(rtl_dir, 'CFO_calc.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
     ]
@@ -169,7 +168,6 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['USE_MODE'] = USE_MODE
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
-    parameters['CFO_LIMIT'] = CFO_LIMIT
     parameters_no_taps = parameters.copy()
     folder = '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     sim_build='sim_build/' + folder
@@ -215,7 +213,52 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
         compile_args=compile_args
     )
 
+@cocotb.test()
+async def axi_tb(dut):
+    tb = TB(dut)
+    axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi"), dut.clk_i, dut.reset_ni)
+    
+    addr = 0
+    data = await axi_master.read_dword(4 * addr)
+    data = int(data)
+    assert data == 0x00040069
+
+    addr = 4
+    data = await axi_master.read_dword(4 * addr)
+    data = int(data)
+    assert data == 0x69696969
+
+    await tb.cycle_reset()
+
+def test_axi():
+    dut = 'PSS_detector'
+    module = os.path.splitext(os.path.basename(__file__))[0]
+    toplevel = dut
+
+    sim_build='sim_build/PSS_detector_axi_test/'
+
+    verilog_sources = [
+        os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'Peak_detector.sv'),
+        os.path.join(rtl_dir, 'PSS_correlator.sv'),
+        os.path.join(rtl_dir, 'PSS_detector_regmap.sv'),
+        os.path.join(rtl_dir, 'AXI_lite_interface.sv'),
+        os.path.join(rtl_dir, 'CFO_calc.sv'),
+        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
+    ]
+    cocotb_test.simulator.run(
+        python_search=[tests_dir],
+        verilog_sources=verilog_sources,
+        toplevel=toplevel,
+        module=module,
+        sim_build=sim_build,
+        testcase='axi_tb',
+        force_compile=True,
+        waves=True,
+    )
+
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0, USE_TAP_FILE=1, CFO_LIMIT=1, DDS_DW = 24, CFO_DW = 24)
+    # test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0, USE_TAP_FILE=1, DDS_DW = 24, CFO_DW = 24)
+    test_axi()
