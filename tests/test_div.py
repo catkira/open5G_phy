@@ -49,8 +49,10 @@ async def simple_test(dut):
     dut.valid_i.value = 0
     await tb.cycle_reset()
 
-    numerator = 1000
-    denominator = 15
+    numerator = np.random.randint(0, 2**(tb.INPUT_WIDTH) - 1)
+    denominator = np.random.randint(1, 2**(tb.INPUT_WIDTH) - 1)
+    # numerator = 2775
+    # denominator = 48908
     dut.numerator_i.value = numerator
     dut.denominator_i.value = denominator
     dut.valid_i.value = 1
@@ -60,21 +62,32 @@ async def simple_test(dut):
 
     clk_cnt = 0
     max_clk_cnt = 1000
-    while clk_cnt < max_clk_cnt:
+    rx_cnt = 0
+    max_rx_cnt = 500
+    while (clk_cnt < max_clk_cnt) and (rx_cnt < max_rx_cnt):
         await RisingEdge(dut.clk_i)
         clk_cnt += 1
+
         if (dut.valid_o.value == 1):
             result = dut.result_o.value.integer
-            print(f'result {result}')
-            break
-    if clk_cnt == max_clk_cnt: 
+            # print(f'{numerator} / {denominator} = {result}')
+            assert np.floor(numerator / denominator) == result
+            rx_cnt += 1
+
+            numerator = np.random.randint(0, 2**(tb.INPUT_WIDTH) - 1)
+            denominator = np.random.randint(1, 2**(tb.INPUT_WIDTH) - 1)
+            dut.numerator_i.value = numerator
+            dut.denominator_i.value = denominator
+            dut.valid_i.value = 1
+        else:
+            dut.valid_i.value = 0
+
+    if clk_cnt == max_clk_cnt:
         print("no result received!")
-    else:
-        assert numerator // denominator == result
+    
 
-
-@pytest.mark.parametrize("INPUT_WIDTH", [16])
-@pytest.mark.parametrize("RESULT_WIDTH", [16])
+@pytest.mark.parametrize("INPUT_WIDTH", [16, 32])
+@pytest.mark.parametrize("RESULT_WIDTH", [16, 32])
 @pytest.mark.parametrize("PIPELINED", [0])
 def test(INPUT_WIDTH, RESULT_WIDTH, PIPELINED):
     dut = 'div'

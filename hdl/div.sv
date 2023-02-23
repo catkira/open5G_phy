@@ -38,7 +38,7 @@ if (PIPELINED) begin
 end else begin
     reg [1 : 0] state;
     reg [INPUT_WIDTH - 1 : 0] numerator;
-    reg [INPUT_WIDTH - 1 : 0] denominator;
+    reg [INPUT_WIDTH + RESULT_WIDTH - 1 : 0] denominator;
     reg [$clog2(RESULT_WIDTH) : 0] div_pos;
 
     always @(posedge clk_i) begin
@@ -60,6 +60,7 @@ end else begin
                             result_o <= '0;
                             div_pos <= RESULT_WIDTH - 1;
                             state <= 1;
+                            valid_o <= '0;
                             // $display("div: calculate %d / %d", numerator_i, denominator_i);
                         end
                     end else begin
