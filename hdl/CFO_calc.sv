@@ -53,6 +53,26 @@ begin
 end
 endfunction
 
+reg div_valid_in;
+reg div_valid_out;
+reg [ATAN_IN_DW - 1 : 0] div_result;
+div #(
+    .INPUT_WIDTH(LUT_IN_DW + ATAN_IN_DW),
+    .RESULT_WIDTH(ATAN_IN_DW),
+    .PIPELINED(0)
+)
+div_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+
+    .numerator_i(numerator_wide),
+    .denominator_i(denominator_wide),
+    .valid_i(div_valid_in),
+
+    .result_o(div_result),
+    .valid_o(div_valid_out)
+);
+
 // TODO: this multiplier can run on a slower clock, ie 3.84 MHz
 // so that it can be synthesized easily without any DSP48 units
 reg mult_valid_in;
@@ -86,8 +106,7 @@ initial begin
         // $display("atan %d  = %d", i, atan_lut[i]);
     end
 end
-wire signed [CFO_DW - 1 : 0] LUT_OUT_EXT = {{(3){atan_lut[div][LUT_OUT_DW - 1]}}, atan_lut[div]};
-reg [LUT_IN_DW - 1 : 0] div;
+wire signed [CFO_DW - 1 : 0] LUT_OUT_EXT = {{(3){atan_lut[div_result][LUT_OUT_DW - 1]}}, atan_lut[div_result]};
 reg [$clog2(LUT_IN_DW) : 0] div_pos;
 reg signed [CFO_DW - 1 : 0] atan;
 
@@ -176,30 +195,19 @@ always @(posedge clk_i) begin
                 numerator = abs(prod_re);
                 denominator = abs(prod_im);
             end
-            div <= '0;
-            if (numerator == 0 || denominator == 0) begin
-                atan = '0;
-                state <= OUTPUT;
-            end else begin
-                div_pos <= LUT_IN_DW;
-                numerator_wide <= (numerator <<< LUT_IN_DW) - 1;
-                denominator_wide <= {{(ATAN_IN_DW){1'b0}}, denominator};  // explicit zero padding is actually not needed
-                state <= CALC_DIV2;
-            end
-            // div <= (numerator * MAX_LUT_IN_VAL) / denominator;
-            // $display("%d/%d = %d", numerator, denominator, (numerator * MAX_LUT_IN_VAL) / denominator);
-            // state <= CALC_ATAN;
+            numerator_wide <= (numerator <<< LUT_IN_DW) - 1;
+            denominator_wide <= {{(ATAN_IN_DW){1'b0}}, denominator};  // explicit zero padding is actually not needed            
+            div_valid_in <= 1;
+            state <= CALC_DIV2;
         end
         CALC_DIV2: begin
-            if (numerator_wide >= (denominator_wide <<< div_pos)) begin
-                numerator_wide <= numerator_wide - (denominator_wide <<< div_pos);
-                div <= div + 2**div_pos;
+            div_valid_in <= '0;
+            if (div_valid_out) begin
+                state <= CALC_ATAN;
             end
-            div_pos <= div_pos - 1;
-            if (div_pos == 0)   state <= CALC_ATAN;
         end
         CALC_ATAN: begin
-            $display("atan lut-index = %d", div);
+            $display("atan lut-index = %d", div_result);
             // $display("sign(re) = %d  sign(im) = %d", sign(prod_re), sign(prod_im));
             if (inv_div_result)         atan = PI_QUARTER - LUT_OUT_EXT;
             else                        atan = LUT_OUT_EXT;
