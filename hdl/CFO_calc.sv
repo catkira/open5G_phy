@@ -73,6 +73,20 @@ div_i(
     .valid_o(div_valid_out)
 );
 
+reg [ATAN_IN_DW - 1 : 0] atan_arg;
+reg [LUT_OUT_DW - 1 : 0] atan_angle;
+atan #(
+    .INPUT_WIDTH(ATAN_IN_DW),
+    .OUTPUT_WIDTH(LUT_OUT_DW)
+)
+atan_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+
+    .arg_i(atan_arg),
+    .angle_o(atan_angle)
+);
+
 // TODO: this multiplier can run on a slower clock, ie 3.84 MHz
 // so that it can be synthesized easily without any DSP48 units
 reg mult_valid_in;
@@ -96,17 +110,7 @@ complex_multiplier_i(
 reg signed [ATAN_IN_DW - 1 : 0] prod_im, prod_re;
 
 
-localparam MAX_LUT_IN_VAL = (2**LUT_IN_DW - 1);
-reg [LUT_OUT_DW - 1 : 0]  atan_lut[0 : MAX_LUT_IN_VAL];
-localparam MAX_LUT_OUT_VAL = (2**(LUT_OUT_DW - 1) - 1);
-initial begin
-    $display("tan lut has %d entries", MAX_LUT_IN_VAL+1);
-    for (integer i = 0; i <= MAX_LUT_IN_VAL; i = i + 1) begin
-        atan_lut[i] = $atan($itor(i)/MAX_LUT_IN_VAL) / 3.14159 * 4 * MAX_LUT_OUT_VAL;
-        // $display("atan %d  = %d", i, atan_lut[i]);
-    end
-end
-wire signed [CFO_DW - 1 : 0] LUT_OUT_EXT = {{(3){atan_lut[div_result][LUT_OUT_DW - 1]}}, atan_lut[div_result]};
+wire [CFO_DW - 1 : 0] atan_angle_ext = {{(3){1'b0}}, atan_angle};
 reg [$clog2(LUT_IN_DW) : 0] div_pos;
 reg signed [CFO_DW - 1 : 0] atan;
 
@@ -204,13 +208,14 @@ always @(posedge clk_i) begin
             div_valid_in <= '0;
             if (div_valid_out) begin
                 state <= CALC_ATAN;
+                atan_arg <= div_result;
             end
         end
         CALC_ATAN: begin
             $display("atan lut-index = %d", div_result);
             // $display("sign(re) = %d  sign(im) = %d", sign(prod_re), sign(prod_im));
-            if (inv_div_result)         atan = PI_QUARTER - LUT_OUT_EXT;
-            else                        atan = LUT_OUT_EXT;
+            if (inv_div_result)         atan = PI_QUARTER - atan_angle_ext;
+            else                        atan = atan_angle_ext;
 
             // 1. quadrant
             if (sign(prod_im) && (sign(prod_re))) ;

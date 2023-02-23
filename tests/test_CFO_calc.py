@@ -85,6 +85,7 @@ def test(C_DW, CFO_DW, DDS_DW, ANGLE):
 
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'atan.sv'),
         os.path.join(rtl_dir, 'div.sv'),
         os.path.join(rtl_dir, 'complex_multiplier', 'complex_multiplier.v')
     ]
@@ -114,4 +115,4 @@ def test(C_DW, CFO_DW, DDS_DW, ANGLE):
     )
 
 if __name__ == '__main__':
-    test(C_DW = 30, CFO_DW = 20, DDS_DW = 20, ANGLE=20)
+    test(C_DW = 30, CFO_DW = 32, DDS_DW = 20, ANGLE=20)
