@@ -33,6 +33,83 @@ reg [1 : 0] PBCH_DMRS [0 : 7][0 : PBCH_DMRS_LEN - 1];
 reg [$clog2(1600) : 0] PBCH_DMRS_cnt;
 reg PBCH_DMRS_ready;
 
+reg div_valid_in;
+reg div_valid_out;
+reg [IN_DW / 2 - 1 : 0] numerator;
+reg [IN_DW / 2 - 1 : 0] denominator;
+reg [IN_DW / 2 - 1 : 0] div_result;
+
+div #(
+    .INPUT_WIDTH(IN_DW / 2),
+    .RESULT_WIDTH(IN_DW / 2),
+    .PIPELINED(1)
+)
+div_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+    .numerator_i(numerator),
+    .denominator_i(denominator),
+    .valid_i(div_valid_in),
+    .result_o(div_result),
+    .valid_o(div_valid_out)
+);
+
+
+// calculate correction factors
+// r = abs(ideal_pilot)/abs(recv_pilot)
+// alpha = angle(ideal_pilot) - angle(recv_pilot)
+// corr_factor = r*cos(alpha) + j*r*sin(alpha)
+always @(posedge clk_i) begin
+end
+
+
+// multiply with correction factor
+reg [$clog2(FFT_LEN) - 1 : 0]   symbol_SC;
+reg [2 : 0]                     estimator_state;
+localparam [2 : 0]        WAIT_FOR_PBCH = 0;
+localparam [2 : 0]        EST_PBCH_SYM_0 = 1;
+localparam [2 : 0]        EST_PBCH_SYM_1 = 2;
+localparam [2 : 0]        EST_PBCH_SYM_2 = 3;
+localparam [2 : 0]        EST_OTHER_SYM = 4;
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        m_axis_out_tdata <= '0;
+        m_axis_out_tvalid <= '0;
+        symbol_SC <= '0;
+        estimator_state <= WAIT_FOR_PBCH;
+    end else begin
+        case(estimator_state)
+            WAIT_FOR_PBCH : begin
+                if (PBCH_DMRS_ready && PBCH_start_i) begin
+                    symbol_SC <= '0;
+                    estimator_state <= 0;
+                end
+            end
+            EST_PBCH_SYM_0 : begin
+                if (s_axis_in_tvalid) begin
+                    if (symbol_SC == FFT_LEN - 1) begin
+                        symbol_SC <= 0;
+                        estimator_state <= EST_PBCH_SYM_1;
+                    end else begin
+                        symbol_SC <= symbol_SC + 1;
+                    end
+                end
+            end
+            EST_PBCH_SYM_1 : begin
+                if (s_axis_in_tvalid) begin
+                    if (symbol_SC == FFT_LEN - 1) begin
+                        symbol_SC <= 0;
+                        estimator_state <= EST_PBCH_SYM_2;
+                    end else begin
+                        symbol_SC <= symbol_SC + 1;
+                    end
+                end
+            end
+        endcase
+    end
+end
+
+
 localparam LFSR_N = 31;
 reg lfsr_out_0, lfsr_out_1;
 reg lfsr_valid;
@@ -105,8 +182,6 @@ end
 reg [1 : 0] PBCH_DMRS_start_idx;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
-        m_axis_out_tdata <= '0;
-        m_axis_out_tvalid <= '0;
         N_id <= '0;
         PBCH_DMRS_start_idx <= '0;
     end else begin
@@ -279,12 +354,5 @@ always @(posedge clk_i) begin
         endcase
     end
 end
-
-// `ifdef COCOTB_SIM
-// initial begin
-//   $dumpfile ("debug.vcd");
-//   $dumpvars (0, channel_estimator);
-// end
-// `endif
 
 endmodule
