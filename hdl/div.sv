@@ -39,7 +39,7 @@ end else begin
     reg [1 : 0] state;
     reg [INPUT_WIDTH - 1 : 0] numerator;
     reg [INPUT_WIDTH - 1 : 0] denominator;
-    reg [$clog2(INPUT_WIDTH) : 0] div_pos;
+    reg [$clog2(RESULT_WIDTH) : 0] div_pos;
 
     always @(posedge clk_i) begin
         if (!reset_ni) begin
@@ -58,8 +58,9 @@ end else begin
                             numerator <= numerator_i;
                             denominator <= denominator_i;
                             result_o <= '0;
-                            div_pos <= INPUT_WIDTH - 1;
+                            div_pos <= RESULT_WIDTH - 1;
                             state <= 1;
+                            // $display("div: calculate %d / %d", numerator_i, denominator_i);
                         end
                     end else begin
                         valid_o <= '0;

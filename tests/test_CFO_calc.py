@@ -114,4 +114,4 @@ def test(C_DW, CFO_DW, DDS_DW, ANGLE):
     )
 
 if __name__ == '__main__':
-    test(C_DW = 32, CFO_DW = 20, DDS_DW = 32, ANGLE=24)
+    test(C_DW = 30, CFO_DW = 20, DDS_DW = 20, ANGLE=20)
