@@ -218,6 +218,7 @@ def test_PBCH_DMRS_gen(N_ID_1, N_ID_2):
 
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'div.sv'),
         os.path.join(rtl_dir, 'LFSR/LFSR.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
     ]
