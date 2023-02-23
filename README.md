@@ -13,8 +13,9 @@ Implemented so far:<br>
 ![Overview diagram](doc/overview.jpg)
 
 <b>TODO:</b>
-* channel estimator using PBCH DMRS and SSS
-* PBCH demodulator
+* implement dynamic block scaling for FFT
+* finish channel estimator/corrector
+* implement AXI stream FIFO or use Xilinx core
 * maybe optimize PSS correlator further like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
 
 # Ressource usage
