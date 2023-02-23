@@ -253,6 +253,7 @@ def test_PBCH_ibar_SSB_det(IN_DW, ibar_SSB):
 
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'div.sv'),
         os.path.join(rtl_dir, 'LFSR/LFSR.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
     ]
@@ -284,6 +285,7 @@ def test_PBCH_stream(IN_DW):
 
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'div.sv'),
         os.path.join(rtl_dir, 'LFSR/LFSR.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
     ]
