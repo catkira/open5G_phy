@@ -1,5 +1,6 @@
 `timescale 1ns / 1ns
-// This core calculates the arctan by using a LUT
+// This core calculates the arctan by using a LUT,
+// input range is from 0 to 1 only !
 // Copyright (C) 2023  Benjamin Menkuec
 //
 // This program is free software: you can redistribute it and/or modify

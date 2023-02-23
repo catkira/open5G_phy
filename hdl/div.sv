@@ -18,7 +18,8 @@
 module div #(
     parameter   INPUT_WIDTH = 16,
     parameter   RESULT_WIDTH = 16,
-    parameter   PIPELINED = 0
+    parameter   PIPELINED = 0,
+    parameter   USER_WIDTH = 1
 )
 (
     input                                   clk_i,
@@ -26,9 +27,11 @@ module div #(
 
     input           [INPUT_WIDTH - 1 : 0]   numerator_i,
     input           [INPUT_WIDTH - 1 : 0]   denominator_i,
+    input           [USER_WIDTH - 1 : 0]    user_i,
     input                                   valid_i,
 
     output  reg     [RESULT_WIDTH - 1 : 0]  result_o,
+    output  reg     [USER_WIDTH - 1 : 0]    user_o,
     output  reg                             valid_o
 );
 
@@ -38,7 +41,9 @@ if (PIPELINED) begin
     reg [STAGES - 1 : 0]                        valid_int;
     reg [INPUT_WIDTH + RESULT_WIDTH - 1 : 0]    denominator [0 : STAGES - 1];
     reg [INPUT_WIDTH - 1 : 0]                   numerator [0 : STAGES - 1];
+    reg [USER_WIDTH - 1 : 0]                    user_int [0 : STAGES - 1];
     assign result_o = result_int[STAGES - 1];   // assigning to registers makes them to wires, is this coding style bad?
+    assign user_o = user_int[STAGES - 1];
     assign valid_o = valid_int[STAGES - 1];
     always @(posedge clk_i) begin
         if (!reset_ni) begin
@@ -47,6 +52,7 @@ if (PIPELINED) begin
                 denominator[i] <= '0;
                 numerator[i] <= '0;
                 valid_int[i] <= '0;
+                user_int[i] <= '0;
                 // result_o <= '0;
                 // valid_o <= '0;
             end
@@ -58,6 +64,7 @@ if (PIPELINED) begin
                     valid_int[ii] <= valid_i;
                     numerator[ii] <= numerator_i;
                     denominator[ii] <= denominator_i;
+                    user_int[ii] <= user_i;
                 end else begin
                     if (numerator[ii - 1] >= (denominator[ii - 1] << (RESULT_WIDTH - ii))) begin
                         numerator[ii] <= numerator[ii - 1] - (denominator[ii - 1] << (RESULT_WIDTH - ii));
@@ -68,6 +75,7 @@ if (PIPELINED) begin
                     end
                     denominator[ii] <= denominator[ii - 1];
                     valid_int[ii] <= valid_int[ii - 1];
+                    user_int[ii] <= user_int[ii - 1];
                 end
             end
         end

@@ -120,6 +120,9 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
 
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'div.sv'),
+        os.path.join(rtl_dir, 'atan.sv'),        
+        os.path.join(rtl_dir, 'atan2.sv'),           
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'CIC/cic_d.sv'),

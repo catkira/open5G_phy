@@ -238,6 +238,8 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE):
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'div.sv'),
+        os.path.join(rtl_dir, 'atan.sv'),        
+        os.path.join(rtl_dir, 'atan2.sv'),        
         os.path.join(rtl_dir, 'PSS_detector_regmap.sv'),
         os.path.join(rtl_dir, 'AXI_lite_interface.sv'),
         os.path.join(rtl_dir, 'PSS_detector.sv'),

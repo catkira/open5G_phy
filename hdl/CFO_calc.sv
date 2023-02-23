@@ -27,65 +27,33 @@ reg [3 : 0]  state;
 localparam WAIT_FOR_INPUT = 4'b0000;
 localparam INPUT_SCALING  = 4'b0001;
 localparam WAIT_FOR_MULT  = 4'b0010;
-localparam CALC_DIV       = 4'b0011;
-localparam CALC_DIV2      = 4'b0100;
 localparam CALC_ATAN      = 4'b0101;
 localparam OUTPUT         = 4'b0110;
 
 localparam ATAN_IN_DW = 16;
-// LUT out range is 0..pi/4, thereore width can be 3 bits smaller than CFO_DW which has range 0..+-pi
-localparam LUT_OUT_DW = CFO_DW - 3;
-localparam LUT_IN_DW = ATAN_IN_DW;
-
 reg [2*ATAN_IN_DW : 0] C0_times_conjC1;
 
-function [LUT_IN_DW - 1 : 0] abs;
-    input signed [LUT_IN_DW - 1 : 0] arg;
-begin
-    abs = arg[LUT_IN_DW-1] ? -arg : arg;
-end
-endfunction
-
-function sign;
-    input [LUT_IN_DW - 1 : 0] arg;
-begin
-    sign = !arg[LUT_IN_DW-1];
-end
-endfunction
-
-reg div_valid_in;
-reg div_valid_out;
-reg [ATAN_IN_DW - 1 : 0] div_result;
-div #(
-    .INPUT_WIDTH(LUT_IN_DW + ATAN_IN_DW),
-    .RESULT_WIDTH(ATAN_IN_DW),
-    .PIPELINED(0)
-)
-div_i(
-    .clk_i(clk_i),
-    .reset_ni(reset_ni),
-
-    .numerator_i(numerator_wide),
-    .denominator_i(denominator_wide),
-    .valid_i(div_valid_in),
-
-    .result_o(div_result),
-    .valid_o(div_valid_out)
-);
-
-reg [ATAN_IN_DW - 1 : 0] atan_arg;
-reg [LUT_OUT_DW - 1 : 0] atan_angle;
-atan #(
+reg atan_valid_in;
+reg atan2_valid_out;
+reg signed[CFO_DW - 1 : 0] atan2_out;
+reg signed[CFO_DW - 1 : 0] atan;
+atan2 #(
     .INPUT_WIDTH(ATAN_IN_DW),
-    .OUTPUT_WIDTH(LUT_OUT_DW)
+    .LUT_DW(ATAN_IN_DW),
+    .OUTPUT_WIDTH(CFO_DW)
 )
-atan_i(
+atan2_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
 
-    .arg_i(atan_arg),
-    .angle_o(atan_angle)
+    .numerator_i(prod_im),
+    .denominator_i(prod_re),
+    .valid_i(atan_valid_in),
+
+    .angle_o(atan2_out),
+    .valid_o(atan2_valid_out)
 );
+
 
 // TODO: this multiplier can run on a slower clock, ie 3.84 MHz
 // so that it can be synthesized easily without any DSP48 units
@@ -109,39 +77,28 @@ complex_multiplier_i(
 );
 reg signed [ATAN_IN_DW - 1 : 0] prod_im, prod_re;
 
-
-wire [CFO_DW - 1 : 0] atan_angle_ext = {{(3){1'b0}}, atan_angle};
-reg [$clog2(LUT_IN_DW) : 0] div_pos;
-reg signed [CFO_DW - 1 : 0] atan;
-
 function is_bit_used;
     input [C_DW / 2 - 1 : 0] data;
     input [$clog2(C_DW/2) - 1 : 0] MSB_pos;
 begin
-    if (data[C_DW / 2 - 1]) begin // neg. number
+    if (data[C_DW / 2 - 1]) begin   // neg. number
         is_bit_used = !data[MSB_pos];
-    end else begin            // pos. number
+    end else begin                  // pos. number
         is_bit_used = data[MSB_pos];
     end
 end
 endfunction
 
-reg [LUT_IN_DW - 1 : 0] numerator, denominator;
-reg [LUT_IN_DW + ATAN_IN_DW - 1 : 0] numerator_wide, denominator_wide;
-reg inv_div_result;
-localparam signed [CFO_DW - 1 : 0] PI_HALF = 2 ** (CFO_DW - 1) - 1;
-localparam signed [CFO_DW - 1 : 0] PI_QUARTER = 2 ** (CFO_DW - 2) - 1;
 reg [$clog2(C_DW/2) - 1 : 0] input_max_used_MSB;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         valid_o <= '0;
-        CFO_angle_o <= '0;
+        // CFO_angle_o <= '0;
         CFO_DDS_inc_o <= '0;
         state <= WAIT_FOR_INPUT;
-        inv_div_result <= '0;
-        atan = '0;
         input_max_used_MSB <= C_DW / 2 - 2;  // dont need to test the MSB
         mult_valid_in <= '0;
+        atan_valid_in <= '0;
     end else begin
         case (state)
         WAIT_FOR_INPUT : begin
@@ -182,62 +139,26 @@ always @(posedge clk_i) begin
             if (mult_valid_out) begin
                 prod_im <= C0_times_conjC1[2*ATAN_IN_DW - 1 : ATAN_IN_DW];
                 prod_re <= C0_times_conjC1[ATAN_IN_DW - 1 : 0];
-                state <= CALC_DIV;
-                // $display("go to state CALC_DIV");
-            end
-        end
-        CALC_DIV : begin
-            // $display("prod_im = %d  abs(prod_im) = %d", prod_im, abs(prod_im));
-            // $display("prod_re = %d  abs(prod_re) = %d", prod_re, abs(prod_re));
-            if (abs(prod_re) > abs(prod_im)) begin
-                numerator = abs(prod_im);
-                denominator = abs(prod_re);
-                inv_div_result <= '0;
-            end else begin
-                // $display("reverse");
-                inv_div_result <= 1;
-                numerator = abs(prod_re);
-                denominator = abs(prod_im);
-            end
-            numerator_wide <= (numerator <<< LUT_IN_DW) - 1;
-            denominator_wide <= {{(ATAN_IN_DW){1'b0}}, denominator};  // explicit zero padding is actually not needed            
-            div_valid_in <= 1;
-            state <= CALC_DIV2;
-        end
-        CALC_DIV2: begin
-            div_valid_in <= '0;
-            if (div_valid_out) begin
+                atan_valid_in <= 1;
                 state <= CALC_ATAN;
-                atan_arg <= div_result;
             end
         end
         CALC_ATAN: begin
-            $display("atan lut-index = %d", div_result);
-            // $display("sign(re) = %d  sign(im) = %d", sign(prod_re), sign(prod_im));
-            if (inv_div_result)         atan = PI_QUARTER - atan_angle_ext;
-            else                        atan = atan_angle_ext;
-
-            // 1. quadrant
-            if (sign(prod_im) && (sign(prod_re))) ;
-                // do nothing
-            // 2. quadrant      
-            else if (sign(prod_im) && (!sign(prod_re)))         atan = -atan + PI_HALF;
-            // 3. quadrant
-            else if ((!sign(prod_im)) && (!sign(prod_re)))      atan = atan - PI_HALF;
-            // 4. quadrant
-            else if ((!sign(prod_im)) && sign(prod_re))         atan = -atan;
-
-            state <= OUTPUT;
+            atan_valid_in <= '0;
+            if (atan2_valid_out) begin
+                atan <= atan2_out;
+                state <= OUTPUT;
+            end
         end
         OUTPUT : begin
-            CFO_angle_o <= atan;
             if (CFO_DW >= DDS_DW) begin
                 // take upper MSBs
-                CFO_DDS_inc_o <= atan[CFO_DW - 1 -: DDS_DW] >>> 6; // >>> 6 for divide by 64
+                CFO_DDS_inc_o <= atan[CFO_DW - 1 -: DDS_DW] >>> 7; // >>> 7 for divide / 64 / 2
             end else begin
                 // sign extend
-                CFO_DDS_inc_o <= {{(DDS_DW - CFO_DW){atan[CFO_DW - 1]}}, atan} >>> 6;
+                CFO_DDS_inc_o <= {{(DDS_DW - CFO_DW){atan[CFO_DW - 1]}}, atan} >>> 7;
             end
+            CFO_angle_o <= atan;
             valid_o <= 1;
             state <= WAIT_FOR_INPUT;
         end
