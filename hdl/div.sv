@@ -1,5 +1,5 @@
 `timescale 1ns / 1ns
-// This is a divider for integer numbers
+// This is a divider for positive integer numbers
 // Copyright (C) 2023  Benjamin Menkuec
 //
 // This program is free software: you can redistribute it and/or modify
@@ -68,8 +68,8 @@ end else begin
                     end
                 end
                 1 : begin
-                    if (numerator >= (denominator <<< div_pos)) begin
-                        numerator <= numerator - (denominator <<< div_pos);
+                    if (numerator >= (denominator << div_pos)) begin
+                        numerator <= numerator - (denominator << div_pos);
                         result_o <= result_o + 2**div_pos;
                     end
                     div_pos <= div_pos - 1;
