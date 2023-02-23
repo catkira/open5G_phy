@@ -33,6 +33,8 @@ module receiver
 (
     input                                           clk_i,
     input                                           reset_ni,
+
+    input                                           sample_clk_i,
     input   wire    [IN_DW-1:0]                     s_axis_in_tdata,
     input                                           s_axis_in_tvalid,
 
@@ -61,16 +63,37 @@ wire                 m_axis_cic_tvalid;
 assign m_axis_cic_debug_tdata = m_axis_cic_tdata;
 assign m_axis_cic_debug_tvalid = m_axis_cic_tvalid;
 
-wire [DDS_OUT_DW - 1 : 0]       DDS_out;
-wire DDS_out_valid;
-reg [DDS_PHASE_DW - 1 : 0]      DDS_phase;
-reg                             DDS_phase_valid;
 
 reg [COMPL_MULT_OUT_DW - 1 : 0] mult_out_tdata;
 reg                             mult_out_tvalid;
 
-reg signed [DDS_PHASE_DW - 1 : 0] CFO_DDS_inc, CFO_DDS_inc_f;
-reg                        CFO_valid;
+reg [IN_DW - 1 : 0]             FIFO_out_tdata;
+reg                             FIFO_out_tvalid;
+
+AXIS_FIFO #(
+    .DATA_WIDTH(IN_DW),
+    .FIFO_LEN(16)
+)
+AXIS_FIFO_i(
+    .clk_i(sample_clk_i),
+    .reset_ni(reset_ni),
+
+    .s_axis_in_tdata(s_axis_in_tdata),
+    .s_axis_in_tvalid(s_axis_in_tvalid),
+
+    .out_clk_i(clk_i),
+    .m_axis_out_tdata(FIFO_out_tdata),
+    .m_axis_out_tvalid(FIFO_out_tvalid)
+);
+
+
+reg signed [DDS_PHASE_DW - 1 : 0]   CFO_DDS_inc, CFO_DDS_inc_f;
+reg                                 CFO_valid;
+wire [DDS_OUT_DW - 1 : 0]           DDS_out;
+wire DDS_out_valid;
+reg [DDS_PHASE_DW - 1 : 0]          DDS_phase;
+reg                                 DDS_phase_valid;
+
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         DDS_phase <= '0;
@@ -121,8 +144,8 @@ complex_multiplier_i(
     .aresetn(reset_ni),
     .s_axis_a_tdata(DDS_out),
     .s_axis_a_tvalid(DDS_out_valid),
-    .s_axis_b_tdata(s_axis_in_tdata),
-    .s_axis_b_tvalid(s_axis_in_tvalid),
+    .s_axis_b_tdata(FIFO_out_tdata),
+    .s_axis_b_tvalid(FIFO_out_tvalid),
 
     .m_axis_dout_tdata(mult_out_tdata),
     .m_axis_dout_tvalid(mult_out_tvalid)

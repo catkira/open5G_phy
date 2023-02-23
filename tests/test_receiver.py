@@ -40,6 +40,7 @@ class TB(object):
         self.log.setLevel(logging.DEBUG)
 
         cocotb.start_soon(Clock(self.dut.clk_i, CLK_PERIOD_NS, units='ns').start())
+        cocotb.start_soon(Clock(self.dut.sample_clk_i, CLK_PERIOD_NS, units='ns').start())  # TODO make sample_clk_i 3.84 MHz and clk_i 122.88 MHz
 
     async def cycle_reset(self):
         self.dut.s_axis_in_tvalid.value = 0
@@ -81,7 +82,7 @@ async def simple_test(dut):
     CP_ADVANCE = tb.CP_ADVANCE
     FFT_SIZE = 256
     # DETECTOR_LATENCY = 18
-    DETECTOR_LATENCY = 25
+    DETECTOR_LATENCY = 27
     FFT_OUT_DW = 32
     max_tx = int(0.025 * fs) # simulate 25ms tx data
     while in_counter < max_tx + 10000:
@@ -241,6 +242,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
     unisim_dir = os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/unisims')
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
         os.path.join(rtl_dir, 'frame_sync.sv'),
         os.path.join(rtl_dir, 'channel_estimator.sv'),
         os.path.join(rtl_dir, 'PSS_detector_regmap.sv'),
