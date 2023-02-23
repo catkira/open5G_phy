@@ -33,8 +33,46 @@ module div #(
 );
 
 if (PIPELINED) begin
+    localparam STAGES = RESULT_WIDTH + 1;
+    reg [RESULT_WIDTH - 1 : 0]                  result_int [0 : STAGES - 1];
+    reg [STAGES - 1 : 0]                        valid_int;
+    reg [INPUT_WIDTH + RESULT_WIDTH - 1 : 0]    denominator [0 : STAGES - 1];
+    reg [INPUT_WIDTH - 1 : 0]                   numerator [0 : STAGES - 1];
+    assign result_o = result_int[STAGES - 1];   // assigning to registers makes them to wires, is this coding style bad?
+    assign valid_o = valid_int[STAGES - 1];
     always @(posedge clk_i) begin
+        if (!reset_ni) begin
+            for (integer i = 0; i < STAGES; i = i + 1) begin
+                result_int[i] <= '0;
+                denominator[i] <= '0;
+                numerator[i] <= '0;
+                valid_int[i] <= '0;
+                // result_o <= '0;
+                // valid_o <= '0;
+            end
+        end else begin
+            // result_o <= result_int[STAGES - 1];
+            // valid_o <= valid_int[STAGES - 1];            
+            for (integer ii = 0; ii < STAGES; ii = ii + 1) begin
+                if (ii == 0) begin
+                    valid_int[ii] <= valid_i;
+                    numerator[ii] <= numerator_i;
+                    denominator[ii] <= denominator_i;
+                end else begin
+                    if (numerator[ii - 1] >= (denominator[ii - 1] << (RESULT_WIDTH - ii))) begin
+                        numerator[ii] <= numerator[ii - 1] - (denominator[ii - 1] << (RESULT_WIDTH - ii));
+                        result_int[ii] <= result_int[ii - 1] + 2 ** (RESULT_WIDTH - ii);
+                    end else begin
+                        numerator[ii] <= numerator[ii - 1];
+                        result_int[ii] <= result_int[ii - 1];
+                    end
+                    denominator[ii] <= denominator[ii - 1];
+                    valid_int[ii] <= valid_int[ii - 1];
+                end
+            end
+        end
     end
+
 end else begin
     reg [1 : 0] state;
     reg [INPUT_WIDTH - 1 : 0] numerator;
