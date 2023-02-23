@@ -66,7 +66,7 @@ async def simple_test(dut):
         await RisingEdge(dut.clk_i)
         clk_cnt += 1
         if (dut.valid_o.value == 1):
-            received_angle = _twos_comp(dut.CFO_angle_o.value.integer, tb.CFO_DW) / (2**(tb.CFO_DW-2) - 1) * 180
+            received_angle = _twos_comp(dut.CFO_angle_o.value.integer, tb.CFO_DW) / (2**(tb.CFO_DW-1) - 1) * 180
             print(f'received CFO {received_angle} deg')
             DDS_inc = _twos_comp(dut.CFO_DDS_inc_o.value.integer, tb.DDS_DW)
             print(f'received DDS inc {DDS_inc}')

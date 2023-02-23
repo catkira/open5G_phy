@@ -30,13 +30,13 @@ module atan #(
 );
 
 localparam MAX_LUT_IN_VAL = (2**INPUT_WIDTH - 1);
-localparam MAX_LUT_OUT_VAL = (2**(OUTPUT_WIDTH - 1) - 1);
+localparam MAX_LUT_OUT_VAL = (2**OUTPUT_WIDTH - 1);
 reg [OUTPUT_WIDTH - 1 : 0]  atan_lut[0 : MAX_LUT_IN_VAL];
 
 initial begin
     $display("tan lut has %d entries", MAX_LUT_IN_VAL+1);
     for (integer i = 0; i <= MAX_LUT_IN_VAL; i = i + 1) begin
-        atan_lut[i] = $atan($itor(i)/MAX_LUT_IN_VAL) / 3.14159 * 4 * MAX_LUT_OUT_VAL;
+        atan_lut[i] = $atan($itor(i)/MAX_LUT_IN_VAL) / (3.14159 / 4) * MAX_LUT_OUT_VAL;
         // $display("atan %d  = %d", i, atan_lut[i]);
     end
 end

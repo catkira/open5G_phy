@@ -129,8 +129,8 @@ endfunction
 reg [LUT_IN_DW - 1 : 0] numerator, denominator;
 reg [LUT_IN_DW + ATAN_IN_DW - 1 : 0] numerator_wide, denominator_wide;
 reg inv_div_result;
-localparam signed [CFO_DW - 1 : 0] PI_HALF = 2 ** (CFO_DW - 2) - 1;
-localparam signed [CFO_DW - 1 : 0] PI_QUARTER = 2 ** (CFO_DW - 3) - 1;
+localparam signed [CFO_DW - 1 : 0] PI_HALF = 2 ** (CFO_DW - 1) - 1;
+localparam signed [CFO_DW - 1 : 0] PI_QUARTER = 2 ** (CFO_DW - 2) - 1;
 reg [$clog2(C_DW/2) - 1 : 0] input_max_used_MSB;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
