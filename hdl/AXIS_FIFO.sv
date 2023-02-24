@@ -19,6 +19,7 @@
 module AXIS_FIFO #(
     parameter DATA_WIDTH = 16,
     parameter FIFO_LEN = 8,      // has to be power of 2 !
+    parameter USER_WIDTH = 1,
     parameter ASYNC = 1
 )
 (
@@ -26,12 +27,14 @@ module AXIS_FIFO #(
     input                                       reset_ni,
 
     input           [DATA_WIDTH - 1 : 0]        s_axis_in_tdata,
+    input           [USER_WIDTH - 1 : 0]        s_axis_in_tuser,
     input                                       s_axis_in_tvalid,
     output  reg                                 s_axis_in_tfull,
 
     input                                       out_clk_i,
     input                                       m_axis_out_tready,
     output  reg     [DATA_WIDTH - 1 : 0]        m_axis_out_tdata,
+    output  reg     [USER_WIDTH - 1 : 0]        m_axis_out_tuser,
     output  reg                                 m_axis_out_tvalid,
     output  reg     [$clog2(FIFO_LEN) - 1 : 0]  m_axis_out_tlevel,
     output  reg                                 m_axis_out_tempty
@@ -65,6 +68,7 @@ endfunction
 
 
 reg [DATA_WIDTH - 1  : 0]           mem [0 : FIFO_LEN - 1];
+reg [USER_WIDTH - 1  : 0]           mem_user [0 : FIFO_LEN - 1];
 
 if (ASYNC) begin
     reg [PTR_WIDTH - 1 : 0]             rd_ptr;
@@ -72,10 +76,14 @@ if (ASYNC) begin
     always @(posedge clk_i) begin
         if (!reset_ni) begin
             wr_ptr_grey <= '0;
-            for(integer i = 0; i < FIFO_LEN; i = i + 1)   mem[i] = '0;  // Non-delayed for verilator
+            for(integer i = 0; i < FIFO_LEN; i = i + 1)   begin
+                mem[i] = '0;  // Non-delayed for verilator
+                if (USER_WIDTH > 0)  mem_user[i] = '0;
+            end
         end else begin
             if (s_axis_in_tvalid) begin
                 mem[g2b(wr_ptr_grey)] <= s_axis_in_tdata;
+                if (USER_WIDTH > 0)  mem_user[g2b(wr_ptr_grey)] <= s_axis_in_tuser;
                 wr_ptr_grey <= b2g(g2b(wr_ptr_grey) + 1);
             end
         end
@@ -90,6 +98,7 @@ if (ASYNC) begin
         end else begin
             if ((rd_ptr != g2b(wr_ptr_grey)) && m_axis_out_tready) begin
                 m_axis_out_tdata <= mem[rd_ptr];
+                if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr];
                 m_axis_out_tvalid <= 1;
                 rd_ptr <= rd_ptr + 1;
             end else begin
@@ -124,10 +133,14 @@ else begin
     always @(posedge clk_i) begin
         if (!reset_ni) begin
             wr_ptr <= '0;
-            for(integer i = 0; i < FIFO_LEN; i = i + 1)   mem[i] = '0;  // Non-delayed for verilator
+            for(integer i = 0; i < FIFO_LEN; i = i + 1) begin
+                mem[i] = '0;  // Non-delayed for verilator
+                if (USER_WIDTH > 0)  mem_user[i] = '0;
+            end
         end else begin
             if (s_axis_in_tvalid) begin
                 mem[wr_ptr_addr] <= s_axis_in_tdata;
+                if (USER_WIDTH > 0)  mem_user[wr_ptr_addr] <= s_axis_in_tuser;
                 wr_ptr <= wr_ptr + 1;
             end
         end
@@ -141,6 +154,7 @@ else begin
         end else begin
             if ((!m_axis_out_tempty) && m_axis_out_tready) begin
                 m_axis_out_tdata <= mem[rd_ptr_addr];
+                if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr];
                 m_axis_out_tvalid <= 1;
                 rd_ptr <= rd_ptr + 1;
             end else begin
