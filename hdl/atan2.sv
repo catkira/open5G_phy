@@ -95,12 +95,16 @@ reg signed  [INPUT_WIDTH - 1 : 0]  denominator;
 reg [LUT_DW + INPUT_WIDTH - 1 : 0] numerator_wide, denominator_wide;
 reg inv_div_result;
 reg [2 : 0] user_out_N;
+reg signed [OUTPUT_WIDTH - 1 : 0] atan2_out;
+reg                               atan2_valid;
 localparam signed [OUTPUT_WIDTH - 1 : 0] PI_HALF = 2 ** (OUTPUT_WIDTH - 1) - 1;
 localparam signed [OUTPUT_WIDTH - 1 : 0] PI_QUARTER = 2 ** (OUTPUT_WIDTH - 2) - 1;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         angle_o = '0;
         state <= '0;
+        atan2_out = '0;
+        atan2_valid <= '0;
     end else begin
         // stage 0
         if (abs(denominator_i) > abs(numerator_i)) begin
@@ -124,18 +128,22 @@ always @(posedge clk_i) begin
         atan_valid <= div_valid_out;
 
         // stage n + 1
-        valid_o <= atan_valid;
-        if (user_out_N[2])     angle_o = PI_QUARTER - atan_angle_ext;
-        else                   angle_o = atan_angle_ext;
+        atan2_valid <= atan_valid;
+        if (user_out_N[2])     atan2_out = PI_QUARTER - atan_angle_ext;
+        else                   atan2_out = atan_angle_ext;
         // 1. quadrant
         if (user_out_N[1] && user_out_N[0]) ;
             // do nothing
         // 2. quadrant      
-        else if (user_out_N[1] && (!user_out_N[0]))         angle_o = -angle_o + PI_HALF;
+        else if (user_out_N[1] && (!user_out_N[0]))         atan2_out = -atan2_out + PI_HALF;
         // 3. quadrant
-        else if ((!user_out_N[1]) && (!user_out_N[0]))      angle_o = angle_o - PI_HALF;
+        else if ((!user_out_N[1]) && (!user_out_N[0]))      atan2_out = atan2_out - PI_HALF;
         // 4. quadrant
-        else if ((!user_out_N[1]) && user_out_N[0])         angle_o = -angle_o;
+        else if ((!user_out_N[1]) && user_out_N[0])         atan2_out = -atan2_out;
+
+        // stage n + 2
+        angle_o <= atan2_out;
+        valid_o <= atan2_valid;
     end
 end
 
