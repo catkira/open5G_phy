@@ -29,6 +29,7 @@ module AXIS_FIFO #(
     input                                       s_axis_in_tvalid,
 
     input   reg                                 out_clk_i,
+    input   reg                                 m_axis_out_tready,
     output  reg     [DATA_WIDTH - 1 : 0]        m_axis_out_tdata,
     output  reg                                 m_axis_out_tvalid
 );
@@ -84,7 +85,7 @@ if (ASYNC) begin
             m_axis_out_tvalid <= '0;
             rd_ptr <= '0;
         end else begin
-            if (rd_ptr != g2b(wr_ptr_grey)) begin
+            if ((rd_ptr != g2b(wr_ptr_grey)) && m_axis_out_tready) begin
                 m_axis_out_tdata <= mem[rd_ptr];
                 m_axis_out_tvalid <= 1;
                 rd_ptr <= rd_ptr + 1;
@@ -113,7 +114,7 @@ end else begin
             m_axis_out_tvalid <= '0;
             rd_ptr <= '0;
         end else begin
-            if (rd_ptr != wr_ptr) begin
+            if ((rd_ptr != wr_ptr) && m_axis_out_tready) begin
                 m_axis_out_tdata <= mem[rd_ptr];
                 m_axis_out_tvalid <= 1;
                 rd_ptr <= rd_ptr + 1;

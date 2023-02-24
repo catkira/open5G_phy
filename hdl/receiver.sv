@@ -72,7 +72,8 @@ reg                             FIFO_out_tvalid;
 
 AXIS_FIFO #(
     .DATA_WIDTH(IN_DW),
-    .FIFO_LEN(16)
+    .FIFO_LEN(16),
+    .ASYNC(1)
 )
 AXIS_FIFO_i(
     .clk_i(sample_clk_i),
@@ -82,6 +83,7 @@ AXIS_FIFO_i(
     .s_axis_in_tvalid(s_axis_in_tvalid),
 
     .out_clk_i(clk_i),
+    .m_axis_out_tready(1'b1),
     .m_axis_out_tdata(FIFO_out_tdata),
     .m_axis_out_tvalid(FIFO_out_tvalid)
 );
