@@ -16,17 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
-// This core encapsulates a AXI lite slave interface and provides a simple core interface
-// 
-// The simple client core interface can be used to write or write to specific addresses.
-// The size of each read or write is fixed 4 byte.
-// This core will wait for 16 clks to receive a rack or wack from the client core,
-// if it does not receive one, it will ack anyway.
-
 module AXIS_FIFO #(
     parameter DATA_WIDTH = 16,
-    parameter FIFO_LEN = 8      // has to be power of 2 !
+    parameter FIFO_LEN = 8,      // has to be power of 2 !
+    parameter ASYNC = 1
 )
 (
     input                                       clk_i,
@@ -66,37 +59,69 @@ function [PTR_WIDTH - 1 : 0] b2g;
 	end
 endfunction
 
-reg [PTR_WIDTH - 1 : 0]             wr_ptr_grey;
+
+reg [PTR_WIDTH - 1 : 0]             rd_ptr;
 reg [DATA_WIDTH - 1  : 0]           mem [0 : FIFO_LEN - 1];
 
-always @(posedge clk_i) begin
-    if (!reset_ni) begin
-        wr_ptr_grey <= '0;
-        for(integer i = 0; i < FIFO_LEN; i = i + 1)   mem[i] <= '0;
-    end else begin
-        if (s_axis_in_tvalid) begin
-            mem[g2b(wr_ptr_grey)] <= s_axis_in_tdata;
-            wr_ptr_grey <= b2g(g2b(wr_ptr_grey) + 1);
-        end
-    end
-end
-
-reg [PTR_WIDTH - 1 : 0]   rd_ptr;
-
-always @(posedge out_clk_i) begin
-    if (!reset_ni) begin
-        m_axis_out_tdata <= '0;
-        m_axis_out_tvalid <= '0;
-        rd_ptr <= '0;
-    end else begin
-        if (rd_ptr != g2b(wr_ptr_grey)) begin
-            m_axis_out_tdata <= mem[rd_ptr];
-            m_axis_out_tvalid <= 1;
-            rd_ptr <= rd_ptr + 1;
+if (ASYNC) begin
+    reg [PTR_WIDTH - 1 : 0]             wr_ptr_grey;    
+    always @(posedge clk_i) begin
+        if (!reset_ni) begin
+            wr_ptr_grey <= '0;
+            for(integer i = 0; i < FIFO_LEN; i = i + 1)   mem[i] <= '0;
         end else begin
-            m_axis_out_tvalid <= 0;
+            if (s_axis_in_tvalid) begin
+                mem[g2b(wr_ptr_grey)] <= s_axis_in_tdata;
+                wr_ptr_grey <= b2g(g2b(wr_ptr_grey) + 1);
+            end
         end
     end
+
+
+    always @(posedge out_clk_i) begin
+        if (!reset_ni) begin
+            m_axis_out_tdata <= '0;
+            m_axis_out_tvalid <= '0;
+            rd_ptr <= '0;
+        end else begin
+            if (rd_ptr != g2b(wr_ptr_grey)) begin
+                m_axis_out_tdata <= mem[rd_ptr];
+                m_axis_out_tvalid <= 1;
+                rd_ptr <= rd_ptr + 1;
+            end else begin
+                m_axis_out_tvalid <= 0;
+            end
+        end
+    end
+end else begin
+    reg [PTR_WIDTH - 1 : 0]             wr_ptr;       
+    always @(posedge clk_i) begin
+        if (!reset_ni) begin
+            wr_ptr <= '0;
+            for(integer i = 0; i < FIFO_LEN; i = i + 1)   mem[i] <= '0;
+        end else begin
+            if (s_axis_in_tvalid) begin
+                mem[wr_ptr] <= s_axis_in_tdata;
+                wr_ptr <= wr_ptr + 1;
+            end
+        end
+    end
+
+    always @(posedge out_clk_i) begin
+        if (!reset_ni) begin
+            m_axis_out_tdata <= '0;
+            m_axis_out_tvalid <= '0;
+            rd_ptr <= '0;
+        end else begin
+            if (rd_ptr != wr_ptr) begin
+                m_axis_out_tdata <= mem[rd_ptr];
+                m_axis_out_tvalid <= 1;
+                rd_ptr <= rd_ptr + 1;
+            end else begin
+                m_axis_out_tvalid <= 0;
+            end
+        end
+    end    
 end
 
 endmodule
