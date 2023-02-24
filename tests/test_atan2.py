@@ -114,7 +114,7 @@ async def simple_test(dut):
 
 @pytest.mark.parametrize("INPUT_WIDTH", [16, 32])
 @pytest.mark.parametrize("OUTPUT_WIDTH", [16, 32])
-@pytest.mark.parametrize("PIPELINED", [0])
+@pytest.mark.parametrize("PIPELINED", [0, 1])
 def test(INPUT_WIDTH, OUTPUT_WIDTH, PIPELINED):
     dut = 'atan2'
     module = os.path.splitext(os.path.basename(__file__))[0]
@@ -148,4 +148,4 @@ def test(INPUT_WIDTH, OUTPUT_WIDTH, PIPELINED):
     )
 
 if __name__ == '__main__':
-    test(INPUT_WIDTH = 16, OUTPUT_WIDTH = 16, PIPELINED = 1)
+    test(INPUT_WIDTH = 18, OUTPUT_WIDTH = 16, PIPELINED = 0)

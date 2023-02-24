@@ -41,9 +41,9 @@ end
 endfunction
 
 function sign;
-    input [LUT_DW - 1 : 0] arg;
+    input [INPUT_WIDTH - 1 : 0] arg;
 begin
-    sign = !arg[LUT_DW-1];
+    sign = !arg[INPUT_WIDTH - 1];
 end
 endfunction
 
