@@ -28,10 +28,11 @@ module AXIS_FIFO #(
     input           [DATA_WIDTH - 1 : 0]        s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
 
-    input   reg                                 out_clk_i,
-    input   reg                                 m_axis_out_tready,
+    input                                       out_clk_i,
+    input                                       m_axis_out_tready,
     output  reg     [DATA_WIDTH - 1 : 0]        m_axis_out_tdata,
-    output  reg                                 m_axis_out_tvalid
+    output  reg                                 m_axis_out_tvalid,
+    output  reg     [$clog2(FIFO_LEN) - 1 : 0]  m_axis_out_tlevel
 );
 
 localparam PTR_WIDTH = $clog2(FIFO_LEN);
@@ -69,7 +70,7 @@ if (ASYNC) begin
     always @(posedge clk_i) begin
         if (!reset_ni) begin
             wr_ptr_grey <= '0;
-            for(integer i = 0; i < FIFO_LEN; i = i + 1)   mem[i] <= '0;
+            for(integer i = 0; i < FIFO_LEN; i = i + 1)   mem[i] = '0;  // Non-delayed for verilator
         end else begin
             if (s_axis_in_tvalid) begin
                 mem[g2b(wr_ptr_grey)] <= s_axis_in_tdata;
@@ -99,7 +100,7 @@ end else begin
     always @(posedge clk_i) begin
         if (!reset_ni) begin
             wr_ptr <= '0;
-            for(integer i = 0; i < FIFO_LEN; i = i + 1)   mem[i] <= '0;
+            for(integer i = 0; i < FIFO_LEN; i = i + 1)   mem[i] = '0;  // Non-delayed for verilator
         end else begin
             if (s_axis_in_tvalid) begin
                 mem[wr_ptr] <= s_axis_in_tdata;
@@ -108,7 +109,7 @@ end else begin
         end
     end
 
-    always @(posedge out_clk_i) begin
+    always @(posedge clk_i) begin
         if (!reset_ni) begin
             m_axis_out_tdata <= '0;
             m_axis_out_tvalid <= '0;
