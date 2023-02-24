@@ -53,6 +53,7 @@ reg div_valid_in;
 reg div_valid_out;
 reg [LUT_DW - 1 : 0] div_result;
 reg [2 : 0] div_user_out;
+reg [2 : 0] div_user_in;
 div #(
     .INPUT_WIDTH(INPUT_WIDTH + LUT_DW),
     .RESULT_WIDTH(LUT_DW),
@@ -65,7 +66,7 @@ div_i(
 
     .numerator_i(numerator_wide),
     .denominator_i(denominator_wide),
-    .user_i({inv_div_result, sign(numerator_i), sign(denominator_i)}),
+    .user_i(div_user_in),
     .valid_i(div_valid_in),
 
     .result_o(div_result),
@@ -95,7 +96,7 @@ reg signed  [INPUT_WIDTH - 1 : 0]  denominator;
 reg [LUT_DW + INPUT_WIDTH - 1 : 0] numerator_wide, denominator_wide;
 reg inv_div_result;
 reg [2 : 0] user_out_N;
-reg signed [OUTPUT_WIDTH - 1 : 0] atan2_out;
+reg signed [OUTPUT_WIDTH - 1 : 0] atan2_out, atan2_out_buf;
 reg                               atan2_valid;
 localparam signed [OUTPUT_WIDTH - 1 : 0] PI_HALF = 2 ** (OUTPUT_WIDTH - 1) - 1;
 localparam signed [OUTPUT_WIDTH - 1 : 0] PI_QUARTER = 2 ** (OUTPUT_WIDTH - 2) - 1;
@@ -104,22 +105,26 @@ always @(posedge clk_i) begin
         angle_o <= '0;
         state <= '0;
         atan2_out = '0;
+        atan2_out_buf <= '0;
         atan_valid <= '0;
         atan2_valid <= '0;
+        div_user_in <= '0;
+        inv_div_result = 0;
     end else begin
         // stage 0
         if (abs(denominator_i) > abs(numerator_i)) begin
             numerator = abs(numerator_i);
             denominator = abs(denominator_i);
-            inv_div_result <= 0;
+            inv_div_result = 0;
         end else begin
             // $display("reverse");
-            inv_div_result <= 1;
+            inv_div_result = 1;
             numerator = abs(denominator_i);
             denominator = abs(numerator_i);
         end        
         
         div_valid_in <= valid_i;
+        div_user_in <= {inv_div_result, sign(numerator_i), sign(denominator_i)};
         numerator_wide <= (numerator << LUT_DW) - 1;
         denominator_wide <= {{(LUT_DW){1'b0}}, denominator};  // explicit zero padding is actually not needed   
 
@@ -141,9 +146,10 @@ always @(posedge clk_i) begin
         else if ((!user_out_N[1]) && (!user_out_N[0]))      atan2_out = atan2_out - PI_HALF;
         // 4. quadrant
         else if ((!user_out_N[1]) && (user_out_N[0]))       atan2_out = -atan2_out;
+        atan2_out_buf <= atan2_out;
 
         // stage n + 2
-        angle_o <= atan2_out;
+        angle_o <= atan2_out_buf;
         valid_o <= atan2_valid;
     end
 end

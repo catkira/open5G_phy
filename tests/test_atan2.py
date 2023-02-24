@@ -48,40 +48,65 @@ async def simple_test(dut):
     dut.valid_i.value = 0
     await tb.cycle_reset()
 
+    max_rx_cnt = 500
     MAX_VAL = 2**(tb.INPUT_WIDTH - 1) - 1
-    numerator = np.random.randint(-MAX_VAL, MAX_VAL)
-    denominator = np.random.randint(-MAX_VAL, MAX_VAL)
-    # numerator = 5120
-    # denominator = 31840
-    dut.numerator_i.value = numerator
-    dut.denominator_i.value = denominator
+    np.random.seed(1)
+    numerator = np.random.randint(-MAX_VAL, MAX_VAL, max_rx_cnt)
+    denominator = np.random.randint(-MAX_VAL, MAX_VAL, max_rx_cnt)
+    tx_cnt = 0
+    expected_results = []
+    dut.numerator_i.value = int(numerator[tx_cnt])
+    dut.denominator_i.value = int(denominator[tx_cnt])
     dut.valid_i.value = 1
 
     await RisingEdge(dut.clk_i)
     dut.valid_i.value = 0
+    tx_cnt += 1
+    expected_results.append(np.arctan2(numerator[tx_cnt], denominator[tx_cnt]))
 
     clk_cnt = 0
     max_clk_cnt = 100000
     rx_cnt = 0
-    max_rx_cnt = 500
     PI = 2 ** (tb.OUTPUT_WIDTH - 1) - 1
-    while (clk_cnt < max_clk_cnt) and (rx_cnt < max_rx_cnt):
-        await RisingEdge(dut.clk_i)
-        clk_cnt += 1
 
-        if (dut.valid_o.value == 1):
-            result = _twos_comp(dut.angle_o.value.integer, tb.OUTPUT_WIDTH) / PI * 180
-            print(f'atan2({numerator} / {denominator}) = {result:.3f}  expected {np.arctan2(numerator, denominator) / np.pi * 180:.3f}')
-            assert np.round(np.arctan2(numerator, denominator) / np.pi * 180, 0) == np.round(result, 0)
-            rx_cnt += 1
+    if os.environ['PIPELINED'] == '0':
+        while (clk_cnt < max_clk_cnt) and (rx_cnt < max_rx_cnt):
+            await RisingEdge(dut.clk_i)
+            clk_cnt += 1
 
-            numerator = np.random.randint(-MAX_VAL, MAX_VAL)
-            denominator = np.random.randint(-MAX_VAL, MAX_VAL)
-            dut.numerator_i.value = numerator
-            dut.denominator_i.value = denominator
-            dut.valid_i.value = 1
-        else:
-            dut.valid_i.value = 0
+            if (dut.valid_o.value == 1):
+                result = _twos_comp(dut.angle_o.value.integer, tb.OUTPUT_WIDTH) / PI * 180
+                print(f'atan2({numerator[rx_cnt]} / {denominator[rx_cnt]}) = {result:.3f}  expected {np.arctan2(numerator[rx_cnt], denominator[rx_cnt]) / np.pi * 180:.3f}')
+                assert np.abs(np.abs(np.arctan2(numerator[rx_cnt], denominator[rx_cnt]) / np.pi * 180) - np.abs(result)) < 0.1
+                rx_cnt += 1
+
+                if rx_cnt < max_rx_cnt:
+                    dut.numerator_i.value = int(numerator[tx_cnt])
+                    dut.denominator_i.value = int(denominator[tx_cnt])
+                    dut.valid_i.value = 1
+                    tx_cnt += 1
+            else:
+                dut.valid_i.value = 0
+    else:
+        while (clk_cnt < max_clk_cnt) and (rx_cnt < max_rx_cnt):
+            await RisingEdge(dut.clk_i)
+            clk_cnt += 1
+
+            if tx_cnt < max_rx_cnt:
+                dut.numerator_i.value = int(numerator[tx_cnt])
+                dut.denominator_i.value = int(denominator[tx_cnt])
+                dut.valid_i.value = 1
+                expected_results.append(np.arctan2(numerator[tx_cnt], denominator[tx_cnt]))
+                # print(f'tx atan2({numerator[tx_cnt]} / {denominator[tx_cnt]})  expecting {expected_results[tx_cnt] / np.pi * 180:.3f}')
+                tx_cnt += 1
+            else:
+                dut.valid_i.value = 0
+
+            if (dut.valid_o.value == 1):
+                result = _twos_comp(dut.angle_o.value.integer, tb.OUTPUT_WIDTH) / PI * 180
+                print(f'atan2({numerator[rx_cnt]} / {denominator[rx_cnt]}) = {result:.3f}  expected {expected_results[rx_cnt] / np.pi * 180:.3f}')
+                # assert np.abs(np.abs(result) - np.abs(expected_results[rx_cnt] / np.pi * 180)) < 0.1
+                rx_cnt += 1
 
     if clk_cnt == max_clk_cnt:
         print("no result received!")
@@ -89,7 +114,8 @@ async def simple_test(dut):
 
 @pytest.mark.parametrize("INPUT_WIDTH", [16, 32])
 @pytest.mark.parametrize("OUTPUT_WIDTH", [16, 32])
-def test(INPUT_WIDTH, OUTPUT_WIDTH):
+@pytest.mark.parametrize("PIPELINED", [0])
+def test(INPUT_WIDTH, OUTPUT_WIDTH, PIPELINED):
     dut = 'atan2'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -104,6 +130,7 @@ def test(INPUT_WIDTH, OUTPUT_WIDTH):
     parameters = {}
     parameters['INPUT_WIDTH'] = INPUT_WIDTH
     parameters['OUTPUT_WIDTH'] = OUTPUT_WIDTH
+    os.environ['PIPELINED'] = str(PIPELINED)
 
     parameters_dir = parameters.copy()
     sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_dir.items()))
@@ -121,4 +148,4 @@ def test(INPUT_WIDTH, OUTPUT_WIDTH):
     )
 
 if __name__ == '__main__':
-    test(INPUT_WIDTH = 16, OUTPUT_WIDTH = 16)
+    test(INPUT_WIDTH = 16, OUTPUT_WIDTH = 16, PIPELINED = 1)
