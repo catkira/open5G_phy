@@ -27,12 +27,14 @@ module AXIS_FIFO #(
 
     input           [DATA_WIDTH - 1 : 0]        s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
+    output  reg                                 s_axis_in_tfull,
 
     input                                       out_clk_i,
     input                                       m_axis_out_tready,
     output  reg     [DATA_WIDTH - 1 : 0]        m_axis_out_tdata,
     output  reg                                 m_axis_out_tvalid,
-    output  reg     [$clog2(FIFO_LEN) - 1 : 0]  m_axis_out_tlevel
+    output  reg     [$clog2(FIFO_LEN) - 1 : 0]  m_axis_out_tlevel,
+    output  reg                                 m_axis_out_tempty
 );
 
 localparam PTR_WIDTH = $clog2(FIFO_LEN);
@@ -62,10 +64,10 @@ function [PTR_WIDTH - 1 : 0] b2g;
 endfunction
 
 
-reg [PTR_WIDTH - 1 : 0]             rd_ptr;
 reg [DATA_WIDTH - 1  : 0]           mem [0 : FIFO_LEN - 1];
 
 if (ASYNC) begin
+    reg [PTR_WIDTH - 1 : 0]             rd_ptr;
     reg [PTR_WIDTH - 1 : 0]             wr_ptr_grey;    
     always @(posedge clk_i) begin
         if (!reset_ni) begin
@@ -95,15 +97,37 @@ if (ASYNC) begin
             end
         end
     end
-end else begin
-    reg [PTR_WIDTH - 1 : 0]             wr_ptr;       
+
+    // TODO: tfull, tempty, tlevel are not support for ASYNC = 1
+    always @(posedge clk_i) begin
+        s_axis_in_tfull <= '0;
+    end
+
+    always @(posedge out_clk_i) begin
+        m_axis_out_tempty <= 1;
+        m_axis_out_tlevel <= '0;
+    end
+end
+// -----------------------------------------------------------------------------------------------------
+// SYNC CLOCK
+else begin
+    reg  [PTR_WIDTH : 0]            wr_ptr;
+    reg  [PTR_WIDTH : 0]            rd_ptr;
+    wire                            ptr_equal       = wr_ptr[PTR_WIDTH - 1 : 0] == rd_ptr[PTR_WIDTH - 1 : 0];
+    wire [PTR_WIDTH - 1 : 0]        ptr_diff        = wr_ptr[PTR_WIDTH - 1 : 0] - rd_ptr[PTR_WIDTH - 1 : 0];
+    wire                            ptr_msb_equal   = wr_ptr[PTR_WIDTH] == rd_ptr[PTR_WIDTH];
+    wire [PTR_WIDTH - 1: 0]         wr_ptr_addr     = wr_ptr[PTR_WIDTH - 1 : 0];
+    wire [PTR_WIDTH - 1: 0]         rd_ptr_addr     = rd_ptr[PTR_WIDTH - 1 : 0];
+    wire                            overflow        = s_axis_in_tfull && s_axis_in_tvalid;
+    wire                            underflow       = (!s_axis_in_tfull) && m_axis_out_tvalid;
+
     always @(posedge clk_i) begin
         if (!reset_ni) begin
             wr_ptr <= '0;
             for(integer i = 0; i < FIFO_LEN; i = i + 1)   mem[i] = '0;  // Non-delayed for verilator
         end else begin
             if (s_axis_in_tvalid) begin
-                mem[wr_ptr] <= s_axis_in_tdata;
+                mem[wr_ptr_addr] <= s_axis_in_tdata;
                 wr_ptr <= wr_ptr + 1;
             end
         end
@@ -115,15 +139,27 @@ end else begin
             m_axis_out_tvalid <= '0;
             rd_ptr <= '0;
         end else begin
-            if ((rd_ptr != wr_ptr) && m_axis_out_tready) begin
-                m_axis_out_tdata <= mem[rd_ptr];
+            if ((!m_axis_out_tempty) && m_axis_out_tready) begin
+                m_axis_out_tdata <= mem[rd_ptr_addr];
                 m_axis_out_tvalid <= 1;
                 rd_ptr <= rd_ptr + 1;
             end else begin
                 m_axis_out_tvalid <= 0;
             end
         end
-    end    
+    end
+
+    always @(posedge clk_i) begin
+        if (!reset_ni) begin
+            s_axis_in_tfull <= '0;
+            m_axis_out_tempty <= 1;
+            m_axis_out_tlevel <= '0;
+        end else begin
+            s_axis_in_tfull <= ptr_equal && (!ptr_msb_equal);
+            m_axis_out_tempty <= ptr_equal && ptr_msb_equal;
+            m_axis_out_tlevel <= ptr_msb_equal ? ptr_diff : ptr_diff;
+        end
+    end
 end
 
 endmodule

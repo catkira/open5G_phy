@@ -48,3 +48,4 @@ jobs:
         pytest -v --workers=10 tests/test_channel_estimator.py
         pytest -v tests/test_frame_sync.py
         pytest -v tests/test_div.py
+        pytest -v tests/test_atan2.py

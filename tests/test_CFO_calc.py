@@ -68,6 +68,7 @@ async def simple_test(dut):
         if (dut.valid_o.value == 1):
             received_angle = _twos_comp(dut.CFO_angle_o.value.integer, tb.CFO_DW) / (2**(tb.CFO_DW-1) - 1) * 180
             print(f'received CFO {received_angle} deg')
+            print(f'expected CFO {angle} deg')
             DDS_inc = _twos_comp(dut.CFO_DDS_inc_o.value.integer, tb.DDS_DW)
             print(f'received DDS inc {DDS_inc}')
             break
@@ -116,4 +117,4 @@ def test(C_DW, CFO_DW, DDS_DW, ANGLE):
     )
 
 if __name__ == '__main__':
-    test(C_DW = 30, CFO_DW = 32, DDS_DW = 20, ANGLE=20)
+    test(C_DW = 30, CFO_DW = 32, DDS_DW = 20, ANGLE=80)

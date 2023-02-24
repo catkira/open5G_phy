@@ -157,17 +157,20 @@ async def simple_test3(dut):
     symbol = np.empty((num_symbols,256), 'complex')
 
     pos = START_POS
-    _, axs = plt.subplots(8, 7, sharex=True, sharey=True)
-    axs = np.ravel(axs)
+    if os.environ.get('PLOTS') == '1':
+        _, axs = plt.subplots(8, 7, sharex=True, sharey=True)
+        axs = np.ravel(axs)
     for i in range(num_symbols):
         new_symbol = np.fft.fftshift(np.fft.fft(waveform[pos:][:FFT_LEN]))
         if (i+4)%7 == 0:
             pos += CP1_LEN + FFT_LEN
         else:
             pos += CP2_LEN + FFT_LEN
-        axs[i].plot(new_symbol.real, new_symbol.imag, '.r')
+        if os.environ.get('PLOTS') == '1':
+            axs[i].plot(new_symbol.real, new_symbol.imag, '.r')
         symbol[i] = new_symbol
-    # plt.show()
+    if os.environ.get('PLOTS') == '1':
+        plt.show()
 
     symbol /= max(symbol.real.max(), symbol.imag.max())
     symbol *= (2 ** (tb.IN_DW // 2 - 1) - 1)
@@ -178,6 +181,7 @@ async def simple_test3(dut):
     symbol_id = 0
     SC_cnt = 0
     ibar_SSB = 0
+    IQ_data = []
     while clk_cnt < max_wait_cycles:
         await RisingEdge(dut.clk_i)
 
@@ -194,10 +198,14 @@ async def simple_test3(dut):
                 + ((int(symbol[symbol_id][SC_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1)))
             dut.s_axis_in_tdata.value = data
             dut.s_axis_in_tvalid.value = 1
+            if dut.s_axis_in_tvalid.value and ((symbol_id + START_SYMBOL) in SSB_pattern):
+                IQ_data.append(symbol[symbol_id][SC_cnt])
+
             SC_cnt += 1
             if SC_cnt == 256:
                 symbol_id += 1
                 SC_cnt = 0
+
         else:
             dut.s_axis_in_tvalid.value = 0
 
@@ -208,6 +216,11 @@ async def simple_test3(dut):
             ibar_SSB += 1
         clk_cnt += 1
     print(f'finished after {clk_cnt} clk cycles')
+
+    if os.environ.get('PLOTS') == '1':
+        IQ_data = np.array(IQ_data)
+        plt.plot(IQ_data.real[8:200], IQ_data.imag[8:200], '.')
+        plt.show()
 
 @pytest.mark.parametrize("N_ID_1", [0, 335])
 @pytest.mark.parametrize("N_ID_2", [0, 1, 2])
@@ -241,7 +254,8 @@ def test_PBCH_DMRS_gen(N_ID_1, N_ID_2):
         parameters=parameters,
         sim_build=sim_build,
         testcase='simple_test',
-        force_compile=True
+        force_compile=True,
+        waves=True
     )
 
 @pytest.mark.parametrize("IN_DW", [32])
@@ -286,6 +300,9 @@ def test_PBCH_stream(IN_DW):
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'div.sv'),
+        os.path.join(rtl_dir, 'atan.sv'),
+        os.path.join(rtl_dir, 'atan2.sv'),
+        os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
         os.path.join(rtl_dir, 'LFSR/LFSR.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
     ]
@@ -304,11 +321,13 @@ def test_PBCH_stream(IN_DW):
         parameters=parameters,
         sim_build=sim_build,
         testcase='simple_test3',
-        force_compile=True
+        force_compile=True,
+        waves=True
     )
 
 
 if __name__ == '__main__':
     # test_PBCH_DMRS_gen(N_ID_1 = 69, N_ID_2 = 2)
     # test_PBCH_ibar_SSB_det(IN_DW = 32, ibar_SSB = 3)
+    # os.environ['PLOTS'] = '1'
     test_PBCH_stream(IN_DW = 32)

@@ -33,83 +33,6 @@ reg [1 : 0] PBCH_DMRS [0 : 7][0 : PBCH_DMRS_LEN - 1];
 reg [$clog2(1600) : 0] PBCH_DMRS_cnt;
 reg PBCH_DMRS_ready;
 
-reg div_valid_in;
-reg div_valid_out;
-reg [IN_DW / 2 - 1 : 0] numerator;
-reg [IN_DW / 2 - 1 : 0] denominator;
-reg [IN_DW / 2 - 1 : 0] div_result;
-
-div #(
-    .INPUT_WIDTH(IN_DW / 2),
-    .RESULT_WIDTH(IN_DW / 2),
-    .PIPELINED(1)
-)
-div_i(
-    .clk_i(clk_i),
-    .reset_ni(reset_ni),
-    .numerator_i(numerator),
-    .denominator_i(denominator),
-    .valid_i(div_valid_in),
-    .result_o(div_result),
-    .valid_o(div_valid_out)
-);
-
-
-// calculate correction factors
-// r = abs(ideal_pilot)/abs(recv_pilot)
-// alpha = angle(ideal_pilot) - angle(recv_pilot)
-// corr_factor = r*cos(alpha) + j*r*sin(alpha)
-always @(posedge clk_i) begin
-end
-
-
-// multiply with correction factor
-reg [$clog2(FFT_LEN) - 1 : 0]   symbol_SC;
-reg [2 : 0]                     estimator_state;
-localparam [2 : 0]        WAIT_FOR_PBCH = 0;
-localparam [2 : 0]        EST_PBCH_SYM_0 = 1;
-localparam [2 : 0]        EST_PBCH_SYM_1 = 2;
-localparam [2 : 0]        EST_PBCH_SYM_2 = 3;
-localparam [2 : 0]        EST_OTHER_SYM = 4;
-always @(posedge clk_i) begin
-    if (!reset_ni) begin
-        m_axis_out_tdata <= '0;
-        m_axis_out_tvalid <= '0;
-        symbol_SC <= '0;
-        estimator_state <= WAIT_FOR_PBCH;
-    end else begin
-        case(estimator_state)
-            WAIT_FOR_PBCH : begin
-                if (PBCH_DMRS_ready && PBCH_start_i) begin
-                    symbol_SC <= '0;
-                    estimator_state <= 0;
-                end
-            end
-            EST_PBCH_SYM_0 : begin
-                if (s_axis_in_tvalid) begin
-                    if (symbol_SC == FFT_LEN - 1) begin
-                        symbol_SC <= 0;
-                        estimator_state <= EST_PBCH_SYM_1;
-                    end else begin
-                        symbol_SC <= symbol_SC + 1;
-                    end
-                end
-            end
-            EST_PBCH_SYM_1 : begin
-                if (s_axis_in_tvalid) begin
-                    if (symbol_SC == FFT_LEN - 1) begin
-                        symbol_SC <= 0;
-                        estimator_state <= EST_PBCH_SYM_2;
-                    end else begin
-                        symbol_SC <= symbol_SC + 1;
-                    end
-                end
-            end
-        endcase
-    end
-end
-
-
 localparam LFSR_N = 31;
 reg lfsr_out_0, lfsr_out_1;
 reg lfsr_valid;
@@ -272,6 +195,9 @@ assign in_re = s_axis_in_tdata[IN_DW / 2 - 1 : 0];
 assign in_im = s_axis_in_tdata[IN_DW - 1 : IN_DW / 2];
 reg [$clog2(8) - 1 : 0] ibar_SSB_detected;
 
+
+// hard BPSK demodulation of incoming signal
+// this is used for PBCH DMRS detection
 wire [1 : 0] in_demod;
 assign in_demod = {data_in[IN_DW / 2 - 1], data_in[IN_DW - 1]};
 reg [IN_DW - 1 : 0] data_in;
@@ -279,7 +205,9 @@ always @(posedge clk_i) data_in <= s_axis_in_tdata;
 reg valid_in;
 always @(posedge clk_i) valid_in <= s_axis_in_tvalid;
 
-// detect ibar_SSB
+// This process detects which PBCH DMRS is used for the current PBCH symbol
+// There are 8 possible PBCH DMRSs, the number of the used PBCH DMRS is called ibar_SSB
+// and determines the subframe number of the current symbol
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         state_det_ibar <= '0;
@@ -291,6 +219,7 @@ always @(posedge clk_i) begin
         ibar_SSB_detected = '0;
         debug_ibar_SSB_o <= '0;
         debug_ibar_SSB_valid_o <= '0;
+        pilots_ready <= '0;
     end else begin
         // if (s_axis_in_tvalid) $display("rx %d + j%d -> %b", in_re, in_im, {s_axis_in_tdata[IN_DW/2-1], s_axis_in_tdata[IN_DW-1]});
 
@@ -345,11 +274,158 @@ always @(posedge clk_i) begin
                     end
                 end
                 $display("detected ibar_SSB = %d with correlation = %d", ibar_SSB_detected, tmp_corr);
+                pilots_ready <= 1;
                 debug_ibar_SSB_o <= ibar_SSB_detected;
                 debug_ibar_SSB_valid_o <= 1;
                 state_det_ibar <= '0;
                 ibar_SSB_detected = '0;
                 for(integer i = 0; i < 8; i = i + 1)  DMRS_corr[i] <= '0;
+            end
+        endcase
+    end
+end
+
+// Put incoming data into a FIFO to give enough time for PBCH DRMS detection
+// Length of FIFO has to be at least FFT_LEN samples, because 1 symbol is used 
+// to detect the PBCH DRMS
+reg [IN_DW - 1 : 0] in_fifo_data;
+reg                 in_fifo_valid;
+reg                 in_fifo_ready;
+reg [$clog2(FFT_LEN) - 1 : 0]  in_fifo_level;
+AXIS_FIFO #(
+    .DATA_WIDTH(IN_DW),
+    .FIFO_LEN(FFT_LEN + 100),
+    .ASYNC(0)
+)
+data_FIFO_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+
+    .s_axis_in_tdata(s_axis_in_tdata),
+    .s_axis_in_tvalid(s_axis_in_tvalid),
+
+    .m_axis_out_tready(in_fifo_ready),
+    .m_axis_out_tdata(in_fifo_data),
+    .m_axis_out_tvalid(in_fifo_valid),
+    .m_axis_out_tlevel(in_fifo_level)
+);
+
+// This atan2 instance is used to calculate angle(received_i),
+// which is the phase of each subcarrier of the current symbol
+localparam PHASE_DW = 16;
+reg signed [PHASE_DW - 1 : 0]   SC_phase;
+reg                             SC_phase_valid;
+atan2 #(
+    .INPUT_WIDTH(IN_DW / 2),
+    .LUT_DW(14),
+    .OUTPUT_WIDTH(PHASE_DW)
+)
+atan2_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+    
+    .numerator_i(s_axis_in_tdata[IN_DW - 1 : IN_DW / 2]),
+    .denominator_i(s_axis_in_tdata[IN_DW / 2 - 1 : 0]),
+    .valid_i(s_axis_in_tvalid),
+
+    .angle_o(SC_phase),
+    .valid_o(SC_phase_valid)
+);
+
+// Put all calculated phases into a FIFO
+reg  angle_FIFO_ready;
+reg  angle_FIFO_valid;
+reg  [$clog2(FFT_LEN) - 1 : 0] angle_FIFO_level;
+reg  signed [PHASE_DW - 1 : 0] angle_FIFO_data;
+AXIS_FIFO #(
+    .DATA_WIDTH(PHASE_DW),
+    .FIFO_LEN(FFT_LEN),
+    .ASYNC(0)
+)
+angle_FIFO_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+
+    .s_axis_in_tdata(SC_phase),
+    .s_axis_in_tvalid(SC_phase_valid),
+
+    .m_axis_out_tready(angle_FIFO_ready),
+    .m_axis_out_tdata(angle_FIFO_data),
+    .m_axis_out_tvalid(angle_FIFO_valid),
+    .m_axis_out_tlevel(angle_FIFO_level)
+);
+
+
+// This process calculates phase correction factors
+// by calculating angle(pilot_i) - angle(received_i)
+// 
+// TODO: for now it supports only phase correction for PBCH symbols
+reg [2 : 0]  state_corrector;
+localparam [2 : 0]  WAIT_FOR_INPUTS = 0;
+localparam [2 : 0]  CALC_CORRECTION = 1;
+reg          pilots_ready;
+reg          in_data_ready;
+reg          angles_ready;
+reg [$clog2(FFT_LEN) - 1 : 0]         SC_cnt;
+
+localparam MAX_PHASE = (2**(PHASE_DW - 1) - 1);
+localparam signed [PHASE_DW - 1 : 0] DEG45 = MAX_PHASE / 4;
+localparam signed [PHASE_DW - 1 : 0] DEG135 = 3 * DEG45;
+reg signed [PHASE_DW - 1 : 0] pilot_angle;
+
+wire [$clog2(FFT_LEN) : 0] SC_idx_plus_start = SC_cnt - PBCH_DMRS_start_idx;
+reg [$clog2(FFT_LEN) : 0] pilot_SC_idx;
+reg [10 : 0]    symbol_cnt;
+
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        state_corrector <= WAIT_FOR_INPUTS;
+        SC_cnt <= '0;
+        pilot_SC_idx <= '0;
+        symbol_cnt <= '0;
+    end else begin
+        case(state_corrector)
+            WAIT_FOR_INPUTS : begin
+                SC_cnt <= '0;
+                pilot_SC_idx <= '0;
+                if (pilots_ready) begin
+                    state_corrector <= CALC_CORRECTION;
+                end
+            end
+            CALC_CORRECTION : begin
+                // only need to check angle_FIFO because, it becomes always later ready than data_FIFO
+                if (angle_FIFO_level > 0) begin
+                    in_fifo_ready <= '1;
+                    angle_FIFO_ready <= '1;
+                end
+                
+                if (angle_FIFO_valid != in_fifo_valid) begin
+                    $display("ERROR: in_FIFO and angle_FIFO don't output in sync !");
+                end
+
+                if (angle_FIFO_valid) begin
+                    if (symbol_cnt == 0)  $display("data %x  angle %f", in_fifo_data, $itor(angle_FIFO_data) / DEG45 * 45);
+                    if ((SC_cnt > 7) && (SC_cnt < (FFT_LEN - 8))) begin
+                        if (SC_idx_plus_start[1:0] == 0) begin
+                            // we are at a pilot location, calculate correction factor
+                            case(PBCH_DMRS[ibar_SSB_detected][pilot_SC_idx])
+                                2'b00 : pilot_angle = DEG45;
+                                2'b01 : pilot_angle = DEG135;
+                                2'b10 : pilot_angle = -DEG45;
+                                2'b11 : pilot_angle = -DEG135;
+                            endcase
+                            // if (symbol_cnt == 0)  $display("pilot = %x", PBCH_DMRS[ibar_SSB_detected][pilot_SC_idx]);
+                            if (symbol_cnt == 0)  $display("SC angle = %f deg, pilot angle = %f ", $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45);
+                            pilot_SC_idx <= pilot_SC_idx + 1;
+                        end
+                    end
+                    if (SC_cnt == FFT_LEN - 1) begin
+                        state_corrector <= WAIT_FOR_INPUTS;
+                        symbol_cnt <= symbol_cnt + 1;
+                    end else begin
+                        SC_cnt <= SC_cnt + 1;
+                    end
+                end
             end
         endcase
     end
