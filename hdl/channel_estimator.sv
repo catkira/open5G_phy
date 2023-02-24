@@ -291,10 +291,13 @@ end
 reg [IN_DW - 1 : 0] in_fifo_data;
 reg                 in_fifo_valid;
 reg                 in_fifo_ready;
-reg [$clog2(FFT_LEN) - 1 : 0]  in_fifo_level;
+reg                 in_fifo_user;
+localparam EXTRA_LEN = FFT_LEN;  // for the atan2 latency, FIFO_LEN has to be power of 2, therefore increase by FFT_LEN !
+reg [$clog2(FFT_LEN + EXTRA_LEN) - 1 : 0]  in_fifo_level;
 AXIS_FIFO #(
     .DATA_WIDTH(IN_DW),
-    .FIFO_LEN(FFT_LEN + 100),
+    .FIFO_LEN(FFT_LEN + EXTRA_LEN),
+    .USER_WIDTH(1),
     .ASYNC(0)
 )
 data_FIFO_i(
@@ -302,10 +305,12 @@ data_FIFO_i(
     .reset_ni(reset_ni),
 
     .s_axis_in_tdata(s_axis_in_tdata),
+    .s_axis_in_tuser(PBCH_start_i),
     .s_axis_in_tvalid(s_axis_in_tvalid),
 
     .m_axis_out_tready(in_fifo_ready),
     .m_axis_out_tdata(in_fifo_data),
+    .m_axis_out_tuser(in_fifo_user),
     .m_axis_out_tvalid(in_fifo_valid),
     .m_axis_out_tlevel(in_fifo_level)
 );
@@ -363,6 +368,7 @@ angle_FIFO_i(
 reg [2 : 0]  state_corrector;
 localparam [2 : 0]  WAIT_FOR_INPUTS = 0;
 localparam [2 : 0]  CALC_CORRECTION = 1;
+localparam [2 : 0]  PASS_THROUGH = 2;
 reg          pilots_ready;
 reg          in_data_ready;
 reg          angles_ready;
@@ -388,15 +394,24 @@ always @(posedge clk_i) begin
             WAIT_FOR_INPUTS : begin
                 SC_cnt <= '0;
                 pilot_SC_idx <= '0;
-                if (pilots_ready) begin
-                    state_corrector <= CALC_CORRECTION;
+                if (pilots_ready && (in_fifo_level > 0)) begin
+                    if (in_fifo_user == 1)  begin
+                        $display("calculate_phase: PBCH symbol");
+                        state_corrector <= CALC_CORRECTION;
+                    end else begin
+                        $display("calculate_phase: data symbol");
+                        state_corrector <= PASS_THROUGH;
+                    end
                 end
             end
             CALC_CORRECTION : begin
                 // only need to check angle_FIFO because, it becomes always later ready than data_FIFO
-                if (angle_FIFO_level > 0) begin
-                    in_fifo_ready <= '1;
-                    angle_FIFO_ready <= '1;
+                if ((angle_FIFO_level > 0) && (SC_cnt < FFT_LEN - 2)) begin
+                    in_fifo_ready <= 1;
+                    angle_FIFO_ready <= 1;
+                end else begin
+                    in_fifo_ready <= '0;
+                    angle_FIFO_ready <= '0;
                 end
                 
                 if (angle_FIFO_valid != in_fifo_valid) begin
@@ -404,18 +419,19 @@ always @(posedge clk_i) begin
                 end
 
                 if (angle_FIFO_valid) begin
-                    if (symbol_cnt == 0)  $display("data %x  angle %f", in_fifo_data, $itor(angle_FIFO_data) / DEG45 * 45);
+                    // if (symbol_cnt == 0)  $display("data %x  angle %f", in_fifo_data, $itor(angle_FIFO_data) / DEG45 * 45);
                     if ((SC_cnt > 7) && (SC_cnt < (FFT_LEN - 8))) begin
                         if (SC_idx_plus_start[1:0] == 0) begin
                             // we are at a pilot location, calculate correction factor
                             case(PBCH_DMRS[ibar_SSB_detected][pilot_SC_idx])
                                 2'b00 : pilot_angle = DEG45;
-                                2'b01 : pilot_angle = DEG135;
-                                2'b10 : pilot_angle = -DEG45;
+                                2'b01 : pilot_angle = -DEG45;
+                                2'b10 : pilot_angle = DEG135;
                                 2'b11 : pilot_angle = -DEG135;
                             endcase
                             // if (symbol_cnt == 0)  $display("pilot = %x", PBCH_DMRS[ibar_SSB_detected][pilot_SC_idx]);
-                            if (symbol_cnt == 0)  $display("SC angle = %f deg, pilot angle = %f ", $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45);
+                            if (symbol_cnt == 0)  $display("SC angle = %f deg, pilot angle = %f, delta = %f", 
+                                $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data) - $itor(pilot_angle)) / DEG45 * 45);
                             pilot_SC_idx <= pilot_SC_idx + 1;
                         end
                     end
@@ -425,6 +441,30 @@ always @(posedge clk_i) begin
                     end else begin
                         SC_cnt <= SC_cnt + 1;
                     end
+                end
+            end
+            PASS_THROUGH : begin
+                // only need to check angle_FIFO because, it becomes always later ready than data_FIFO
+                if ((angle_FIFO_level > 0) && (SC_cnt < FFT_LEN - 2)) begin
+                    in_fifo_ready <= 1;
+                    angle_FIFO_ready <= 1;
+                end else begin
+                    in_fifo_ready <= '0;
+                    angle_FIFO_ready <= '0;
+                end
+                
+                if (angle_FIFO_valid) begin
+                    m_axis_out_tdata <= in_fifo_data;
+                    m_axis_out_tvalid <= 1;
+
+                    if (SC_cnt == FFT_LEN - 1) begin
+                        state_corrector <= WAIT_FOR_INPUTS;
+                        symbol_cnt <= symbol_cnt + 1;
+                    end else begin
+                        SC_cnt <= SC_cnt + 1;
+                    end                        
+                end else begin
+                    m_axis_out_tvalid <= '0;
                 end
             end
         endcase

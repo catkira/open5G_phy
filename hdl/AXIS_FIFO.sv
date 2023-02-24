@@ -152,9 +152,14 @@ else begin
             m_axis_out_tvalid <= '0;
             rd_ptr <= '0;
         end else begin
-            if ((!m_axis_out_tempty) && m_axis_out_tready) begin
+            // output tdata and tuser as early as possible, even if tready is not yet asserted
+            // this is a feature and can be used to peek inside the fifo without taking data out !
+            if (!m_axis_out_tempty) begin
                 m_axis_out_tdata <= mem[rd_ptr_addr];
-                if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr];
+                if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr];                
+            end
+
+            if ((!m_axis_out_tempty) && m_axis_out_tready) begin
                 m_axis_out_tvalid <= 1;
                 rd_ptr <= rd_ptr + 1;
             end else begin

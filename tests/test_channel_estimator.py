@@ -182,8 +182,14 @@ async def simple_test3(dut):
     SC_cnt = 0
     ibar_SSB = 0
     IQ_data = []
+    idle_clks = 0
     while clk_cnt < max_wait_cycles:
         await RisingEdge(dut.clk_i)
+
+        if idle_clks > 0:
+            idle_clks -= 1
+            clk_cnt += 1
+            continue
 
         # need to wait until the PBCH_DMRS is generated
         if (clk_cnt > 2000) and (symbol_id < num_symbols):
@@ -194,17 +200,21 @@ async def simple_test3(dut):
             if SC_cnt == 0:
                 print(f'sending symbol {symbol_id}')
 
-            data = (((int(symbol[symbol_id][SC_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
-                + ((int(symbol[symbol_id][SC_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1)))
-            dut.s_axis_in_tdata.value = data
-            dut.s_axis_in_tvalid.value = 1
-            if dut.s_axis_in_tvalid.value and ((symbol_id + START_SYMBOL) in SSB_pattern):
-                IQ_data.append(symbol[symbol_id][SC_cnt])
-
-            SC_cnt += 1
-            if SC_cnt == 256:
+            if SC_cnt == FFT_LEN:
                 symbol_id += 1
                 SC_cnt = 0
+                # some idle clks between symbols is needed for the channel estimator FSM !
+                # this idle happens in reality automatically because of the cyclic prefix
+                idle_clks = 10
+                dut.s_axis_in_tvalid.value = 0
+            else:
+                data = (((int(symbol[symbol_id][SC_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
+                    + ((int(symbol[symbol_id][SC_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1)))
+                dut.s_axis_in_tdata.value = data
+                dut.s_axis_in_tvalid.value = 1
+                if dut.s_axis_in_tvalid.value and ((symbol_id + START_SYMBOL) in SSB_pattern):
+                    IQ_data.append(symbol[symbol_id][SC_cnt])
+                SC_cnt += 1
 
         else:
             dut.s_axis_in_tvalid.value = 0
