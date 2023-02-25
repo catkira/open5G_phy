@@ -21,20 +21,24 @@ module FFT_demod #(
     output  reg                                 symbol_start_o
 );
 
+
+// this FSM is at the input to the FFT core
 reg [IN_DW - 1 : 0] in_data_f;
 reg in_valid_f;
 reg [OUT_DW - 1 : 0] out_data_f;
 reg [$clog2(FFT_LEN) - 1 : 0] out_cnt;
 localparam SSB_LEN = 4;
-reg [2 : 0] state, state2;
+reg [2 : 0] state2;
 reg [$clog2(CP_LEN) : 0] CP_cnt;
 reg [$clog2(FFT_LEN) : 0] in_cnt;
-
+localparam SYMS_BTWN_SSB = 14 * 20;
+reg [10 : 0] current_in_symbol;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         state2 <= '0;
         in_cnt <= '0;
         CP_cnt <= '0;
+        current_in_symbol <= '0;
     end else if (state2 == 0) begin // wait for SSB
         if (SSB_start_i) begin
             CP_cnt <= CP_LEN - CP_ADVANCE;
@@ -57,13 +61,22 @@ always @(posedge clk_i) begin
         end else begin
             in_cnt <= '0;
             // $display("state2 <= 1");
-            state2 <= 1;
+            if (current_in_symbol == SYMS_BTWN_SSB - 1) begin
+                current_in_symbol <= '0;
+                state2 <= 0;
+            end else begin
+                current_in_symbol <= current_in_symbol + 1;
+                state2 <= 1;
+            end
         end
     end
     in_data_f <= s_axis_in_tdata;
     in_valid_f <= s_axis_in_tvalid;
 end
 
+
+// This FSM is at the output of the FFT
+reg [2 : 0] state;
 reg [10 : 0] current_out_symbol;
 reg PBCH_start;
 reg PBCH_valid;
@@ -77,15 +90,16 @@ always @(posedge clk_i) begin
         SSS_start <= '0;
         SSS_valid <= '0;
         PBCH_valid <= '0;
-        state <= '0;
+        state <= 1;
         current_out_symbol <= '0;
     end else begin
-        if (state == 0) begin  // wait for start of SSB
-            current_out_symbol <= '0;
-            if (SSB_start_i) begin
-                state <= 1;
-            end
-        end else if (state == 1) begin  // wait for start of fft output
+        // if (state == 0) begin  // wait for start of SSB
+        //     current_out_symbol <= '0;
+        //     if (SSB_start_i) begin
+        //         state <= 1;
+        //     end
+        // end else if (state == 1) begin  // wait for start of fft output
+        if (state == 1) begin
             if (fft_val) begin
                 state <= 2;
                 // $display("state = 2");
@@ -94,9 +108,13 @@ always @(posedge clk_i) begin
         end else if (state == 2) begin // output one symbol
             out_cnt <= out_cnt + 1;
             if (out_cnt == (FFT_LEN - 1)) begin
-                // $display("state = 1");
+                if (current_out_symbol == SYMS_BTWN_SSB - 1) begin
+                    current_out_symbol <= '0;
+                end else begin
+                    // $display("state = 1");
+                    current_out_symbol <= current_out_symbol + 1;
+                end
                 state <= 1;
-                current_out_symbol <= current_out_symbol + 1;
             end
         end
         PBCH_start <= (state == 2) && (out_cnt == 0) &&  (current_out_symbol == 0);
@@ -136,7 +154,7 @@ fft(
     .do_vl(fft_val)
 );
 
-
+// This process corrects 'phase CFO' caused by CP
 if (CP_ADVANCE != CP_LEN) begin
     localparam MULT_DELAY = 6;
     reg [MULT_DELAY - 1: 0] PBCH_start_delay;
