@@ -388,7 +388,7 @@ channel_estimator_i(
     .N_id_valid_i(N_id_valid),
     .PBCH_start_i(fft_demod_PBCH_start_o),
     .s_axis_in_tdata(m_axis_out_tdata),
-    .s_axis_in_tvalid(PBCH_valid_o),
+    .s_axis_in_tvalid(m_axis_out_tvalid),
 
     .m_axis_out_tdata(),
     .m_axis_out_tvalid(),

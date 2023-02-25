@@ -368,6 +368,7 @@ reg signed [PHASE_DW - 1 : 0] pilot_angle;
 wire [$clog2(FFT_LEN) : 0] SC_idx_plus_start = SC_cnt - PBCH_DMRS_start_idx;
 reg [$clog2(FFT_LEN) : 0] pilot_SC_idx;
 reg [10 : 0]    symbol_cnt;
+localparam SYMS_BTWN_SSB = 14 * 20;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -380,7 +381,10 @@ always @(posedge clk_i) begin
             WAIT_FOR_INPUTS : begin
                 SC_cnt <= '0;
                 pilot_SC_idx <= '0;
-                if (pilots_ready && (in_fifo_level > 0)) begin
+                if ((in_fifo_level > 0) && !PBCH_DMRS_ready) begin
+                    $display("calculate_phase: PBCH DMRS not ready, pass through without correction");
+                    state_corrector <= PASS_THROUGH;
+                end else if ((in_fifo_level > 0) && PBCH_DMRS_ready) begin
                     if (in_fifo_user == 1)  begin
                         $display("calculate_phase: PBCH symbol");
                         state_corrector <= CALC_CORRECTION;
@@ -417,7 +421,7 @@ always @(posedge clk_i) begin
                             endcase
                             // if (symbol_cnt == 0)  $display("pilot = %x", PBCH_DMRS[ibar_SSB_detected][pilot_SC_idx]);
                             if (symbol_cnt == 0)  $display("SC angle = %f deg, pilot angle = %f, delta = %f", 
-                                $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data) - $itor(pilot_angle)) / DEG45 * 45);
+                                $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
                             pilot_SC_idx <= pilot_SC_idx + 1;
                         end
                     end
@@ -445,7 +449,8 @@ always @(posedge clk_i) begin
 
                     if (SC_cnt == FFT_LEN - 1) begin
                         state_corrector <= WAIT_FOR_INPUTS;
-                        symbol_cnt <= symbol_cnt + 1;
+                        if (symbol_cnt == SYMS_BTWN_SSB - 1)    symbol_cnt <= '0;
+                        else                                    symbol_cnt <= symbol_cnt + 1;
                     end else begin
                         SC_cnt <= SC_cnt + 1;
                     end                        

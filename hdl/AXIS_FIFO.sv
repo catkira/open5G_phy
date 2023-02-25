@@ -123,7 +123,7 @@ else begin
     reg  [PTR_WIDTH : 0]            wr_ptr;
     reg  [PTR_WIDTH : 0]            rd_ptr;
     wire                            ptr_equal       = wr_ptr[PTR_WIDTH - 1 : 0] == rd_ptr[PTR_WIDTH - 1 : 0];
-    wire [PTR_WIDTH - 1 : 0]        ptr_diff        = wr_ptr[PTR_WIDTH - 1 : 0] - rd_ptr[PTR_WIDTH - 1 : 0];
+    wire [PTR_WIDTH : 0]            ptr_diff        = wr_ptr[PTR_WIDTH : 0] - rd_ptr[PTR_WIDTH : 0];
     wire                            ptr_msb_equal   = wr_ptr[PTR_WIDTH] == rd_ptr[PTR_WIDTH];
     wire [PTR_WIDTH - 1: 0]         wr_ptr_addr     = wr_ptr[PTR_WIDTH - 1 : 0];
     wire [PTR_WIDTH - 1: 0]         rd_ptr_addr     = rd_ptr[PTR_WIDTH - 1 : 0];
@@ -154,10 +154,8 @@ else begin
         end else begin
             // output tdata and tuser as early as possible, even if tready is not yet asserted
             // this is a feature and can be used to peek inside the fifo without taking data out !
-            if (!m_axis_out_tempty) begin
-                m_axis_out_tdata <= mem[rd_ptr_addr];
-                if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr];                
-            end
+            m_axis_out_tdata <= mem[rd_ptr_addr];
+            if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr];                
 
             if ((!m_axis_out_tempty) && m_axis_out_tready) begin
                 m_axis_out_tvalid <= 1;
@@ -176,7 +174,7 @@ else begin
         end else begin
             s_axis_in_tfull <= ptr_equal && (!ptr_msb_equal);
             m_axis_out_tempty <= ptr_equal && ptr_msb_equal;
-            m_axis_out_tlevel <= ptr_msb_equal ? ptr_diff : ptr_diff;
+            m_axis_out_tlevel <= ptr_diff[PTR_WIDTH - 1 : 0];
         end
     end
 end
