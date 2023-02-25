@@ -33,7 +33,9 @@ localparam NUM_STATES = 5;
 reg [$clog2(NUM_STATES) - 1 : 0] state= '0;
 reg [$clog2(SSS_LEN - 1) - 1 : 0] copy_counter, copy_counter_m_seq;
 reg [$clog2(SSS_LEN - 1) - 1 : 0] compare_counter;
-reg [$clog2(SSS_LEN - 1) - 1 : 0] acc, acc_max;
+reg [$clog2(SSS_LEN - 1) - 1 : 0] acc_max;
+reg signed [$clog2(SSS_LEN - 1) : 0] acc;
+wire signed [$clog2(SSS_LEN - 1) : 0] abs_acc = acc[$clog2(SSS_LEN - 1)] ? ~acc + 1 : acc;
 localparam SHIFT_MAX = 112;
 reg [$clog2(SHIFT_MAX) - 1 : 0] shift_cur, shift_max;
 
@@ -155,8 +157,8 @@ always @(posedge clk_i) begin
 
             if (compare_counter == SSS_LEN - 1) begin
                 // $display("correlation = %d", acc);
-                if (acc > acc_max) begin
-                    acc_max <= acc;
+                if (abs_acc > acc_max) begin
+                    acc_max <= abs_acc;
                     m_axis_out_tdata <= N_id_1;
                     N_id_o <= N_id_1 + N_id_1 + N_id_1 + N_id_2;
                     // $display("best N_id_1 so far is %d", N_id_1);
@@ -190,9 +192,9 @@ always @(posedge clk_i) begin
             end else begin
                 // $display("pos0 = %d  pos1 = %d  seq0 = %d  seq1 = %d  wrap0 = %d  wrap1 = %d  acc = %d", m_seq_0_pos, m_seq_1_pos, m_seq_0[m_seq_0_pos], m_seq_1[m_seq_1_pos], m_seq_0_wrap, m_seq_1_wrap, acc);
                 // $display("cnt = %d   %d <-> %d", compare_counter, sss_in[compare_counter],  m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]);
-                if (sss_in[compare_counter] == ~(m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos])) begin
-                    acc <= acc + 1;
-                end
+
+                if      (sss_in[compare_counter] == ~(m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]))     acc <= acc + 1;
+                else if (sss_in[compare_counter] ==  (m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]))     acc <= acc - 1;
                 compare_counter <= compare_counter + 1;
             end
         end else begin
