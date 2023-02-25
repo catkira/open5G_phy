@@ -369,6 +369,12 @@ wire [$clog2(FFT_LEN) : 0] SC_idx_plus_start = SC_cnt - PBCH_DMRS_start_idx;
 reg [$clog2(FFT_LEN) : 0] pilot_SC_idx;
 reg [10 : 0]    symbol_cnt;
 localparam SYMS_BTWN_SSB = 14 * 20;
+reg  signed [PHASE_DW - 1 : 0] corr_angle_DDS_in;
+reg                            corr_angle_DDS_valid_in;
+localparam  [1 : 0]            SYMBOL_TYPE_OTHER = 0;
+localparam  [1 : 0]            SYMBOL_TYPE_PBCH = 1;
+localparam  [1 : 0]            SYMBOL_TYPE_PBCH2 = 2;
+reg         [1 : 0]            symbol_type;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -376,6 +382,9 @@ always @(posedge clk_i) begin
         SC_cnt <= '0;
         pilot_SC_idx <= '0;
         symbol_cnt <= '0;
+        corr_angle_DDS_in <= '0;
+        corr_angle_DDS_valid_in <= '0;
+        symbol_type <= SYMBOL_TYPE_OTHER;
     end else begin
         case(state_corrector)
             WAIT_FOR_INPUTS : begin
@@ -383,13 +392,16 @@ always @(posedge clk_i) begin
                 pilot_SC_idx <= '0;
                 if ((in_fifo_level > 0) && !PBCH_DMRS_ready) begin
                     $display("calculate_phase: PBCH DMRS not ready, pass through without correction");
+                    symbol_type <= SYMBOL_TYPE_OTHER;
                     state_corrector <= PASS_THROUGH;
                 end else if ((in_fifo_level > 0) && PBCH_DMRS_ready) begin
                     if (in_fifo_user == 1)  begin
                         $display("calculate_phase: PBCH symbol");
+                        symbol_type <= SYMBOL_TYPE_PBCH;
                         state_corrector <= CALC_CORRECTION;
                     end else begin
                         $display("calculate_phase: data symbol");
+                        symbol_type <= SYMBOL_TYPE_OTHER;
                         state_corrector <= PASS_THROUGH;
                     end
                 end
@@ -409,10 +421,13 @@ always @(posedge clk_i) begin
                 end
 
                 if (angle_FIFO_valid) begin
+                    corr_angle_DDS_valid_in <= 1;
                     // if (symbol_cnt == 0)  $display("data %x  angle %f", in_fifo_data, $itor(angle_FIFO_data) / DEG45 * 45);
                     if ((SC_cnt > 7) && (SC_cnt < (FFT_LEN - 8))) begin
                         if (SC_idx_plus_start[1:0] == 0) begin
                             // we are at a pilot location, calculate correction factor
+                            // one corr_angle has to be used for 4 corr_data, because pilots are every 4th SC
+                            // use simple piecewise const. corr. angle for now, it can be improved with linear interpolation later                            
                             case(PBCH_DMRS[ibar_SSB_detected][pilot_SC_idx])
                                 2'b00 : pilot_angle = DEG45;
                                 2'b01 : pilot_angle = -DEG45;
@@ -420,11 +435,14 @@ always @(posedge clk_i) begin
                                 2'b11 : pilot_angle = -DEG135;
                             endcase
                             // if (symbol_cnt == 0)  $display("pilot = %x", PBCH_DMRS[ibar_SSB_detected][pilot_SC_idx]);
+                            corr_angle_DDS_in <= angle_FIFO_data - pilot_angle;
+                            corr_angle_DDS_valid_in <= 1;
                             if (symbol_cnt == 0)  $display("SC angle = %f deg, pilot angle = %f, delta = %f", 
                                 $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
                             pilot_SC_idx <= pilot_SC_idx + 1;
-                        end
+                        end 
                     end
+
                     if (SC_cnt == FFT_LEN - 1) begin
                         state_corrector <= WAIT_FOR_INPUTS;
                         symbol_cnt <= symbol_cnt + 1;
@@ -432,6 +450,8 @@ always @(posedge clk_i) begin
                         SC_cnt <= SC_cnt + 1;
                     end
                 end
+                else corr_angle_DDS_valid_in <= '0;
+
             end
             PASS_THROUGH : begin
                 // only need to check angle_FIFO because, it becomes always later ready than data_FIFO
@@ -442,10 +462,16 @@ always @(posedge clk_i) begin
                     in_fifo_ready <= '0;
                     angle_FIFO_ready <= '0;
                 end
-                
+
                 if (angle_FIFO_valid) begin
-                    m_axis_out_tdata <= in_fifo_data;
-                    m_axis_out_tvalid <= 1;
+                    corr_angle_DDS_valid_in <= 1;
+                    if ((SC_cnt > 7) && (SC_cnt < (FFT_LEN - 8))) begin
+                        if (SC_idx_plus_start[1:0] == 0) begin
+                            corr_angle_DDS_in <= 0;
+                            corr_angle_DDS_valid_in <= 1;
+                            pilot_SC_idx <= pilot_SC_idx + 1;
+                        end 
+                    end
 
                     if (SC_cnt == FFT_LEN - 1) begin
                         state_corrector <= WAIT_FOR_INPUTS;
@@ -453,13 +479,109 @@ always @(posedge clk_i) begin
                         else                                    symbol_cnt <= symbol_cnt + 1;
                     end else begin
                         SC_cnt <= SC_cnt + 1;
-                    end                        
-                end else begin
-                    m_axis_out_tvalid <= '0;
+                    end
                 end
+                else corr_angle_DDS_valid_in <= '0;                
+                
             end
         endcase
     end
 end
+
+
+localparam DDS_OUT_DW = 32;
+reg signed [DDS_OUT_DW - 1 : 0] DDS_out;
+reg                             DDS_out_valid;
+dds #(
+    .PHASE_DW(IN_DW / 2),
+    .OUT_DW(DDS_OUT_DW / 2),
+    .USE_TAYLOR(1)
+)
+DDS_i(
+    .clk(clk_i),
+    .reset_n(reset_ni),
+    .s_axis_phase_tdata(corr_angle_DDS_in),
+    .s_axis_phase_tvalid(corr_angle_DDS_valid_in),
+    .m_axis_out_tdata(DDS_out),
+    .m_axis_out_tvalid(DDS_out_valid)   
+);
+
+reg signed [DDS_OUT_DW - 1 : 0] corr_angle_fifo_out_data;
+reg                             corr_angle_fifo_out_valid;
+reg                             corr_angle_fifo_out_empty;
+reg                             corr_angle_fifo_out_ready;
+AXIS_FIFO #(
+    .DATA_WIDTH(DDS_OUT_DW),
+    .FIFO_LEN(FFT_LEN),
+    .USER_WIDTH(0),
+    .ASYNC(0)
+)
+corr_angle_fifo_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+    .s_axis_in_tdata(DDS_out),
+    .s_axis_in_tvalid(DDS_out_valid),
+
+    .m_axis_out_tready(corr_angle_fifo_out_ready),
+    .m_axis_out_tdata(corr_angle_fifo_out_data),
+    .m_axis_out_tvalid(corr_angle_fifo_out_valid),
+    .m_axis_out_tempty(corr_angle_fifo_out_empty)
+);
+
+reg [IN_DW - 1 : 0] corr_data_fifo_out_data;
+reg corr_data_fifo_out_valid;
+reg corr_data_fifo_out_empty;
+reg corr_data_fifo_out_ready;
+reg [1 : 0] corr_data_fifo_out_symbol_type;
+AXIS_FIFO #(
+    .DATA_WIDTH(IN_DW),
+    .FIFO_LEN(FFT_LEN),
+    .USER_WIDTH(2),
+    .ASYNC(0)
+)
+corr_data_fifo_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+    .s_axis_in_tdata(in_fifo_data),
+    .s_axis_in_tvalid(angle_FIFO_valid),
+    .s_axis_in_tuser(symbol_type),
+
+    .m_axis_out_tready(corr_data_fifo_out_ready),
+    .m_axis_out_tdata(corr_data_fifo_out_data),
+    .m_axis_out_tvalid(corr_data_fifo_out_valid),
+    .m_axis_out_tempty(corr_data_fifo_out_empty),
+    .m_axis_out_tuser(corr_data_fifo_out_symbol_type)
+);
+
+// apply corr_angle to corr_data
+// output of corr_data_fifo_out_data has to be delayed by 0 .. 3 cycles, depending on the pilot location
+
+reg signed [IN_DW - 1 : 0] corr_data_delayed [0 : 3];
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        for (integer i = 0; i < 4; i = i + 1)   corr_data_delayed[i] = '0;
+    end else begin
+        for (integer i = 0; i < 4; i = i + 1) begin
+            if (i == 0)  corr_data_delayed[0] <= corr_data_fifo_out_data;
+            else         corr_data_delayed[i] = corr_data_delayed[i - 1];
+        end
+    end
+end
+
+complex_multiplier #(
+    .OPERAND_WIDTH_A(DDS_OUT_DW / 2),
+    .OPERAND_WIDTH_B(IN_DW / 2),
+    .OPERAND_WIDTH_OUT(IN_DW / 2)
+)
+complex_multiplier_i(
+    .aclk(clk_i),
+    .aresetn(reset_ni),
+    .s_axis_a_tdata(corr_angle_fifo_out_data),
+    .s_axis_a_tvalid(1'b1),
+    .s_axis_b_tdata(corr_data_fifo_out_data),
+    .s_axis_b_tvalid(corr_data_fifo_out_valid),
+    .m_axis_dout_tdata(),
+    .m_axis_dout_tvalid()
+);
 
 endmodule
