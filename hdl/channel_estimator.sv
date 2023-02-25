@@ -115,8 +115,7 @@ always @(posedge clk_i) begin
     end
 end
 
-// this process updates the PBCH_DMRS after a new N_id was set
-// the process immediately restarts if an N_id update happens while generating a PBCH DMRS
+// this process updates the PBCH_DMRS after a N_id was set
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         state_PBCH_DMRS <= '0;
@@ -128,55 +127,43 @@ always @(posedge clk_i) begin
         PBCH_DMRS_ready <= '0;
     end else begin
         case (state_PBCH_DMRS)
-            0: begin
+            0: begin  // wait for SSB
                 if (N_id_valid_i) state_PBCH_DMRS <= 1;
             end
-            1: begin
-                if (N_id_valid_i) state_PBCH_DMRS <= 1;
-                else begin
-                    state_PBCH_DMRS <= 1;
+            1: begin  // load LFSRs with start values
+                state_PBCH_DMRS <= 1;
+                PBCH_DMRS_cnt <= '0;
+                LFSR_reset_n <= '1;
+                LFSR_load_config <= 1;
+                PBCH_DMRS_ready <= '0;
+                state_PBCH_DMRS <= 2;
+            end
+            2: begin  // skip first 1600 bits from LFSRs
+                LFSR_load_config <= '0;
+                if (PBCH_DMRS_cnt == 1601) begin
                     PBCH_DMRS_cnt <= '0;
-                    LFSR_reset_n <= '1;
-                    LFSR_load_config <= 1;
-                    PBCH_DMRS_ready <= '0;
-                    state_PBCH_DMRS <= 2;
-                end
-            end
-            2: begin
-                if (N_id_valid_i) state_PBCH_DMRS <= 1;
-                else begin 
-                    LFSR_load_config <= '0;
-                    if (PBCH_DMRS_cnt == 1601) begin
-                        PBCH_DMRS_cnt <= '0;
-                        state_PBCH_DMRS <= 3;
-                    end else begin
-                        PBCH_DMRS_cnt <= PBCH_DMRS_cnt + 1;
-                    end
-                end
-            end
-            3: begin
-                if (N_id_valid_i) state_PBCH_DMRS <= 1;
-                else begin
-                    // PBCH_DMRS can be used for channel estimation starting from now
-                    // assuming that the usage starts at the lowest index
-                    PBCH_DMRS_ready <= 1;
-                    if (PBCH_DMRS_cnt == (2*PBCH_DMRS_LEN - 1)) begin
-                        state_PBCH_DMRS <= 4;
-                    end
+                    state_PBCH_DMRS <= 3;
+                end else begin
                     PBCH_DMRS_cnt <= PBCH_DMRS_cnt + 1;
-
-                    if (PBCH_DMRS_cnt[0] == 0) debug_PBCH_DMRS_o[1] <= (lfsr_out_0 ^ LFSR_1[2].out);
-                    else                       debug_PBCH_DMRS_o[0] <= (lfsr_out_0 ^ LFSR_1[2].out);
-                    debug_PBCH_DMRS_valid_o <= PBCH_DMRS_cnt[0];
                 end
             end
-            4: begin
-                if (N_id_valid_i) state_PBCH_DMRS <= 1;
-                else begin
-                    debug_PBCH_DMRS_valid_o <= '0;
-                    state_PBCH_DMRS <= '0;
-                    LFSR_reset_n <= '0;
+            3: begin // store PBCH DMRS in 4 separate processes (see generate for loop above)
+                // PBCH_DMRS can be used for channel estimation starting from now
+                // assuming that the usage starts at the lowest index
+                PBCH_DMRS_ready <= 1;
+                if (PBCH_DMRS_cnt == (2*PBCH_DMRS_LEN - 1)) begin
+                    state_PBCH_DMRS <= 4;
                 end
+                PBCH_DMRS_cnt <= PBCH_DMRS_cnt + 1;
+
+                if (PBCH_DMRS_cnt[0] == 0) debug_PBCH_DMRS_o[1] <= (lfsr_out_0 ^ LFSR_1[2].out);
+                else                       debug_PBCH_DMRS_o[0] <= (lfsr_out_0 ^ LFSR_1[2].out);
+                debug_PBCH_DMRS_valid_o <= PBCH_DMRS_cnt[0];
+            end
+            4: begin  // FINISH, stay in this state until a reset happens
+                debug_PBCH_DMRS_valid_o <= '0;
+                // state_PBCH_DMRS <= '0;
+                // LFSR_reset_n <= '0;
             end
         endcase
     end
@@ -226,7 +213,7 @@ always @(posedge clk_i) begin
         case (state_det_ibar)
             0: begin
                 debug_ibar_SSB_valid_o <= 0;
-                if (PBCH_start_i) begin
+                if (PBCH_start_i && PBCH_DMRS_ready) begin
                     state_det_ibar <= 1;
                     PBCH_sym_idx <= '0;
                     PBCH_SC_idx <= '0;
@@ -264,7 +251,6 @@ always @(posedge clk_i) begin
             end
             2: begin
                 // for(integer i = 0; i < 8; i = i + 1)  $display("corr[%d] = %d", i, DMRS_corr[i]);
-
                 ibar_SSB_detected = '0;
                 tmp_corr = '0;
                 for(integer i = 0; i < 8; i = i + 1) begin

@@ -157,7 +157,6 @@ always @(posedge clk_i) begin
                 end
             end
             WAIT_FOR_IBAR: begin
-                PBCH_start_o <= '0;
                 if (ibar_SSB_valid_i) begin
                     if (ibar_SSB_i != 0) begin
                         // sym_cnt needs to be corrected for ibar_SSB != 0
@@ -172,7 +171,13 @@ always @(posedge clk_i) begin
                     state <= SYNCED;
                 end
 
-                if (N_id_2_valid_i) $display("unexpected SSB_start in state 1 !");
+                if (N_id_2_valid_i) begin
+                    $display("unexpected SSB_start in state 1 !");
+                    // output of PBCH_start_o in WAIT_FOR_IBAR state is needed, because channel_estimator needs it to detect ibar_SSB
+                    PBCH_start_o <= 1;
+                end else begin
+                    PBCH_start_o <= '0;
+                end
 
                 if (s_axis_in_tvalid) begin
                     if (SC_cnt == (FFT_LEN + current_CP_len - 1)) begin
