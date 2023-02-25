@@ -307,7 +307,8 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE):
         extra_env=extra_env,
         testcase='simple_test',
         force_compile=True,
-        compile_args = ['-sglbl', '-y' + unisim_dir]
+        compile_args = ['-sglbl', '-y' + unisim_dir],
+        waves=True
     )
 
 if __name__ == '__main__':

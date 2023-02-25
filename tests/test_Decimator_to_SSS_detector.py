@@ -344,7 +344,8 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
         extra_env=extra_env,
         testcase='simple_test',
         force_compile=True,
-        compile_args = compile_args
+        compile_args = compile_args,
+        waves=True
     )
 
 if __name__ == '__main__':

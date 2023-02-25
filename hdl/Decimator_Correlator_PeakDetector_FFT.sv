@@ -142,12 +142,5 @@ FFT_demod_i(
     .SSS_valid_o(SSS_valid_o)
 );
 
-`ifdef COCOTB_SIM
-initial begin
-  $dumpfile ("debug.vcd");
-  $dumpvars (0, Decimator_Correlator_PeakDetector_FFT);
-end
-`endif
-
 endmodule
 
