@@ -32,7 +32,7 @@ reg [2 : 0] state2;
 reg [$clog2(CP_LEN) : 0] CP_cnt;
 reg [$clog2(FFT_LEN) : 0] in_cnt;
 localparam SYMS_BTWN_SSB = 14 * 20;
-reg [10 : 0] current_in_symbol;
+reg [$clog2(SYMS_BTWN_SSB) - 1 : 0] current_in_symbol;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         state2 <= '0;
@@ -75,9 +75,8 @@ always @(posedge clk_i) begin
 end
 
 
-// This FSM is at the output of the FFT
-reg [2 : 0] state;
-reg [10 : 0] current_out_symbol;
+// This process generates sync signals at the FFT output
+reg [$clog2(SYMS_BTWN_SSB) - 1 : 0] current_out_symbol;
 reg PBCH_start;
 reg PBCH_valid;
 reg SSS_start;
@@ -90,23 +89,9 @@ always @(posedge clk_i) begin
         SSS_start <= '0;
         SSS_valid <= '0;
         PBCH_valid <= '0;
-        state <= 1;
         current_out_symbol <= '0;
     end else begin
-        // if (state == 0) begin  // wait for start of SSB
-        //     current_out_symbol <= '0;
-        //     if (SSB_start_i) begin
-        //         state <= 1;
-        //     end
-        // end else if (state == 1) begin  // wait for start of fft output
-        if (state == 1) begin
-            if (fft_val) begin
-                state <= 2;
-                // $display("state = 2");
-                // $display("current_out_symbol = %d", current_out_symbol);
-            end
-        end else if (state == 2) begin // output one symbol
-            out_cnt <= out_cnt + 1;
+        if (fft_val) begin
             if (out_cnt == (FFT_LEN - 1)) begin
                 if (current_out_symbol == SYMS_BTWN_SSB - 1) begin
                     current_out_symbol <= '0;
@@ -114,20 +99,28 @@ always @(posedge clk_i) begin
                     // $display("state = 1");
                     current_out_symbol <= current_out_symbol + 1;
                 end
-                state <= 1;
+                out_cnt <= '0;
+            end else begin
+                out_cnt <= out_cnt + 1;
             end
+            PBCH_start <= (out_cnt == 0) &&  (current_out_symbol == 0);
+            PBCH_valid <= (current_out_symbol == 0);
+            SSS_start <= (out_cnt == 0) && (current_out_symbol == 1);
+            SSS_valid <= (current_out_symbol == 1);
+            symbol_start <= (out_cnt == 0);           
+        end else begin
+            PBCH_start <= '0;
+            PBCH_valid <= '0;
+            SSS_start <= '0;
+            SSS_valid <= '0;
+            symbol_start <= '0;
         end
-        PBCH_start <= (state == 2) && (out_cnt == 0) &&  (current_out_symbol == 0);
-        PBCH_valid <=(state == 2) && (current_out_symbol == 0);
-        SSS_start <= ((state == 2) || (state == 1)) && (out_cnt == 0) && (current_out_symbol == 1);
-        SSS_valid <= (state == 2) && (current_out_symbol == 1);
-        symbol_start <= (state == 2) && (out_cnt == 0);            
     end
 end
 
 wire [OUT_DW - 1 : 0] fft_result;
 wire [OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
-wire fft_sync = (state == 2) && (out_cnt == 0);
+wire fft_sync = fft_val && (out_cnt == 0);
 wire fft_val;
 reg fft_val_f;
 
@@ -165,9 +158,6 @@ if (CP_ADVANCE != CP_LEN) begin
     reg [OUT_DW - 1 : 0] coeff [0 : 2**NFFT - 1];
     reg [NFFT - 1 : 0] coeff_idx;
 
-    reg [OUT_DW - 1 : 0] out_data_ff;
-    reg fft_val_ff;
-
     reg PBCH_start_f, PBCH_valid_f;
     reg SSS_start_f, SSS_valid_f;
     assign PBCH_start_o = PBCH_start_f;
@@ -202,10 +192,10 @@ if (CP_ADVANCE != CP_LEN) begin
     complex_multiplier_i(
         .aclk(clk_i),
         .aresetn(reset_ni),
-        .s_axis_a_tdata(out_data_ff),
-        .s_axis_a_tvalid(fft_val_ff),
+        .s_axis_a_tdata(out_data_f),
+        .s_axis_a_tvalid(fft_val_f),
         .s_axis_b_tdata(coeff[coeff_idx]),
-        .s_axis_b_tvalid(fft_val_ff),
+        .s_axis_b_tvalid(fft_val_f),
 
         .m_axis_dout_tdata(m_axis_out_tdata),
         .m_axis_dout_tvalid(m_axis_out_tvalid)
@@ -215,9 +205,7 @@ if (CP_ADVANCE != CP_LEN) begin
         if (!reset_ni) begin
             coeff_idx <= '0;
             fft_val_f <= '0;
-            fft_val_ff <= '0;
             out_data_f <= '0;
-            out_data_ff <= '0;
             PBCH_start_delay <= '0;
             PBCH_valid_delay <= '0;
             SSS_start_delay <= '0;
@@ -228,9 +216,7 @@ if (CP_ADVANCE != CP_LEN) begin
             PBCH_valid_f <= '0;
         end else begin
             fft_val_f <= fft_val;
-            fft_val_ff <= fft_val_f;
             out_data_f <= {fft_result_im, fft_result_re};
-            out_data_ff <= out_data_f;
             SSS_start_delay[0] <= SSS_start;
             SSS_valid_delay[0] <= SSS_valid;
             PBCH_start_delay[0] <= PBCH_start;
@@ -258,15 +244,11 @@ end else begin
 
     always @(posedge clk_i) begin
         if (!reset_ni) begin
-            fft_val_f <= '0;
-            out_data_f <= '0;
             m_axis_out_tvalid <= '0;
             m_axis_out_tdata <= '0;
         end else begin
-            fft_val_f <= fft_val;
-            out_data_f <= {fft_result_im, fft_result_re};
-            m_axis_out_tvalid <= fft_val_f;
-            m_axis_out_tdata <= out_data_f;
+            m_axis_out_tvalid <= fft_val;
+            m_axis_out_tdata <= {fft_result_im, fft_result_re};
         end
     end
 end
