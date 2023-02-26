@@ -391,7 +391,7 @@ always @(posedge clk_i) begin
                 SC_cnt <= '0;
                 pilot_SC_idx <= '0;
                 if ((in_fifo_level > 0) && !PBCH_DMRS_ready) begin
-                    $display("calculate_phase: PBCH DMRS not ready, pass through without correction");
+                    // $display("calculate_phase: PBCH DMRS not ready, pass through without correction");
                     symbol_type <= SYMBOL_TYPE_OTHER;
                     state_corrector <= PASS_THROUGH;
                 end else if ((in_fifo_level > 0) && PBCH_DMRS_ready) begin
@@ -400,7 +400,7 @@ always @(posedge clk_i) begin
                         symbol_type <= SYMBOL_TYPE_PBCH;
                         state_corrector <= CALC_CORRECTION;
                     end else begin
-                        $display("calculate_phase: data symbol");
+                        // $display("calculate_phase: data symbol");
                         symbol_type <= SYMBOL_TYPE_OTHER;
                         state_corrector <= PASS_THROUGH;
                     end
@@ -576,8 +576,8 @@ complex_multiplier_i(
     .s_axis_a_tvalid(1'b1),
     .s_axis_b_tdata(corr_data_fifo_out_data),
     .s_axis_b_tvalid(corr_data_fifo_out_valid),
-    .m_axis_dout_tdata(),
-    .m_axis_dout_tvalid()
+    .m_axis_dout_tdata(m_axis_out_tdata),
+    .m_axis_dout_tvalid(m_axis_out_tvalid)
 );
 
 endmodule

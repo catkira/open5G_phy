@@ -113,7 +113,7 @@ localparam CP2_LEN = 18;
 reg [$clog2(SFN_MAX) -1 : 0] sfn;
 reg [$clog2(2*SYM_PER_SF) - 1 : 0] sym_cnt;
 reg [$clog2(2*SYM_PER_SF) - 1 : 0] expected_SSB_sym;
-reg [$clog2(FFT_LEN + MAX_CP_LEN) - 1 : 0] SC_cnt;
+reg [$clog2(FFT_LEN + MAX_CP_LEN) - 1 : 0] sample_cnt;
 reg [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len;
 reg find_SSB;
 
@@ -129,7 +129,7 @@ always @(posedge clk_i) begin
     if (!reset_ni) begin
         sfn <= '0;
         sym_cnt = '0;
-        SC_cnt <= '0;
+        sample_cnt <= '0;
         state <= WAIT_FOR_SSB;
         current_CP_len <= CP2_LEN;
         expected_SSB_sym <= '0;
@@ -142,7 +142,7 @@ always @(posedge clk_i) begin
         case (state)
             WAIT_FOR_SSB: begin
                 if (N_id_2_valid_i) begin
-                    SC_cnt <= 1;
+                    sample_cnt <= 1;
                     // whether we are on symbol 3 or symbol 9 depends on ibar_SSB
                     // assume for now that we are at symbol 3
                     // it might have to be corrected once ibar_SSB arrives
@@ -158,6 +158,7 @@ always @(posedge clk_i) begin
             end
             WAIT_FOR_IBAR: begin
                 if (ibar_SSB_valid_i) begin
+                    $display("frame_sync: received ibar_SSB = %d", ibar_SSB_i);
                     if (ibar_SSB_i != 0) begin
                         // sym_cnt needs to be corrected for ibar_SSB != 0
                         if (ibar_SSB_i == 1)        sym_cnt = sym_cnt + 6;
@@ -172,7 +173,6 @@ always @(posedge clk_i) begin
                 end
 
                 if (N_id_2_valid_i) begin
-                    $display("unexpected SSB_start in state 1 !");
                     // output of PBCH_start_o in WAIT_FOR_IBAR state is needed, because channel_estimator needs it to detect ibar_SSB
                     PBCH_start_o <= 1;
                 end else begin
@@ -180,18 +180,18 @@ always @(posedge clk_i) begin
                 end
 
                 if (s_axis_in_tvalid) begin
-                    if (SC_cnt == (FFT_LEN + current_CP_len - 1)) begin
+                    if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
                         sym_cnt = sym_cnt + 1;
                         if (sym_cnt >= SYM_PER_SF) begin  // perform modulo SYM_PER_SF operation
                             sym_cnt = sym_cnt - SYM_PER_SF;
                         end
 
-                        SC_cnt <= '0;
+                        sample_cnt <= '0;
                         if ((sym_cnt == 0) || (sym_cnt == 7))   current_CP_len <= CP1_LEN;
                         else                                    current_CP_len <= CP2_LEN;
                         syms_to_next_SSB <= syms_to_next_SSB + 1;                        
                     end else begin
-                        SC_cnt <= SC_cnt + 1;
+                        sample_cnt <= sample_cnt + 1;
                     end
                 end
             end
@@ -202,15 +202,15 @@ always @(posedge clk_i) begin
 
                 if (find_SSB) begin
                     if (N_id_2_valid_i) begin
-                        // expected SC_cnt is 0, if actual SC_cnt deviates +-1, perform realignment
-                        if (SC_cnt == 0) begin
+                        // expected sample_cnt is 0, if actual sample_cnt deviates +-1, perform realignment
+                        if (sample_cnt == 0) begin
                             // SSB arrives as expected, no STO correction needed
                             $display("SSB is on time");
-                        end else if (SC_cnt < 2) begin
+                        end else if (sample_cnt < 2) begin
                             // SSB arrives too late
                             // correct this STO by outputting symbol_start and PBCH_start a bit later
                             $display("SSB is late");
-                        end else if (SC_cnt > (FFT_LEN + current_CP_len - 2)) begin
+                        end else if (sample_cnt > (FFT_LEN + current_CP_len - 2)) begin
                             // SSB arrives too early
                             // correct this STO by outputting symbol_start and PBCH_start a bit earlier
                             $display("SSB is early");
@@ -218,7 +218,7 @@ always @(posedge clk_i) begin
                         find_SSB <= '0;
                     end
 
-                    if (SC_cnt == 3) begin
+                    if (sample_cnt == 3) begin
                         // could not find SSB, connection is lost 
                         // go back to search mode (state 0)
                         $display("could not find SSB, connection is lost!");
@@ -235,21 +235,21 @@ always @(posedge clk_i) begin
                 else                          PBCH_start_o <= '0;
 
                 if (s_axis_in_tvalid) begin
-                    if (SC_cnt == (FFT_LEN + current_CP_len - 1)) begin
+                    if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
                         sym_cnt = sym_cnt + 1;
                         if (sym_cnt >= SYM_PER_SF) begin  // perform modulo SYM_PER_SF operation
                             sym_cnt = sym_cnt - SYM_PER_SF;
                         end
 
-                        SC_cnt <= '0;
+                        sample_cnt <= '0;
                         if ((sym_cnt == 0) || (sym_cnt == 7))   current_CP_len <= CP1_LEN;
                         else                                    current_CP_len <= CP2_LEN;
                         syms_to_next_SSB <= syms_to_next_SSB + 1;
                     end else begin
-                        SC_cnt <= SC_cnt + 1;
+                        sample_cnt <= sample_cnt + 1;
                     end
 
-                    if ((SC_cnt == FFT_LEN + current_CP_len - 2) && (syms_to_next_SSB == (SYMS_BTWN_SSB - 1))) begin
+                    if ((sample_cnt == FFT_LEN + current_CP_len - 2) && (syms_to_next_SSB == (SYMS_BTWN_SSB - 1))) begin
                         find_SSB <= 1;
                         $display("find SSB ...");
                     end

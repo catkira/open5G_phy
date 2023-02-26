@@ -81,9 +81,12 @@ async def simple_test(dut):
     CP2_LEN = 18
     CP_ADVANCE = tb.CP_ADVANCE
     FFT_SIZE = 256
+    SSS_LEN = 127
+    SSS_START = 64
     # DETECTOR_LATENCY = 18
     DETECTOR_LATENCY = 27
     FFT_OUT_DW = 32
+    SYMBOL_LEN = 240
     max_tx = int(0.025 * fs) # simulate 25ms tx data
     while in_counter < max_tx + 10000:
         await RisingEdge(dut.clk_i)
@@ -145,10 +148,6 @@ async def simple_test(dut):
                 + 1j * _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
     assert len(received_SSS) == 2 * SSS_LEN
-    received_SSS_sym = received_SSS
-    SSS_START = 64
-    SSS_LEN = 127
-    received_SSS = received_SSS_sym[SSS_START:][:SSS_LEN]
 
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
     ideal_SSS_sym *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP2_LEN - CP_ADVANCE)))
@@ -158,39 +157,43 @@ async def simple_test(dut):
         ax.set_title('model')
         ax.plot(np.abs(ideal_SSS_sym))
         ax = plt.subplot(4, 2, 2)
-        ax.plot(np.abs(ideal_SSS))
+        ax.plot(np.abs(ideal_SSS), 'y-')
         ax = plt.subplot(4, 2, 3)
         ax.plot(np.real(ideal_SSS), 'r-')
         ax = ax.twinx()
         ax.plot(np.imag(ideal_SSS), 'b-')
         ax = plt.subplot(4, 2, 4)
-        ax.plot(np.real(ideal_SSS), np.imag(ideal_SSS), '.')
+        ax.plot(np.real(ideal_SSS), np.imag(ideal_SSS), 'y.')
 
         ax = plt.subplot(4, 2, 5)
         ax.set_title('hdl')
-        ax.plot(np.abs((received_SSS_sym)))
+        # nothing here
         ax = plt.subplot(4, 2, 6)
-        ax.plot(np.abs(received_SSS))
+        ax.plot(np.abs(received_SSS[:SSS_LEN]), 'r-')
+        ax.plot(np.abs(received_SSS[SSS_LEN:][:SSS_LEN]), 'b-')
         ax = plt.subplot(4, 2, 7)
-        ax.plot(np.real(received_SSS), 'r-')
+        ax.plot(np.real(received_SSS[:SSS_LEN]), 'r-')
         ax = ax.twinx()
-        ax.plot(np.imag(received_SSS), 'b-')
+        ax.plot(np.imag(received_SSS[:SSS_LEN]), 'b-')
         ax = plt.subplot(4, 2, 8)
-        ax.plot(np.real(received_SSS), np.imag(received_SSS), '.')
+        ax.plot(np.real(received_SSS[:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'r.')
+        ax.plot(np.real(received_SSS[SSS_LEN:][:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'b.')
         plt.show()
 
-    received_PBCH= received_PBCH[9:][:FFT_SIZE-8*2 - 1]
+    received_PBCH= received_PBCH[:SYMBOL_LEN]
     received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_SIZE]))
     received_PBCH_ideal *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP2_LEN - CP_ADVANCE)))
-    received_PBCH_ideal = received_PBCH_ideal[8:][:FFT_SIZE-8*2]
+    received_PBCH_ideal = received_PBCH_ideal[8:][:SYMBOL_LEN]
     received_PBCH_ideal = (received_PBCH_ideal.real.astype(int) + 1j * received_PBCH_ideal.imag.astype(int))
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         _, axs = plt.subplots(3, 1, figsize=(5, 10))
-        for i in range(len(received_SSS)):
-            axs[0].plot(np.real(received_SSS), np.imag(received_SSS), '.')
+        for i in range(SSS_LEN):
+            axs[0].plot(np.real(received_SSS)[i], np.imag(received_SSS)[i], 'r.')
+        for i in range(SSS_LEN):
+            axs[0].plot(np.real(received_SSS)[SSS_LEN:][i], np.imag(received_SSS)[SSS_LEN:][i], 'b.')
         for i in range(len(received_PBCH)):
-            axs[1].plot(np.real(received_PBCH), np.imag(received_PBCH), '.')
-            axs[2].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), '.')
+            axs[1].plot(np.real(received_PBCH), np.imag(received_PBCH), 'r.')
+            axs[2].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), 'y.')
         plt.show()
 
     peak_pos = np.argmax(received)
@@ -209,7 +212,7 @@ async def simple_test(dut):
     NFFT = 8
     scaling_factor = 2**(tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mode
     ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
-    error_signal = received_SSS - ideal_SSS
+    error_signal = received_SSS[:SSS_LEN] - ideal_SSS
     # for i in range(len(received_SSS)):
     #     if received_SSS[i] != ideal_SSS[i]:
     #         print(f'{received_SSS[i]} != {ideal_SSS[i]}')
@@ -243,7 +246,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'atan.sv'),
-        os.path.join(rtl_dir, 'atan2.sv'),                
+        os.path.join(rtl_dir, 'atan2.sv'),
         os.path.join(rtl_dir, 'div.sv'),
         os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
         os.path.join(rtl_dir, 'frame_sync.sv'),
@@ -255,7 +258,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'SSS_detector.sv'),
-        os.path.join(rtl_dir, 'LFSR/LFSR.sv'),       
+        os.path.join(rtl_dir, 'LFSR/LFSR.sv'),
         os.path.join(rtl_dir, 'FFT_demod.sv'),
         os.path.join(rtl_dir, 'DDS', 'dds.sv'),
         os.path.join(rtl_dir, 'complex_multiplier', 'complex_multiplier.v'),

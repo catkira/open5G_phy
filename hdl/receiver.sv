@@ -105,7 +105,7 @@ always @(posedge clk_i) begin
     else begin
         if (CFO_valid) begin
             // CFO_DDS_inc_f <= '0; // deactive CFO correction for now
-            CFO_DDS_inc_f <= -CFO_DDS_inc;  
+            CFO_DDS_inc_f <= CFO_DDS_inc_f - CFO_DDS_inc;  // incoming CFO_DDS_inc are relative to last one !
         end
         if(s_axis_in_tvalid) begin
             DDS_phase <= DDS_phase + CFO_DDS_inc_f;
@@ -126,6 +126,7 @@ dds #(
 dds_i(
     .clk(clk_i),
     .reset_n(reset_ni),
+
     .s_axis_phase_tdata(DDS_phase),
     .s_axis_phase_tvalid(DDS_phase_valid),
 
@@ -144,6 +145,7 @@ complex_multiplier #(
 complex_multiplier_i(
     .aclk(clk_i),
     .aresetn(reset_ni),
+
     .s_axis_a_tdata(DDS_out),
     .s_axis_a_tvalid(DDS_out_valid),
     .s_axis_b_tdata(FIFO_out_tdata),
@@ -163,8 +165,7 @@ cic_d #(
 cic_real(
     .clk(clk_i),
     .reset_n(reset_ni),
-    // .s_axis_in_tdata(s_axis_in_tdata[IN_DW / 2 - 1 : 0]),
-    // .s_axis_in_tvalid(s_axis_in_tvalid),
+
     .s_axis_in_tdata(mult_out_tdata[COMPL_MULT_OUT_DW / 2 - 1 -: COMPL_MULT_OUT_DW / 2]),
     .s_axis_in_tvalid(mult_out_tvalid),
 
@@ -182,8 +183,7 @@ cic_d #(
 cic_imag(
     .clk(clk_i),
     .reset_n(reset_ni),
-    // .s_axis_in_tdata(s_axis_in_tdata[IN_DW - 1 : IN_DW / 2]),
-    // .s_axis_in_tvalid(s_axis_in_tvalid),
+
     .s_axis_in_tdata(mult_out_tdata[COMPL_MULT_OUT_DW - 1 -: COMPL_MULT_OUT_DW / 2]),
     .s_axis_in_tvalid(mult_out_tvalid),
 
@@ -222,6 +222,7 @@ PSS_detector #(
 PSS_detector_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
+
     .s_axis_in_tdata(m_axis_cic_tdata),
     .s_axis_in_tvalid(m_axis_cic_tvalid),
     .mode_i(PSS_detector_mode),
