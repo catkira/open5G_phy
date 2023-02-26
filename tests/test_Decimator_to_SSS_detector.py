@@ -76,7 +76,7 @@ async def simple_test(dut):
     await tb.cycle_reset()
 
     rx_counter = 0
-    in_counter = 0
+    clk_cnt = 0
     received = []
     received_fft = []
     received_fft_demod = []
@@ -84,24 +84,30 @@ async def simple_test(dut):
     received_PBCH = []
     received_SSS = []
     fft_started = False
+
+    MAX_CLK_CNT = 60000
+    MAX_TX = 2000
     CP_LEN = 18
-    CP_ADVANCE = tb.CP_ADVANCE
-    FFT_SIZE = 256
+    CP_ADVANCE = int(dut.CP_ADVANCE.value)
+    NFFT = 8
+    FFT_SIZE = 2 ** NFFT
     DETECTOR_LATENCY = 18
     FFT_OUT_DW = 32
-    max_tx = 2000
-    while in_counter < 60000:
+    SSS_START = 64
+    SSS_LEN = 127
+
+    while clk_cnt < MAX_CLK_CNT:
         await RisingEdge(dut.clk_i)
-        if in_counter < max_tx:
-            data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
-                + ((int(waveform[in_counter].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
+        if clk_cnt < MAX_TX:
+            data = (((int(waveform[clk_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
+                + ((int(waveform[clk_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
             dut.s_axis_in_tdata.value = data
             dut.s_axis_in_tvalid.value = 1
         else:
             dut.s_axis_in_tvalid.value = 0
 
         #print(f"data[{in_counter}] = {(int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x} {(int(waveform[in_counter].real)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x}")
-        in_counter += 1
+        clk_cnt += 1
 
         received.append(dut.peak_detected_debug_o.value.integer)
         rx_counter += 1
@@ -114,10 +120,10 @@ async def simple_test(dut):
         # print(f'{dut.m_axis_out_tvalid.value.binstr}  {dut.m_axis_out_tdata.value.binstr}')
 
         if dut.peak_detected_debug_o.value.integer == 1:
-            print(f'peak pos = {in_counter}')
+            print(f'peak pos = {clk_cnt}')
 
         if dut.peak_detected_debug_o.value.integer == 1 or len(rx_ADC_data) > 0:
-            rx_ADC_data.append(waveform[in_counter - DETECTOR_LATENCY])
+            rx_ADC_data.append(waveform[clk_cnt - DETECTOR_LATENCY])
 
         if dut.fft_demod_PBCH_start_o == 1:
             print(f'{rx_counter}: PBCH start')
@@ -150,11 +156,9 @@ async def simple_test(dut):
             received_fft.append(_twos_comp(dut.fft_result_debug_o.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
-    assert len(received_SSS) == FFT_SIZE
+    assert len(received_SSS) == SSS_LEN
     received_SSS_sym = received_SSS
-    SSS_START = 64
-    SSS_LEN = 127
-    received_SSS = received_SSS_sym[SSS_START:][:SSS_LEN]
+    # received_SSS = received_SSS_sym[SSS_START_NO_ZEROS:][:SSS_LEN]
 
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
     ideal_SSS_sym *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) +  np.pi * (CP_LEN - CP_ADVANCE)))
@@ -183,7 +187,7 @@ async def simple_test(dut):
         ax.plot(np.real(received_SSS), np.imag(received_SSS), '.')
         plt.show()
 
-    received_PBCH= received_PBCH[9:][:FFT_SIZE-8*2 - 1]
+    # received_PBCH= received_PBCH[9:][:FFT_SIZE-8*2 - 1]
     received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_SIZE]))
     received_PBCH_ideal *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) +  np.pi * (CP_LEN - CP_ADVANCE)))
     received_PBCH_ideal = received_PBCH_ideal[8:][:FFT_SIZE-8*2]
@@ -210,7 +214,6 @@ async def simple_test(dut):
     # for i in range(len(received_PBCH)):
     #     print(received_PBCH_ideal[i])
 
-    NFFT = 8
     scaling_factor = 2**(tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mode
     ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
     error_signal = received_SSS - ideal_SSS
@@ -253,7 +256,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'atan.sv'),
-        os.path.join(rtl_dir, 'atan2.sv'),        
+        os.path.join(rtl_dir, 'atan2.sv'),
         os.path.join(rtl_dir, 'div.sv'),
         os.path.join(rtl_dir, 'PSS_detector_regmap.sv'),
         os.path.join(rtl_dir, 'AXI_lite_interface.sv'),

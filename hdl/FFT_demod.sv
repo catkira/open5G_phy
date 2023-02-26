@@ -26,7 +26,6 @@ module FFT_demod #(
 reg [IN_DW - 1 : 0] in_data_f;
 reg in_valid_f;
 reg [OUT_DW - 1 : 0] out_data_f;
-reg [$clog2(FFT_LEN) - 1 : 0] out_cnt;
 localparam SSB_LEN = 4;
 reg [2 : 0] state2;
 reg [$clog2(CP_LEN) : 0] CP_cnt;
@@ -45,7 +44,6 @@ always @(posedge clk_i) begin
             state2 <= 1;
             // $display("- state2 <= 2");
         end
-        out_cnt <= '0;
     end else if (state2 == 1) begin // skip CP
         if (CP_cnt == (CP_LEN - 1)) begin
             state2 <= 2;
@@ -79,12 +77,20 @@ end
 
 // TODO: filter out zero carrier here already !!
 
+localparam SC_START = 8;
+localparam SC_USED = 240;
+localparam SC_END = SC_START + SC_USED;
+localparam SSS_START = 64;
+localparam SSS_LEN = 127;
 reg [$clog2(SYMS_BTWN_SSB) - 1 : 0] current_out_symbol;
 reg PBCH_start;
 reg PBCH_valid;
 reg SSS_start;
 reg SSS_valid;
 reg symbol_start;
+reg [$clog2(FFT_LEN) - 1 : 0] out_cnt;
+wire valid_SC = (out_cnt >= SC_START) && (out_cnt <= SC_END - 1);
+wire valid_SSS_SC = (out_cnt >= SSS_START) && (out_cnt <= SSS_START + SSS_LEN - 1);
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         out_cnt <= '0;
@@ -106,11 +112,11 @@ always @(posedge clk_i) begin
             end else begin
                 out_cnt <= out_cnt + 1;
             end
-            PBCH_start <= (out_cnt == 0) &&  (current_out_symbol == 0);
-            PBCH_valid <= (current_out_symbol == 0);
-            SSS_start <= (out_cnt == 0) && (current_out_symbol == 1);
-            SSS_valid <= (current_out_symbol == 1);
-            symbol_start <= (out_cnt == 0);           
+            PBCH_start <= (out_cnt == SC_START) && (current_out_symbol == 0);
+            PBCH_valid <= valid_SC && (current_out_symbol == 0);
+            SSS_start  <= (out_cnt == SSS_START) && (current_out_symbol == 1);
+            SSS_valid  <= valid_SSS_SC && (current_out_symbol == 1);
+            symbol_start <= (out_cnt == SC_START);           
         end else begin
             PBCH_start <= '0;
             PBCH_valid <= '0;
@@ -218,7 +224,7 @@ if (CP_ADVANCE != CP_LEN) begin
             SSS_valid_f <= '0;
             PBCH_valid_f <= '0;
         end else begin
-            fft_val_f <= fft_val;
+            fft_val_f <= fft_val && valid_SC;
             out_data_f <= {fft_result_im, fft_result_re};
             SSS_start_delay[0] <= SSS_start;
             SSS_valid_delay[0] <= SSS_valid;
@@ -250,7 +256,7 @@ end else begin
             m_axis_out_tvalid <= '0;
             m_axis_out_tdata <= '0;
         end else begin
-            m_axis_out_tvalid <= fft_val;
+            m_axis_out_tvalid <= fft_val && valid_SC;
             m_axis_out_tdata <= {fft_result_im, fft_result_re};
         end
     end
