@@ -76,6 +76,9 @@ end
 
 
 // This process generates sync signals at the FFT output
+
+// TODO: filter out zero carrier here already !!
+
 reg [$clog2(SYMS_BTWN_SSB) - 1 : 0] current_out_symbol;
 reg PBCH_start;
 reg PBCH_valid;
