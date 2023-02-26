@@ -90,6 +90,7 @@ async def simple_test2(dut):
 
     CP_LEN = 18
     FFT_LEN = 256
+    SC_START = 8
     ibar_SSB = int(os.environ['ibar_SSB'])
     START_POS = 842 + int(3.84e6 * 0.001 * int(ibar_SSB / 2)) + 1646 * (ibar_SSB % 2)   # this hack works for ibar_SSB = 0 .. 3
     PBCH = np.fft.fftshift(np.fft.fft(waveform[START_POS:][:FFT_LEN]))
@@ -106,18 +107,27 @@ async def simple_test2(dut):
     max_wait_cycles = 15000
     cycle_counter = 0
     PBCH_cnt = 0
+    SC_cnt = 0
     while cycle_counter < max_wait_cycles:
         await RisingEdge(dut.clk_i)
 
         if cycle_counter > 2000 and PBCH_cnt < 256*3:
-            data = (((int(PBCH[PBCH_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
-                  + ((int(PBCH[PBCH_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1)))
-            dut.s_axis_in_tdata.value = data
-            dut.s_axis_in_tvalid.value = 1
-            dut.PBCH_start_i.value = PBCH_cnt == 0
-            PBCH_cnt += 1
+            if SC_cnt >= SC_START and SC_cnt <= FFT_LEN - 2*SC_START:
+                data = (((int(PBCH[PBCH_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
+                    + ((int(PBCH[PBCH_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1)))
+                dut.s_axis_in_tdata.value = data
+                dut.s_axis_in_tvalid.value = 1
+                dut.PBCH_start_i.value = PBCH_cnt == SC_START
+                PBCH_cnt += 1
+                SC_cnt += 1
+            else:
+                dut.s_axis_in_tvalid.value = 0
+                SC_cnt += 1
         else:
             dut.s_axis_in_tvalid.value = 0
+
+        if SC_cnt == FFT_LEN:
+            SC_cnt = 0
 
         if dut.debug_ibar_SSB_valid_o.value == 1:
             ibar_SSB_det = dut.debug_ibar_SSB_o.value.integer
@@ -148,6 +158,7 @@ async def simple_test3(dut):
     CP1_LEN = 20
     CP2_LEN = 18
     FFT_LEN = 256
+    SC_START = 8
     L_MAX = 4 # 4 SSBs
     SSB_pattern = [2, 8, 16, 22]  # case A
 
@@ -193,7 +204,7 @@ async def simple_test3(dut):
 
         # need to wait until the PBCH_DMRS is generated
         if (clk_cnt > 2000) and (symbol_id < num_symbols):
-            if ((symbol_id + START_SYMBOL) in SSB_pattern) and (SC_cnt == 0):
+            if ((symbol_id + START_SYMBOL) in SSB_pattern) and (SC_cnt == SC_START):
                 dut.PBCH_start_i.value = 1
             else:
                 dut.PBCH_start_i.value = 0
@@ -207,7 +218,7 @@ async def simple_test3(dut):
                 # this idle happens in reality automatically because of the cyclic prefix
                 idle_clks = 10
                 dut.s_axis_in_tvalid.value = 0
-            else:
+            elif SC_cnt >= SC_START and SC_cnt <= FFT_LEN - 2*SC_START:
                 data = (((int(symbol[symbol_id][SC_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
                     + ((int(symbol[symbol_id][SC_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1)))
                 dut.s_axis_in_tdata.value = data
@@ -215,7 +226,9 @@ async def simple_test3(dut):
                 if dut.s_axis_in_tvalid.value and ((symbol_id + START_SYMBOL) in SSB_pattern):
                     IQ_data.append(symbol[symbol_id][SC_cnt])
                 SC_cnt += 1
-
+            else:
+                SC_cnt += 1
+                dut.s_axis_in_tvalid.value = 0
         else:
             dut.s_axis_in_tvalid.value = 0
 
@@ -347,6 +360,6 @@ def test_PBCH_stream(IN_DW):
 
 if __name__ == '__main__':
     # test_PBCH_DMRS_gen(N_ID_1 = 69, N_ID_2 = 2)
-    # test_PBCH_ibar_SSB_det(IN_DW = 32, ibar_SSB = 3)
+    test_PBCH_ibar_SSB_det(IN_DW = 32, ibar_SSB = 3)
     # os.environ['PLOTS'] = '1'
-    test_PBCH_stream(IN_DW = 32)
+    # test_PBCH_stream(IN_DW = 32)

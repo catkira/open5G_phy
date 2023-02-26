@@ -231,7 +231,7 @@ always @(posedge clk_i) begin
                     end else begin
                         state_det_ibar <= 0;
                     end
-                end else if ((PBCH_SC_idx > 7) && (PBCH_SC_idx < (256-8))) begin
+                end else begin
                     if (valid_in) begin
                         // $display("rx 0/2 %d + j%d -> %b", in_re, in_im, in_demod);
                         if (PBCH_SC_idx_plus_start[1 : 0] == 0) begin
@@ -408,7 +408,7 @@ always @(posedge clk_i) begin
             end
             CALC_CORRECTION : begin
                 // only need to check angle_FIFO because, it becomes always later ready than data_FIFO
-                if ((angle_FIFO_level > 0) && (SC_cnt < FFT_LEN - 2)) begin
+                if ((angle_FIFO_level > 0) && (SC_cnt < FFT_LEN - 2 - 16)) begin
                     in_fifo_ready <= 1;
                     angle_FIFO_ready <= 1;
                 end else begin
@@ -423,27 +423,25 @@ always @(posedge clk_i) begin
                 if (angle_FIFO_valid) begin
                     corr_angle_DDS_valid_in <= 1;
                     // if (symbol_cnt == 0)  $display("data %x  angle %f", in_fifo_data, $itor(angle_FIFO_data) / DEG45 * 45);
-                    if ((SC_cnt > 7) && (SC_cnt < (FFT_LEN - 8))) begin
-                        if (SC_idx_plus_start[1:0] == 0) begin
-                            // we are at a pilot location, calculate correction factor
-                            // one corr_angle has to be used for 4 corr_data, because pilots are every 4th SC
-                            // use simple piecewise const. corr. angle for now, it can be improved with linear interpolation later                            
-                            case(PBCH_DMRS[ibar_SSB_detected][pilot_SC_idx])
-                                2'b00 : pilot_angle = DEG45;
-                                2'b01 : pilot_angle = -DEG45;
-                                2'b10 : pilot_angle = DEG135;
-                                2'b11 : pilot_angle = -DEG135;
-                            endcase
-                            // if (symbol_cnt == 0)  $display("pilot = %x", PBCH_DMRS[ibar_SSB_detected][pilot_SC_idx]);
-                            corr_angle_DDS_in <= angle_FIFO_data - pilot_angle;
-                            corr_angle_DDS_valid_in <= 1;
-                            if (symbol_cnt == 0)  $display("SC angle = %f deg, pilot angle = %f, delta = %f", 
-                                $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
-                            pilot_SC_idx <= pilot_SC_idx + 1;
-                        end 
-                    end
+                    if (SC_idx_plus_start[1:0] == 0) begin
+                        // we are at a pilot location, calculate correction factor
+                        // one corr_angle has to be used for 4 corr_data, because pilots are every 4th SC
+                        // use simple piecewise const. corr. angle for now, it can be improved with linear interpolation later                            
+                        case(PBCH_DMRS[ibar_SSB_detected][pilot_SC_idx])
+                            2'b00 : pilot_angle = DEG45;
+                            2'b01 : pilot_angle = -DEG45;
+                            2'b10 : pilot_angle = DEG135;
+                            2'b11 : pilot_angle = -DEG135;
+                        endcase
+                        // if (symbol_cnt == 0)  $display("pilot = %x", PBCH_DMRS[ibar_SSB_detected][pilot_SC_idx]);
+                        corr_angle_DDS_in <= angle_FIFO_data - pilot_angle;
+                        corr_angle_DDS_valid_in <= 1;
+                        if (symbol_cnt == 0)  $display("SC angle = %f deg, pilot angle = %f, delta = %f", 
+                            $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
+                        pilot_SC_idx <= pilot_SC_idx + 1;
+                    end 
 
-                    if (SC_cnt == FFT_LEN - 1) begin
+                    if (SC_cnt == FFT_LEN - 1 - 16) begin
                         state_corrector <= WAIT_FOR_INPUTS;
                         symbol_cnt <= symbol_cnt + 1;
                     end else begin
@@ -455,7 +453,7 @@ always @(posedge clk_i) begin
             end
             PASS_THROUGH : begin
                 // only need to check angle_FIFO because, it becomes always later ready than data_FIFO
-                if ((angle_FIFO_level > 0) && (SC_cnt < FFT_LEN - 2)) begin
+                if ((angle_FIFO_level > 0) && (SC_cnt < FFT_LEN - 2 - 16)) begin
                     in_fifo_ready <= 1;
                     angle_FIFO_ready <= 1;
                 end else begin
@@ -465,15 +463,13 @@ always @(posedge clk_i) begin
 
                 if (angle_FIFO_valid) begin
                     corr_angle_DDS_valid_in <= 1;
-                    if ((SC_cnt > 7) && (SC_cnt < (FFT_LEN - 8))) begin
-                        if (SC_idx_plus_start[1:0] == 0) begin
-                            corr_angle_DDS_in <= 0;
-                            corr_angle_DDS_valid_in <= 1;
-                            pilot_SC_idx <= pilot_SC_idx + 1;
-                        end 
-                    end
+                    if (SC_idx_plus_start[1:0] == 0) begin
+                        corr_angle_DDS_in <= 0;
+                        corr_angle_DDS_valid_in <= 1;
+                        pilot_SC_idx <= pilot_SC_idx + 1;
+                    end 
 
-                    if (SC_cnt == FFT_LEN - 1) begin
+                    if (SC_cnt == FFT_LEN - 1 - 16) begin
                         state_corrector <= WAIT_FOR_INPUTS;
                         if (symbol_cnt == SYMS_BTWN_SSB - 1)    symbol_cnt <= '0;
                         else                                    symbol_cnt <= symbol_cnt + 1;
