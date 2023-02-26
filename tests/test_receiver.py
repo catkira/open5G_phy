@@ -144,7 +144,7 @@ async def simple_test(dut):
             received_fft.append(_twos_comp(dut.fft_result_debug_o.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
-    assert len(received_SSS) == 2 * FFT_SIZE
+    assert len(received_SSS) == 2 * SSS_LEN
     received_SSS_sym = received_SSS
     SSS_START = 64
     SSS_LEN = 127

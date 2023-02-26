@@ -317,46 +317,7 @@ FFT_demod_i(
 );
 
 reg [10 : 0] PSS_cnt;
-reg [3 : 0] state;
-localparam SSS_START = 63;
-localparam SSS_LEN = 127;
-reg [$clog2(SSS_LEN) - 1 : 0] SSS_wait_cnt;
-always @(posedge clk_i) begin
-    if (!reset_ni) begin
-        state <= 2;
-        SSS_wait_cnt <= '0;
-        SSS_valid <= '0;
-    end else if (state == 2) begin // wait for SSS bits in SSS symbol
-        if (SSS_wait_cnt == SSS_START && SSS_valid_o) begin
-            $display("state 3");
-            state <= 3;
-            SSS_wait_cnt <= '0;
-            SSS_valid <= 1;
-        end else if (SSS_valid_o) begin
-            SSS_wait_cnt <= SSS_wait_cnt + 1;
-        end
-    end else if (state == 3) begin // transfer SSS bites to SSS detector
-        if (SSS_wait_cnt == SSS_LEN) begin
-            $display("state 0");
-            SSS_wait_cnt <= '0;
-            SSS_valid <= 0;
-            state <= 4;
-        end else if (SSS_valid_o) begin
-            $display("SSB bit %d", ~m_axis_out_tdata[FFT_OUT_DW / 2 - 1]);
-            SSS_wait_cnt <= SSS_wait_cnt + 1;
-            SSS_valid <= 1;
-        end else begin
-            SSS_valid <= 0;
-        end
-    end else if (state == 4) begin // wait for SSS detector to finish
-        if (m_axis_SSS_tvalid) begin
-            $display("detected N_id_1 %d", m_axis_SSS_tdata);
-            state <= 2;
-        end
-    end
-end
 
-reg         SSS_valid;
 SSS_detector
 SSS_detector_i(
     .clk_i(clk_i),
@@ -364,7 +325,7 @@ SSS_detector_i(
     .N_id_2_i(N_id_2),
     .N_id_2_valid_i(N_id_2_valid),
     .s_axis_in_tdata(~m_axis_out_tdata[FFT_OUT_DW / 2 - 1]), // BPSK demod by just taking the MSB of the real part
-    .s_axis_in_tvalid(SSS_valid),
+    .s_axis_in_tvalid(SSS_valid_o),
     .m_axis_out_tdata(m_axis_SSS_tdata),
     .m_axis_out_tvalid(m_axis_SSS_tvalid),
     .N_id_o(N_id),

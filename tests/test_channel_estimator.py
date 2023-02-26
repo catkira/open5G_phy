@@ -360,6 +360,6 @@ def test_PBCH_stream(IN_DW):
 
 if __name__ == '__main__':
     # test_PBCH_DMRS_gen(N_ID_1 = 69, N_ID_2 = 2)
-    test_PBCH_ibar_SSB_det(IN_DW = 32, ibar_SSB = 3)
+    # test_PBCH_ibar_SSB_det(IN_DW = 32, ibar_SSB = 3)
     # os.environ['PLOTS'] = '1'
-    # test_PBCH_stream(IN_DW = 32)
+    test_PBCH_stream(IN_DW = 32)
