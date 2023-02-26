@@ -303,7 +303,7 @@ data_FIFO_i(
 
 // This atan2 instance is used to calculate angle(received_i),
 // which is the phase of each subcarrier of the current symbol
-localparam PHASE_DW = 16;
+localparam PHASE_DW = 18;
 reg signed [PHASE_DW - 1 : 0]   SC_phase;
 reg                             SC_phase_valid;
 atan2 #(
@@ -369,6 +369,7 @@ wire [$clog2(FFT_LEN) : 0] SC_idx_plus_start = SC_cnt - PBCH_DMRS_start_idx;
 reg [$clog2(FFT_LEN) : 0] pilot_SC_idx;
 reg [10 : 0]    symbol_cnt;
 localparam SYMS_BTWN_SSB = 14 * 20;
+localparam ZERO_CARRIERS = 16;
 reg  signed [PHASE_DW - 1 : 0] corr_angle_DDS_in;
 reg                            corr_angle_DDS_valid_in;
 localparam  [1 : 0]            SYMBOL_TYPE_OTHER = 0;
@@ -408,7 +409,7 @@ always @(posedge clk_i) begin
             end
             CALC_CORRECTION : begin
                 // only need to check angle_FIFO because, it becomes always later ready than data_FIFO
-                if ((angle_FIFO_level > 0) && (SC_cnt < FFT_LEN - 2 - 16)) begin
+                if ((angle_FIFO_level > 0) && (SC_cnt < FFT_LEN - 2 - ZERO_CARRIERS)) begin
                     in_fifo_ready <= 1;
                     angle_FIFO_ready <= 1;
                 end else begin
@@ -441,7 +442,7 @@ always @(posedge clk_i) begin
                         pilot_SC_idx <= pilot_SC_idx + 1;
                     end 
 
-                    if (SC_cnt == FFT_LEN - 1 - 16) begin
+                    if (SC_cnt == FFT_LEN - 1 - ZERO_CARRIERS) begin
                         state_corrector <= WAIT_FOR_INPUTS;
                         symbol_cnt <= symbol_cnt + 1;
                     end else begin
@@ -453,7 +454,7 @@ always @(posedge clk_i) begin
             end
             PASS_THROUGH : begin
                 // only need to check angle_FIFO because, it becomes always later ready than data_FIFO
-                if ((angle_FIFO_level > 0) && (SC_cnt < FFT_LEN - 2 - 16)) begin
+                if ((angle_FIFO_level > 0) && (SC_cnt < FFT_LEN - 2 - ZERO_CARRIERS)) begin
                     in_fifo_ready <= 1;
                     angle_FIFO_ready <= 1;
                 end else begin
@@ -469,7 +470,7 @@ always @(posedge clk_i) begin
                         pilot_SC_idx <= pilot_SC_idx + 1;
                     end 
 
-                    if (SC_cnt == FFT_LEN - 1 - 16) begin
+                    if (SC_cnt == FFT_LEN - 1 - ZERO_CARRIERS) begin
                         state_corrector <= WAIT_FOR_INPUTS;
                         if (symbol_cnt == SYMS_BTWN_SSB - 1)    symbol_cnt <= '0;
                         else                                    symbol_cnt <= symbol_cnt + 1;
@@ -489,9 +490,9 @@ localparam DDS_OUT_DW = 32;
 reg signed [DDS_OUT_DW - 1 : 0] DDS_out;
 reg                             DDS_out_valid;
 dds #(
-    .PHASE_DW(IN_DW / 2),
+    .PHASE_DW(PHASE_DW),
     .OUT_DW(DDS_OUT_DW / 2),
-    .USE_TAYLOR(1)
+    .USE_TAYLOR(0)
 )
 DDS_i(
     .clk(clk_i),
