@@ -563,7 +563,7 @@ corr_data_fifo_i(
 // because the delay line and complex multiplier needs some clks
 localparam COMPLEX_MULT_DELAY = 6;
 localparam CORR_DATA_DELAY = 4;
-localparam CORR_DELAY = CORR_DATA_DELAY + COMPLEX_MULT_DELAY;
+localparam CORR_DELAY = CORR_DATA_DELAY + COMPLEX_MULT_DELAY + 3;
 reg [1 : 0] symbol_type_delayed [0 : CORR_DELAY - 1];
 assign m_axis_out_tuser = symbol_type_delayed[CORR_DELAY - 1];
 always @(posedge clk_i) begin
