@@ -9,6 +9,7 @@ Implemented so far:<br>
 * Peak detector (detailed description below)
 * FFT demodulator which uses [this](https://github.com/catkira/FFT) FFT core
 * SSS detector (detailed description below)
+* Channel estimator (detailed description below)
 
 ![Overview diagram](doc/overview.jpg)
 
@@ -19,11 +20,12 @@ Implemented so far:<br>
 * maybe optimize PSS correlator further like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
 
 # Ressource usage
-* Decimator       :  0 DSP slices
-* PSS correlator  :  6 DSP slices (with MULT_REUSE=64)
-* Peak detector   :  0 DSP slices
-* FFT demodulator :  ? DSP slices
-* SSS detector    :  ? DSP slices
+* Decimator          :  0 DSP slices
+* PSS correlator     :  6 DSP slices (with MULT_REUSE=64)
+* Peak detector      :  0 DSP slices
+* FFT demodulator    :  ? DSP slices
+* SSS detector       :  ? DSP slices
+* Channel estimator  :  ? DSP slices
 
 # Tests
 ```
@@ -63,3 +65,6 @@ The FFT demodulator uses [this](https://github.com/catkira/FFT) FFT core. Since 
 The SSS detector currently operates in search mode, which means that it compares the received SSS sequence to all possible 335 SSS for the given N_id_1 which comes from the PSS detection.
 The code is optimized to not use any multiplication and no large additions. This is achieved by doing every operation in a separate clock cycle. This means the core needs about 335 * 127 = 42545 cycles to finish the detection, assuming the system clock is 100 MHz, that would be 425 us.
 The code is also memory optimized, by only storing the two m-sequences that are needed to construct all the possible SSS. It currently builds the stored m-sequences at startup using [this](https://github.com/catkira/LFSR) LFSR core. The code could be modified to have the m-sequences statically stored.
+
+# Channel estimator
+![Channel estimator diagram](doc/channel_estimator.jpg)
