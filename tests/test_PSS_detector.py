@@ -195,8 +195,6 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
             os.environ[f'TAP_FILE_{i}'] = f'../{folder}_PSS_{i}_taps.txt'
             np.savetxt(sim_build + f'_PSS_{i}_taps.txt', PSS_taps, fmt = '%x', delimiter = ' ')
 
-    extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
-
     compile_args = []
     if os.environ.get('SIM') == 'verilator':
         compile_args = ['--no-timing', '-Wno-fatal']
@@ -209,7 +207,6 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
         module=module,
         parameters=parameters,
         sim_build=sim_build,
-        extra_env=extra_env,
         testcase='simple_test',
         force_compile=True,
         waves=True,
@@ -263,5 +260,5 @@ def test_axi():
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    # test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0, USE_TAP_FILE=1, DDS_DW = 24, CFO_DW = 24)
-    test_axi()
+    test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0, USE_TAP_FILE=1, DDS_DW = 24, CFO_DW = 24)
+    # test_axi()
