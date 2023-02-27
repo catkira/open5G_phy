@@ -40,8 +40,11 @@ module receiver
 
     output                                          PBCH_valid_o,
     output                                          SSS_valid_o,
-    output          [FFT_OUT_DW-1:0]                m_axis_out_tdata,
-    output                                          m_axis_out_tvalid,
+    output          [FFT_OUT_DW-1:0]                m_axis_cest_out_tdata,
+    output          [1 : 0]                         m_axis_cest_out_tuser,
+    output                                          m_axis_cest_out_tvalid,
+    output          [FFT_OUT_DW-1:0]                m_axis_demod_out_tdata,
+    output                                          m_axis_demod_out_tvalid,
     output          [$clog2(N_id_1_MAX) - 1 : 0]    m_axis_SSS_tdata,
     output                                          m_axis_SSS_tvalid,
     
@@ -299,6 +302,10 @@ frame_sync_i
     .SSS_start_o(fs_out_SSS_start)
 );
 
+wire [FFT_OUT_DW - 1 : 0] fft_demod_out_tdata;
+wire                      fft_demod_out_tvalid;
+assign m_axis_demod_out_tdata = fft_demod_out_tdata;
+assign m_axis_demod_out_tvalid = fft_demod_out_tvalid;
 FFT_demod #(
     .IN_DW(IN_DW),
     .CP_ADVANCE(CP_ADVANCE)
@@ -309,8 +316,8 @@ FFT_demod_i(
     .SSB_start_i(fs_out_PBCH_start),
     .s_axis_in_tdata(fs_out_tdata),
     .s_axis_in_tvalid(fs_out_tvalid),
-    .m_axis_out_tdata(m_axis_out_tdata),
-    .m_axis_out_tvalid(m_axis_out_tvalid),
+    .m_axis_out_tdata(fft_demod_out_tdata),
+    .m_axis_out_tvalid(fft_demod_out_tvalid),
     .PBCH_start_o(fft_demod_PBCH_start_o),
     .SSS_start_o(fft_demod_SSS_start_o),
     .PBCH_valid_o(PBCH_valid_o),
@@ -325,7 +332,7 @@ SSS_detector_i(
     .reset_ni(reset_ni),
     .N_id_2_i(N_id_2),
     .N_id_2_valid_i(N_id_2_valid),
-    .s_axis_in_tdata(~m_axis_out_tdata[FFT_OUT_DW / 2 - 1]), // BPSK demod by just taking the MSB of the real part
+    .s_axis_in_tdata(~fft_demod_out_tdata[FFT_OUT_DW / 2 - 1]), // BPSK demod by just taking the MSB of the real part
     .s_axis_in_tvalid(SSS_valid_o),
     .m_axis_out_tdata(m_axis_SSS_tdata),
     .m_axis_out_tvalid(m_axis_SSS_tvalid),
@@ -349,15 +356,15 @@ channel_estimator_i(
     .N_id_i(N_id),
     .N_id_valid_i(N_id_valid),
     .PBCH_start_i(fft_demod_PBCH_start_o),
-    .s_axis_in_tdata(m_axis_out_tdata),
-    .s_axis_in_tvalid(m_axis_out_tvalid),
+    .s_axis_in_tdata(fft_demod_out_tdata),
+    .s_axis_in_tvalid(fft_demod_out_tvalid),
 
-    .m_axis_out_tdata(),
-    .m_axis_out_tvalid(),
+    .m_axis_out_tdata(m_axis_cest_out_tdata),
+    .m_axis_out_tuser(m_axis_cest_out_tuser),
+    .m_axis_out_tvalid(m_axis_cest_out_tvalid),
 
     .debug_ibar_SSB_o(ce_ibar_SSB),
     .debug_ibar_SSB_valid_o(ce_ibar_SSB_valid)
 );
 
 endmodule
-

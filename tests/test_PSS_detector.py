@@ -197,7 +197,7 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
 
     compile_args = []
     if os.environ.get('SIM') == 'verilator':
-        compile_args = ['--no-timing', '-Wno-fatal']
+        compile_args = ['--no-timing', '-Wno-fatal', '-CFLAGS', '-DVL_VALUE_STRING_MAX_WORDS=256']
 
     cocotb_test.simulator.run(
         python_search=[tests_dir],

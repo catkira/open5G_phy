@@ -77,6 +77,7 @@ async def simple_test(dut):
     rx_ADC_data = []
     received_PBCH = []
     received_SSS = []
+    corrected_PBCH = []
     fft_started = False
     CP2_LEN = 18
     CP_ADVANCE = tb.CP_ADVANCE
@@ -126,21 +127,25 @@ async def simple_test(dut):
         # if dut.m_axis_SSS_tvalid.value.integer == 1:
         #     print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
 
+        if dut.m_axis_cest_out_tvalid.value == 1 and dut.m_axis_cest_out_tuser.value == 1:
+            corrected_PBCH.append(_twos_comp(dut.m_axis_cest_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+                + 1j * _twos_comp((dut.m_axis_cest_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))            
+
         if dut.PBCH_valid_o.value.integer == 1:
             # print(f"rx PBCH[{len(received_PBCH):3d}] re = {dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1):4x} " \
             #     "im = {(dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1):4x}")
-            received_PBCH.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
+            received_PBCH.append(_twos_comp(dut.m_axis_demod_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+                + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
         if dut.SSS_valid_o.value.integer == 1:
             # print(f"rx SSS[{len(received_SSS):3d}]")
-            received_SSS.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
+            received_SSS.append(_twos_comp(dut.m_axis_demod_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+                + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
-        if dut.m_axis_out_tvalid.value.binstr == '1':
+        if dut.m_axis_demod_out_tvalid.value.binstr == '1':
             # print(f'{rx_counter}: fft_demod {dut.m_axis_out_tdata.value}')
-            received_fft_demod.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
+            received_fft_demod.append(_twos_comp(dut.m_axis_demod_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+                + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
         if fft_started:
             # print(f'{rx_counter}: fft_debug {dut.fft_result_debug_o.value}')
@@ -167,17 +172,17 @@ async def simple_test(dut):
 
         ax = plt.subplot(4, 2, 5)
         ax.set_title('hdl')
-        # nothing here
-        ax = plt.subplot(4, 2, 6)
         ax.plot(np.abs(received_SSS[:SSS_LEN]), 'r-')
         ax.plot(np.abs(received_SSS[SSS_LEN:][:SSS_LEN]), 'b-')
-        ax = plt.subplot(4, 2, 7)
+        ax = plt.subplot(4, 2, 6)
         ax.plot(np.real(received_SSS[:SSS_LEN]), 'r-')
         ax = ax.twinx()
         ax.plot(np.imag(received_SSS[:SSS_LEN]), 'b-')
-        ax = plt.subplot(4, 2, 8)
+        ax = plt.subplot(4, 2, 7)
         ax.plot(np.real(received_SSS[:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'r.')
         ax.plot(np.real(received_SSS[SSS_LEN:][:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'b.')
+        ax = plt.subplot(4, 2, 8)
+        ax.plot(np.real(corrected_PBCH), np.imag(corrected_PBCH), 'r.')
         plt.show()
 
     received_PBCH= received_PBCH[:SYMBOL_LEN]
