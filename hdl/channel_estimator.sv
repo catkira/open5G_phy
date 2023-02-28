@@ -366,8 +366,10 @@ localparam signed [PHASE_DW - 1 : 0] DEG45 = MAX_PHASE / 4;
 localparam signed [PHASE_DW - 1 : 0] DEG135 = 3 * DEG45;
 reg signed [PHASE_DW - 1 : 0] pilot_angle;
 
+localparam MAX_SYM_PER_BURST = 3;
+localparam MIN_PILOT_SPACING = 4;
+reg [$clog2(FFT_LEN * MAX_SYM_PER_BURST / MIN_PILOT_SPACING) - 1 : 0] pilot_SC_idx;
 wire [$clog2(FFT_LEN) : 0] SC_idx_plus_start = SC_cnt - PBCH_DMRS_start_idx;
-reg [$clog2(FFT_LEN) : 0] pilot_SC_idx;
 reg [10 : 0]    symbol_cnt;
 localparam SYMS_BTWN_SSB = 14 * 20;
 localparam ZERO_CARRIERS = 16;
@@ -377,6 +379,9 @@ localparam  [1 : 0]            SYMBOL_TYPE_OTHER = 0;
 localparam  [1 : 0]            SYMBOL_TYPE_PBCH = 1;
 localparam  [1 : 0]            SYMBOL_TYPE_PBCH2 = 2;
 reg         [1 : 0]            symbol_type;
+reg         [2 : 0]            remaining_syms;
+localparam                     SYMS_PER_PBCH = 3;
+localparam                     SYMS_PER_OTHER = 3;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -387,6 +392,7 @@ always @(posedge clk_i) begin
         corr_angle_DDS_in <= '0;
         corr_angle_DDS_valid_in <= '0;
         symbol_type <= SYMBOL_TYPE_OTHER;
+        remaining_syms <= '0;
     end else begin
         case(state_corrector)
             WAIT_FOR_INPUTS : begin
@@ -396,13 +402,18 @@ always @(posedge clk_i) begin
                     // $display("calculate_phase: PBCH DMRS not ready, pass through without correction");
                     symbol_type <= SYMBOL_TYPE_OTHER;
                     state_corrector <= PASS_THROUGH;
+                    remaining_syms <= SYMS_PER_OTHER - 1;
                 end else if ((in_fifo_level > 0) && PBCH_DMRS_ready) begin
+                    // in_fifo_user signals start of a new burst if its != 0
+                    // the symbol type depends on the position of the set bit
                     if (in_fifo_user == 1)  begin
                         $display("calculate_phase: PBCH symbol");
+                        remaining_syms <= SYMS_PER_PBCH - 1;  
                         symbol_type <= SYMBOL_TYPE_PBCH;
                         state_corrector <= CALC_CORRECTION;
                     end else begin
                         // $display("calculate_phase: data symbol");
+                        remaining_syms <= SYMS_PER_OTHER - 1;
                         symbol_type <= SYMBOL_TYPE_OTHER;
                         state_corrector <= PASS_THROUGH;
                     end
@@ -440,12 +451,27 @@ always @(posedge clk_i) begin
                         corr_angle_DDS_valid_in <= 1;
                         if (symbol_cnt == 0)  $display("SC angle = %f deg, pilot angle = %f, delta = %f", 
                             $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
-                        pilot_SC_idx <= pilot_SC_idx + 1;
+                        
+                        if ((remaining_syms == 1) && ((SC_cnt >= 189) && (SC_cnt <= 192))) begin
+                            // This is a special case for the 2nd PBCH symbol
+                            // remove pilot locations of SSS SCs from pilot_SC_idx because PBCH_DMRS does not include them
+                            $display("readjusting pilot_SC_idx");
+                            pilot_SC_idx <= pilot_SC_idx - 35;
+                        end else begin
+                            pilot_SC_idx <= pilot_SC_idx + 1;
+                        end
                     end 
 
                     if (SC_cnt == FFT_LEN - 1 - ZERO_CARRIERS) begin
-                        state_corrector <= WAIT_FOR_INPUTS;
-                        symbol_cnt <= symbol_cnt + 1;
+                        if (remaining_syms > 0) begin
+                            if (symbol_type == SYMBOL_TYPE_PBCH)  $display("starting with PBCH symbol %d", SYMS_PER_PBCH - remaining_syms);
+                            // stay in CALC_CORRECTION state and proces next symbol of burst
+                            remaining_syms <= remaining_syms - 1;
+                            SC_cnt <= '0;
+                        end else begin
+                            state_corrector <= WAIT_FOR_INPUTS;
+                            symbol_cnt <= symbol_cnt + 1;
+                        end
                     end else begin
                         SC_cnt <= SC_cnt + 1;
                     end
