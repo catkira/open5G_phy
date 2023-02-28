@@ -241,30 +241,29 @@ async def simple_test(dut):
     ibar_SSB = 0 # TODO grab this from hdl
     nVar = 1
     corrected_PBCH = np.array(corrected_PBCH)
-    # print(corrected_PBCH)
-    pbchBits = py3gpp.nrSymbolDemodulate(corrected_PBCH, 'QPSK', nVar, 'soft')
-    # np.savetxt('pbch.txt', pbchBits.astype(int))
-    
-    # print(pbchBits.astype(int))
-    E = 864
-    v = ibar_SSB
-    scrambling_seq = py3gpp.nrPBCHPRBS(detected_NID, v, E)
-    scrambling_seq_bpsk = (-1)*scrambling_seq*2 + 1
-    pbchBits_descrambled = pbchBits * scrambling_seq_bpsk
+    for mode in ['hard', 'soft']:
+        print(f'demodulation mode: {mode}')
+        pbchBits = py3gpp.nrSymbolDemodulate(corrected_PBCH, 'QPSK', nVar, mode)  
 
-    A = 32
-    P = 24
-    K = A+P
-    N = 512 # calculated according to Section 5.3.1 of 3GPP TS 38.212
-    decIn = py3gpp.nrRateRecoverPolar(pbchBits_descrambled, K, N, False, discardRepetition=False)
-    decoded = py3gpp.nrPolarDecode(decIn, K, 0, 0)
+        E = 864
+        v = ibar_SSB
+        scrambling_seq = py3gpp.nrPBCHPRBS(detected_NID, v, E)
+        scrambling_seq_bpsk = (-1)*scrambling_seq*2 + 1
+        pbchBits_descrambled = pbchBits * scrambling_seq_bpsk
 
-    # check CRC
-    _, crc_result = py3gpp.nrCRCDecode(decoded, '24C')
-    if crc_result == 0:
-        print("nrPolarDecode: PBCH CRC ok")
-    else:
-        print("nrPolarDecode: PBCH CRC failed")
+        A = 32
+        P = 24
+        K = A+P
+        N = 512 # calculated according to Section 5.3.1 of 3GPP TS 38.212
+        decIn = py3gpp.nrRateRecoverPolar(pbchBits_descrambled, K, N, False, discardRepetition=False)
+        decoded = py3gpp.nrPolarDecode(decIn, K, 0, 0)
+
+        # check CRC
+        _, crc_result = py3gpp.nrCRCDecode(decoded, '24C')
+        if crc_result == 0:
+            print("nrPolarDecode: PBCH CRC ok")
+        else:
+            print("nrPolarDecode: PBCH CRC failed")
 
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !

@@ -8,5 +8,5 @@ cocotb-bus>=0.2.1
 cocotbext-axi>=0.1.20
 pytest
 pytest-parallel
-py3gpp>=0.1.4
+py3gpp>=0.1.5
 sigmf

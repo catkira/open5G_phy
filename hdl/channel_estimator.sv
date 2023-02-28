@@ -465,8 +465,8 @@ always @(posedge clk_i) begin
                             corr_angle_DDS_in <= -(angle_FIFO_data - pilot_angle);
                             corr_angle_DDS_valid_in <= 1;
                             corr_data_fifo_in_valid <= 0;                            
-                            if (symbol_cnt == 0)  $display("pilot at SC %d, rx angle = %f deg, ideal angle = %f, delta = %f", SC_cnt,
-                                $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
+                            // if (symbol_cnt == 0)  $display("pilot at SC %d, rx angle = %f deg, ideal angle = %f, delta = %f", SC_cnt,
+                                // $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
                             pilot_SC_idx <= pilot_SC_idx + 1;
                         end
                     end else begin
@@ -474,13 +474,13 @@ always @(posedge clk_i) begin
                         if ((remaining_syms == 1) && ((SC_cnt >= 48) && (SC_cnt <= 191))) corr_data_fifo_in_valid <= 0;
                         else begin
                             corr_data_fifo_in_valid <= 1;
-                            $display("store data sample from SC %d", SC_cnt);
+                            // $display("store data sample from SC %d", SC_cnt);
                         end
                     end
 
                     if (SC_cnt == FFT_LEN - 1 - ZERO_CARRIERS) begin
                         if (remaining_syms > 0) begin
-                            if (symbol_type == SYMBOL_TYPE_PBCH)  $display("starting with PBCH symbol %d", SYMS_PER_PBCH - remaining_syms);
+                            // if (symbol_type == SYMBOL_TYPE_PBCH)  $display("starting with PBCH symbol %d", SYMS_PER_PBCH - remaining_syms);
                             // stay in CALC_CORRECTION state and proces next symbol of burst
                             remaining_syms <= remaining_syms - 1;
                             SC_cnt <= '0;
