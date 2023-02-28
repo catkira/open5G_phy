@@ -264,6 +264,7 @@ async def simple_test(dut):
             print("nrPolarDecode: PBCH CRC ok")
         else:
             print("nrPolarDecode: PBCH CRC failed")
+        assert crc_result == 0
 
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
