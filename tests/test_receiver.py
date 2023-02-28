@@ -239,11 +239,13 @@ async def simple_test(dut):
 
     # try to decode PBCH
     ibar_SSB = 0 # TODO grab this from hdl
-    nVar = 0
-    corrected_PBCH = np.array(corrected_PBCH) * (-1)
-    print(corrected_PBCH)
-    pbchBits = py3gpp.nrSymbolDemodulate(corrected_PBCH, 'QPSK', nVar, 'hard')
-    print(pbchBits)
+    nVar = 1
+    corrected_PBCH = np.array(corrected_PBCH)
+    # print(corrected_PBCH)
+    pbchBits = py3gpp.nrSymbolDemodulate(corrected_PBCH, 'QPSK', nVar, 'soft')
+    # np.savetxt('pbch.txt', pbchBits.astype(int))
+    
+    # print(pbchBits.astype(int))
     E = 864
     v = ibar_SSB
     scrambling_seq = py3gpp.nrPBCHPRBS(detected_NID, v, E)
