@@ -146,6 +146,8 @@ else begin
         end
     end
 
+    wire empty = ptr_equal && ptr_msb_equal;
+
     always @(posedge clk_i) begin
         if (!reset_ni) begin
             m_axis_out_tdata <= '0;
@@ -157,7 +159,7 @@ else begin
             m_axis_out_tdata <= mem[rd_ptr_addr];
             if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr];                
 
-            if ((!m_axis_out_tempty) && m_axis_out_tready) begin
+            if ((!empty) && m_axis_out_tready) begin
                 m_axis_out_tvalid <= 1;
                 rd_ptr <= rd_ptr + 1;
             end else begin
@@ -173,7 +175,7 @@ else begin
             m_axis_out_tlevel <= '0;
         end else begin
             s_axis_in_tfull <= ptr_equal && (!ptr_msb_equal);
-            m_axis_out_tempty <= ptr_equal && ptr_msb_equal;
+            m_axis_out_tempty <= empty;
             m_axis_out_tlevel <= ptr_diff[PTR_WIDTH - 1 : 0];
         end
     end
