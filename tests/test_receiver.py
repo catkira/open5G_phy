@@ -153,8 +153,8 @@ async def simple_test(dut):
                 + 1j * _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
     assert len(received_SSS) == 2 * SSS_LEN
-    corrected_PBCH = np.delete(corrected_PBCH, np.arange(144) + 48 + 240)
-    print(corrected_PBCH[240:][:240])
+    # corrected_PBCH = np.delete(corrected_PBCH, np.arange(144) + 48 + 240)
+    print(f'received {len(corrected_PBCH)} PBCH IQ samples')
 
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
     ideal_SSS_sym *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP2_LEN - CP_ADVANCE)))
@@ -187,8 +187,8 @@ async def simple_test(dut):
         len_print = 240
 
         ax.plot(np.real(corrected_PBCH[:len_print]), np.imag(corrected_PBCH[:len_print]), 'r.')
-        ax.plot(np.real(corrected_PBCH[240:][:97]), np.imag(corrected_PBCH[240:][:97]), 'g.')
-        ax.plot(np.real(corrected_PBCH[240 + 97:]), np.imag(corrected_PBCH[240 + 97:]), 'b.')
+        ax.plot(np.real(corrected_PBCH[240:][:96]), np.imag(corrected_PBCH[240:][:96]), 'g.')
+        ax.plot(np.real(corrected_PBCH[240 + 96:]), np.imag(corrected_PBCH[240 + 96:]), 'b.')
         plt.show()
 
     received_PBCH= received_PBCH[:SYMBOL_LEN]

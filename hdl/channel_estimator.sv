@@ -460,16 +460,20 @@ always @(posedge clk_i) begin
                             // This is a special case for the 2nd PBCH symbol
                             // some SCs in the middle of the symbol are the SSS, which needs to be skipped here
                             corr_angle_DDS_in <= 0;
-                            corr_angle_DDS_valid_in <= 1;                            
+                            corr_angle_DDS_valid_in <= 0;
+                            corr_data_fifo_in_valid <= 0;                    
                         end else begin
                             corr_angle_DDS_in <= -(angle_FIFO_data - pilot_angle);
                             corr_angle_DDS_valid_in <= 1;
+                            corr_data_fifo_in_valid <= 1;                            
                             if (symbol_cnt == 0)  $display("SC angle = %f deg, pilot angle = %f, delta = %f", 
                                 $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
                             pilot_SC_idx <= pilot_SC_idx + 1;
                         end
                     end else begin
                         corr_angle_DDS_valid_in <= 0;
+                        if ((remaining_syms == 1) && ((SC_cnt >= 47) && (SC_cnt <= 192))) corr_data_fifo_in_valid <= 0;
+                        else  corr_data_fifo_in_valid <= 1;
                     end
 
                     if (SC_cnt == FFT_LEN - 1 - ZERO_CARRIERS) begin
