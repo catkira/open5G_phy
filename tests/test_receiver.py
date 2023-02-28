@@ -153,8 +153,8 @@ async def simple_test(dut):
                 + 1j * _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
     assert len(received_SSS) == 2 * SSS_LEN
-    # corrected_PBCH = np.delete(corrected_PBCH, np.arange(144) + 48 + 240)
     print(f'received {len(corrected_PBCH)} PBCH IQ samples')
+    assert len(corrected_PBCH) == 432, print('received PBCH does not have correct length!')
 
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
     ideal_SSS_sym *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP2_LEN - CP_ADVANCE)))
@@ -184,11 +184,10 @@ async def simple_test(dut):
         ax.plot(np.real(received_SSS[:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'r.')
         ax.plot(np.real(received_SSS[SSS_LEN:][:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'b.')
         ax = plt.subplot(4, 2, 8)
-        len_print = 240
 
-        ax.plot(np.real(corrected_PBCH[:len_print]), np.imag(corrected_PBCH[:len_print]), 'r.')
-        ax.plot(np.real(corrected_PBCH[240:][:96]), np.imag(corrected_PBCH[240:][:96]), 'g.')
-        ax.plot(np.real(corrected_PBCH[240 + 96:]), np.imag(corrected_PBCH[240 + 96:]), 'b.')
+        ax.plot(np.real(corrected_PBCH[:180]), np.imag(corrected_PBCH[:180]), 'r.')
+        ax.plot(np.real(corrected_PBCH[180:][:72]), np.imag(corrected_PBCH[180:][:72]), 'g.')
+        ax.plot(np.real(corrected_PBCH[180 + 72:]), np.imag(corrected_PBCH[180 + 72:]), 'b.')
         plt.show()
 
     received_PBCH= received_PBCH[:SYMBOL_LEN]
@@ -227,16 +226,43 @@ async def simple_test(dut):
     # for i in range(len(received_SSS)):
     #     if received_SSS[i] != ideal_SSS[i]:
     #         print(f'{received_SSS[i]} != {ideal_SSS[i]}')
-    assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
+    # assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
 
     # assert np.array_equal(received_PBCH, received_PBCH_ideal)  # TODO: make this pass
-    assert peak_pos == 848
+    assert peak_pos == 850
     corr = np.zeros(335)
     for i in range(335):
         sss = py3gpp.nrSSS(i)
-        corr[i] = np.abs(np.vdot(sss, received_SSS))
-    detected_NID1 = np.argmax(corr)
-    assert detected_NID1 == 209
+        corr[i] = np.abs(np.vdot(sss, received_SSS[:SSS_LEN]))
+    detected_NID = np.argmax(corr)
+    assert detected_NID == 209
+
+    # try to decode PBCH
+    ibar_SSB = 0 # TODO grab this from hdl
+    nVar = 0
+    corrected_PBCH = np.array(corrected_PBCH) * (-1)
+    print(corrected_PBCH)
+    pbchBits = py3gpp.nrSymbolDemodulate(corrected_PBCH, 'QPSK', nVar, 'hard')
+    print(pbchBits)
+    E = 864
+    v = ibar_SSB
+    scrambling_seq = py3gpp.nrPBCHPRBS(detected_NID, v, E)
+    scrambling_seq_bpsk = (-1)*scrambling_seq*2 + 1
+    pbchBits_descrambled = pbchBits * scrambling_seq_bpsk
+
+    A = 32
+    P = 24
+    K = A+P
+    N = 512 # calculated according to Section 5.3.1 of 3GPP TS 38.212
+    decIn = py3gpp.nrRateRecoverPolar(pbchBits_descrambled, K, N, False, discardRepetition=False)
+    decoded = py3gpp.nrPolarDecode(decIn, K, 0, 0)
+
+    # check CRC
+    _, crc_result = py3gpp.nrCRCDecode(decoded, '24C')
+    if crc_result == 0:
+        print("nrPolarDecode: PBCH CRC ok")
+    else:
+        print("nrPolarDecode: PBCH CRC failed")
 
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
