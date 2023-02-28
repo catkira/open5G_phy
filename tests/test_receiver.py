@@ -153,6 +153,8 @@ async def simple_test(dut):
                 + 1j * _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
     assert len(received_SSS) == 2 * SSS_LEN
+    corrected_PBCH = np.delete(corrected_PBCH, np.arange(144) + 48 + 240)
+    print(corrected_PBCH[240:][:240])
 
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
     ideal_SSS_sym *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP2_LEN - CP_ADVANCE)))
@@ -182,7 +184,11 @@ async def simple_test(dut):
         ax.plot(np.real(received_SSS[:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'r.')
         ax.plot(np.real(received_SSS[SSS_LEN:][:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'b.')
         ax = plt.subplot(4, 2, 8)
-        ax.plot(np.real(corrected_PBCH), np.imag(corrected_PBCH), 'r.')
+        len_print = 240
+
+        ax.plot(np.real(corrected_PBCH[:len_print]), np.imag(corrected_PBCH[:len_print]), 'r.')
+        ax.plot(np.real(corrected_PBCH[240:][:97]), np.imag(corrected_PBCH[240:][:97]), 'g.')
+        ax.plot(np.real(corrected_PBCH[240 + 97:]), np.imag(corrected_PBCH[240 + 97:]), 'b.')
         plt.show()
 
     received_PBCH= received_PBCH[:SYMBOL_LEN]
@@ -333,7 +339,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
     
     compile_args = []
     if os.environ.get('SIM') == 'verilator':
-        compile_args = ['--no-timing', '-Wno-fatal', '-Wno-PINMISSING','-y', tests_dir + '/../submodules/verilator-unisims']
+        compile_args = ['--build-jobs', '16', '--no-timing', '-Wno-fatal', '-Wno-PINMISSING','-y', tests_dir + '/../submodules/verilator-unisims']
     else:
         compile_args = ['-sglbl', '-y' + unisim_dir]
     cocotb_test.simulator.run(
