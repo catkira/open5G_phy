@@ -480,8 +480,8 @@ always @(posedge clk_i) begin
                             corr_angle_DDS_in <= -(angle_FIFO_data - pilot_angle);
                             corr_angle_DDS_valid_in <= 1;
                             corr_data_fifo_in_valid <= 0;                            
-                            // if (symbol_cnt == 0)  $display("pilot at SC %d, rx angle = %f deg, ideal angle = %f, delta = %f", SC_cnt,
-                                // $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
+                            if (symbol_cnt == 0)  $display("pilot at SC %d, rx angle = %f deg, ideal angle = %f, delta = %f", SC_cnt,
+                                $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
                             pilot_SC_idx <= pilot_SC_idx + 1;
                         end
                     end else begin

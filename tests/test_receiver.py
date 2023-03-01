@@ -55,6 +55,8 @@ class TB(object):
 async def simple_test(dut):
     tb = TB(dut)
     CFO = int(os.getenv('CFO'))
+    # CFO = 47 # works  -> DDS_inc 6, 13
+    CFO = 46 # does not work  -> DDS_inc 6, 13
     handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
     waveform = handle.read_samples()
     fs = 30720000
@@ -188,7 +190,6 @@ async def simple_test(dut):
         ax.plot(np.real(corrected_PBCH[:180]), np.imag(corrected_PBCH[:180]), 'r.')
         ax.plot(np.real(corrected_PBCH[180:][:72]), np.imag(corrected_PBCH[180:][:72]), 'g.')
         ax.plot(np.real(corrected_PBCH[180 + 72:]), np.imag(corrected_PBCH[180 + 72:]), 'b.')
-        print(corrected_PBCH[180 + 72:])
         plt.show()
 
     received_PBCH= received_PBCH[:SYMBOL_LEN]
@@ -389,4 +390,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, CP_ADVANCE = 18, USE_TAP_FILE = 1)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=200, CP_ADVANCE = 18, USE_TAP_FILE = 1)

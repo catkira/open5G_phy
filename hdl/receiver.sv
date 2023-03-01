@@ -143,6 +143,7 @@ complex_multiplier #(
     .OPERAND_WIDTH_OUT(COMPL_MULT_OUT_DW/2),
     .BLOCKING(0),
     .GROWTH_BITS(-2),  // input is rotating vector with length 2^(IN_DW/2 - 1), therefore bit growth is 2 bits less than worst case
+                       // TODO: WARNING, this can create an overflow if the DDS is not perfect (outputs vector with length > 1)
     .BYTE_ALIGNED(0)
 )
 complex_multiplier_i(
