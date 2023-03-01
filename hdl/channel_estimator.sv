@@ -176,18 +176,25 @@ reg [$clog2(256) : 0] PBCH_SC_idx;
 reg [$clog2(256) : 0] PBCH_SC_used_idx;
 wire [$clog2(256) : 0] PBCH_SC_idx_plus_start = PBCH_SC_used_idx - PBCH_DMRS_start_idx;
 reg [$clog2(64) : 0] PBCH_DMRS_idx;
-reg [$clog2(60*2) : 0] DMRS_corr [0 : 7];  // one symbol has max 60 pilots
+reg signed [$clog2(60*2) + 1 : 0] DMRS_corr [0 : 7];  // one symbol has max 60 pilots
+reg signed [$clog2(60*2) + 1 : 0] DMRS_corr_rot [0 : 7];  // one symbol has max 60 pilots
 reg [$clog2(60*2) : 0] tmp_corr;
 wire signed [IN_DW / 2 - 1 : 0] in_re, in_im;
 assign in_re = s_axis_in_tdata[IN_DW / 2 - 1 : 0];
 assign in_im = s_axis_in_tdata[IN_DW - 1 : IN_DW / 2];
 reg [$clog2(8) - 1 : 0] ibar_SSB_detected;
 
+function [$clog2(60*2) : 0] abs_DMRS_corr;
+input signed [$clog2(60*2) + 1 : 0] arg;
+begin
+    abs_DMRS_corr = arg[$clog2(60*2) + 1] ? ~arg + 1: arg;  // discard MSB
+end
+endfunction
 
 // hard BPSK demodulation of incoming signal
 // this is used for PBCH DMRS detection
-wire [1 : 0] in_demod;
-assign in_demod = {data_in[IN_DW / 2 - 1], data_in[IN_DW - 1]};
+wire [1 : 0] in_demod = {data_in[IN_DW / 2 - 1], data_in[IN_DW - 1]};
+wire [1 : 0] in_demod_rot = {~data_in[IN_DW - 1], data_in[IN_DW / 2 - 1]};  // also test with 90 deg rotated input signal to handle phase offsets
 reg [IN_DW - 1 : 0] data_in;
 always @(posedge clk_i) data_in <= s_axis_in_tdata;
 reg valid_in;
@@ -203,7 +210,10 @@ always @(posedge clk_i) begin
         PBCH_SC_idx <= '0;
         PBCH_SC_used_idx <= '0;
         PBCH_DMRS_idx <= 0;
-        for (integer i = 0; i < 8; i = i + 1)   DMRS_corr[i] <= '0;
+        for (integer i = 0; i < 8; i = i + 1)  begin
+            DMRS_corr[i] <= '0;
+            DMRS_corr_rot[i] <= '0;
+        end
         ibar_SSB_detected = '0;
         debug_ibar_SSB_o <= '0;
         debug_ibar_SSB_valid_o <= '0;
@@ -241,8 +251,10 @@ always @(posedge clk_i) begin
                             //     PBCH_DMRS[4][PBCH_DMRS_idx], PBCH_DMRS[5][PBCH_DMRS_idx], PBCH_DMRS[6][PBCH_DMRS_idx], PBCH_DMRS[7][PBCH_DMRS_idx]);
                             PBCH_DMRS_idx <= PBCH_DMRS_idx + 1;
                             for (integer i = 0; i < 8; i = i + 1) begin
-                                DMRS_corr[i] = DMRS_corr[i] + (PBCH_DMRS[i][PBCH_DMRS_idx][0] == in_demod[0]);
-                                DMRS_corr[i] = DMRS_corr[i] + (PBCH_DMRS[i][PBCH_DMRS_idx][1] == in_demod[1]);
+                                DMRS_corr[i] = DMRS_corr[i] + ((PBCH_DMRS[i][PBCH_DMRS_idx][0] == in_demod[0]) ? 1 : -1);
+                                DMRS_corr[i] = DMRS_corr[i] + ((PBCH_DMRS[i][PBCH_DMRS_idx][1] == in_demod[1]) ? 1 : -1);
+                                DMRS_corr_rot[i] = DMRS_corr_rot[i] + ((PBCH_DMRS[i][PBCH_DMRS_idx][0] == in_demod_rot[0]) ? 1 : -1);
+                                DMRS_corr_rot[i] = DMRS_corr_rot[i] + ((PBCH_DMRS[i][PBCH_DMRS_idx][1] == in_demod_rot[1]) ? 1 : -1);
                             end
                         end
                         PBCH_SC_used_idx <= PBCH_SC_used_idx + 1;
@@ -255,8 +267,8 @@ always @(posedge clk_i) begin
                 ibar_SSB_detected = '0;
                 tmp_corr = '0;
                 for(integer i = 0; i < 8; i = i + 1) begin
-                    if (DMRS_corr[i] > tmp_corr) begin
-                        tmp_corr = DMRS_corr[i];
+                    if ((abs_DMRS_corr(DMRS_corr[i]) > tmp_corr) || (abs_DMRS_corr(DMRS_corr_rot[i]) > tmp_corr)) begin
+                        tmp_corr = abs_DMRS_corr(DMRS_corr_rot[i]) > abs_DMRS_corr(DMRS_corr[i]) ? abs_DMRS_corr(DMRS_corr_rot[i]) : abs_DMRS_corr(DMRS_corr[i]);
                         ibar_SSB_detected = i;
                     end
                 end
@@ -265,7 +277,6 @@ always @(posedge clk_i) begin
                 debug_ibar_SSB_o <= ibar_SSB_detected;
                 debug_ibar_SSB_valid_o <= 1;
                 state_det_ibar <= '0;
-                ibar_SSB_detected = '0;
                 for(integer i = 0; i < 8; i = i + 1)  DMRS_corr[i] <= '0;
             end
         endcase
@@ -405,7 +416,7 @@ always @(posedge clk_i) begin
                 corr_data_fifo_in_valid <= '0;
                 corr_angle_DDS_valid_in <= '0;
                 start_idx <= PBCH_DMRS_start_idx;
-                if ((in_fifo_level > 0) && !PBCH_DMRS_ready) begin
+                if ((in_fifo_level > 0) && (!PBCH_DMRS_ready)) begin
                     // $display("calculate_phase: PBCH DMRS not ready, pass through without correction");
                     symbol_type <= SYMBOL_TYPE_OTHER;
                     state_corrector <= PASS_THROUGH;
@@ -413,12 +424,12 @@ always @(posedge clk_i) begin
                 end else if ((in_fifo_level > 0) && PBCH_DMRS_ready) begin
                     // in_fifo_user signals start of a new burst if its != 0
                     // the symbol type depends on the position of the set bit
-                    if (in_fifo_user == 1)  begin
+                    if ((in_fifo_user == 1) && pilots_ready)  begin  // pilots become ready withing 256 clks, so we can wait here, FIFOs are large enough
                         $display("calculate_phase: PBCH symbol");
                         remaining_syms <= SYMS_PER_PBCH - 1;  
                         symbol_type <= SYMBOL_TYPE_PBCH;
                         state_corrector <= CALC_CORRECTION;
-                    end else begin
+                    end else if (in_fifo_user == 0) begin
                         // $display("calculate_phase: data symbol");
                         remaining_syms <= SYMS_PER_OTHER - 1;
                         symbol_type <= SYMBOL_TYPE_OTHER;
@@ -465,8 +476,8 @@ always @(posedge clk_i) begin
                             corr_angle_DDS_in <= -(angle_FIFO_data - pilot_angle);
                             corr_angle_DDS_valid_in <= 1;
                             corr_data_fifo_in_valid <= 0;                            
-                            // if (symbol_cnt == 0)  $display("pilot at SC %d, rx angle = %f deg, ideal angle = %f, delta = %f", SC_cnt,
-                                // $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
+                            if (symbol_cnt == 0)  $display("pilot at SC %d, rx angle = %f deg, ideal angle = %f, delta = %f", SC_cnt,
+                                $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
                             pilot_SC_idx <= pilot_SC_idx + 1;
                         end
                     end else begin
@@ -474,7 +485,7 @@ always @(posedge clk_i) begin
                         if ((remaining_syms == 1) && ((SC_cnt >= 48) && (SC_cnt <= 191))) corr_data_fifo_in_valid <= 0;
                         else begin
                             corr_data_fifo_in_valid <= 1;
-                            // $display("store data sample from SC %d", SC_cnt);
+                            $display("store data sample from SC %d", SC_cnt);
                         end
                     end
 
@@ -538,8 +549,7 @@ always @(posedge clk_i) begin
                     corr_angle_DDS_in <= 0;
                     corr_data_fifo_in_valid <= '0;
                     corr_angle_DDS_valid_in <= '0;
-                end              
-                
+                end
             end
         endcase
     end
@@ -625,7 +635,7 @@ corr_data_fifo_i(
 // because the delay line and complex multiplier needs some clks
 localparam COMPLEX_MULT_DELAY = 6;
 localparam CORR_DATA_DELAY = 4;
-localparam CORR_DELAY = CORR_DATA_DELAY + COMPLEX_MULT_DELAY + 6;
+localparam CORR_DELAY = CORR_DATA_DELAY + COMPLEX_MULT_DELAY + 2;
 reg [1 : 0] symbol_type_delayed [0 : CORR_DELAY - 1];
 assign m_axis_out_tuser = symbol_type_delayed[CORR_DELAY - 1];
 always @(posedge clk_i) begin

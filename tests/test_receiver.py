@@ -129,7 +129,7 @@ async def simple_test(dut):
 
         if dut.m_axis_cest_out_tvalid.value == 1 and dut.m_axis_cest_out_tuser.value == 1:
             corrected_PBCH.append(_twos_comp(dut.m_axis_cest_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.m_axis_cest_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))            
+                + 1j * _twos_comp((dut.m_axis_cest_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))    
 
         if dut.PBCH_valid_o.value.integer == 1:
             # print(f"rx PBCH[{len(received_PBCH):3d}] re = {dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1):4x} " \
@@ -188,6 +188,7 @@ async def simple_test(dut):
         ax.plot(np.real(corrected_PBCH[:180]), np.imag(corrected_PBCH[:180]), 'r.')
         ax.plot(np.real(corrected_PBCH[180:][:72]), np.imag(corrected_PBCH[180:][:72]), 'g.')
         ax.plot(np.real(corrected_PBCH[180 + 72:]), np.imag(corrected_PBCH[180 + 72:]), 'b.')
+        print(corrected_PBCH[180 + 72:])
         plt.show()
 
     received_PBCH= received_PBCH[:SYMBOL_LEN]
@@ -335,7 +336,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['CP_ADVANCE'] = CP_ADVANCE
-    parameters['USE_TAP_FILE'] = USE_TAP_FILE    
+    parameters['USE_TAP_FILE'] = USE_TAP_FILE
     os.environ['CFO'] = str(CFO)
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
@@ -388,4 +389,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=1200, CP_ADVANCE = 18, USE_TAP_FILE = 1)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, CP_ADVANCE = 18, USE_TAP_FILE = 1)

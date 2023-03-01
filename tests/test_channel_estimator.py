@@ -19,6 +19,12 @@ CLK_PERIOD_S = CLK_PERIOD_NS * 0.000000001
 tests_dir = os.path.abspath(os.path.dirname(__file__))
 rtl_dir = os.path.abspath(os.path.join(tests_dir, '..', 'hdl'))
 
+def _twos_comp(val, bits):
+    """compute the 2's complement of int value val"""
+    if (val & (1 << (bits - 1))) != 0:
+        val = val - (1 << bits)
+    return int(val)
+
 class TB(object):
     def __init__(self, dut):
         self.dut = dut
@@ -160,6 +166,7 @@ async def simple_test3(dut):
     FFT_LEN = 256
     SC_START = 8
     L_MAX = 4 # 4 SSBs
+    FFT_OUT_DW = 32
     SSB_pattern = [2, 8, 16, 22]  # case A
 
     START_POS = 842  #+ int(3.84e6 * 0.001 * int(ibar_SSB / 2)) + 1646 * (ibar_SSB % 2)   # this hack works for ibar_SSB = 0 .. 3
@@ -193,6 +200,7 @@ async def simple_test3(dut):
     SC_cnt = 0
     ibar_SSB = 0
     IQ_data = []
+    corrected_PBCH = []
     idle_clks = 0
     while clk_cnt < max_wait_cycles:
         await RisingEdge(dut.clk_i)
@@ -232,6 +240,10 @@ async def simple_test3(dut):
         else:
             dut.s_axis_in_tvalid.value = 0
 
+        if dut.m_axis_out_tvalid.value == 1 and dut.m_axis_out_tuser.value == 1:
+            corrected_PBCH.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
+
         if dut.debug_ibar_SSB_valid_o.value == 1:
             ibar_SSB_det = dut.debug_ibar_SSB_o.value.integer
             print(f'detected ibar_SSB = {ibar_SSB_det}')
@@ -239,6 +251,7 @@ async def simple_test3(dut):
             ibar_SSB += 1
         clk_cnt += 1
     print(f'finished after {clk_cnt} clk cycles')
+    print(f'received {len(corrected_PBCH)} PBCH bits')
 
     if os.environ.get('PLOTS') == '1':
         IQ_data = np.array(IQ_data)
@@ -354,6 +367,7 @@ def test_PBCH_stream(IN_DW):
         sim_build=sim_build,
         testcase='simple_test3',
         force_compile=True,
+        defines = ['LUT_PATH=\"../../tests\"'],        
         waves=True
     )
 
