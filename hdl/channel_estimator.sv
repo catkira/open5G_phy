@@ -225,6 +225,7 @@ always @(posedge clk_i) begin
             0: begin
                 debug_ibar_SSB_valid_o <= 0;
                 if (PBCH_start_i && PBCH_DMRS_ready) begin
+                    pilots_ready <= '0;
                     state_det_ibar <= 1;
                     PBCH_sym_idx <= '0;
                     PBCH_SC_idx <= '0;
@@ -479,8 +480,8 @@ always @(posedge clk_i) begin
                             corr_angle_DDS_in <= -(angle_FIFO_data - pilot_angle);
                             corr_angle_DDS_valid_in <= 1;
                             corr_data_fifo_in_valid <= 0;                            
-                            if (symbol_cnt == 0)  $display("pilot at SC %d, rx angle = %f deg, ideal angle = %f, delta = %f", SC_cnt,
-                                $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
+                            // if (symbol_cnt == 0)  $display("pilot at SC %d, rx angle = %f deg, ideal angle = %f, delta = %f", SC_cnt,
+                                // $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
                             pilot_SC_idx <= pilot_SC_idx + 1;
                         end
                     end else begin
@@ -488,7 +489,7 @@ always @(posedge clk_i) begin
                         if ((remaining_syms == 1) && ((SC_cnt >= 48) && (SC_cnt <= 191))) corr_data_fifo_in_valid <= 0;
                         else begin
                             corr_data_fifo_in_valid <= 1;
-                            $display("store data sample from SC %d", SC_cnt);
+                            // $display("store data sample from SC %d", SC_cnt);
                         end
                     end
 
