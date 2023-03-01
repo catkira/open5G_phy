@@ -35,8 +35,8 @@ reg [2*ATAN_IN_DW : 0] C0_times_conjC1;
 
 reg atan_valid_in;
 reg atan2_valid_out;
-reg signed[CFO_DW - 1 : 0] atan2_out;
-reg signed[CFO_DW - 1 : 0] atan;
+reg signed [CFO_DW - 1 : 0] atan2_out;
+reg signed [CFO_DW - 1 : 0] atan;
 atan2 #(
     .INPUT_WIDTH(ATAN_IN_DW),
     .LUT_DW(ATAN_IN_DW),
@@ -90,6 +90,7 @@ end
 endfunction
 
 reg [$clog2(C_DW/2) - 1 : 0] input_max_used_MSB;
+wire signed [CFO_DW - 1 : 0] atan_rshift7 = atan >>> 7;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         valid_o <= '0;
@@ -153,10 +154,10 @@ always @(posedge clk_i) begin
         OUTPUT : begin
             if (CFO_DW >= DDS_DW) begin
                 // take upper MSBs
-                CFO_DDS_inc_o <= atan[CFO_DW - 1 -: DDS_DW] >>> 7; // >>> 7 for divide / 64 / 2
+                CFO_DDS_inc_o <= atan_rshift7[CFO_DW - 1 -: DDS_DW]; // >>> 7 for divide / 64 / 2
             end else begin
                 // sign extend
-                CFO_DDS_inc_o <= {{(DDS_DW - CFO_DW){atan[CFO_DW - 1]}}, atan} >>> 7;
+                CFO_DDS_inc_o <= {{(DDS_DW - CFO_DW){atan[CFO_DW - 1]}}, atan_rshift7};
             end
             CFO_angle_o <= atan;
             valid_o <= 1;
