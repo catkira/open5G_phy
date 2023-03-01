@@ -32,18 +32,21 @@ jobs:
         #git reset --hard 3612577b52d1a1e1980610b218c8f2487a7bb0fe
         #./configure
         #make -j20 install
-    
+
+    - name: Verify with verilator        
+      run: |
+        sudo apt install libfl-dev help2man
+        git clone https://github.com/verilator/verilator.git
+        cd verilator
+        git reset --hard v5.006
+        autoconf
+        ./configure
+        sudo make -j20
+        sudo make install
+
     - name: Verify with verilator
-      uses: addnab/docker-run-action@v3
-      with:
-        image: justinjones/qi-dev:v2.06
-        run: |
-          pip3 install -r requirements.txt
-          git clone https://github.com/catkira/cocotb.git
-          cd cocotb
-          pip3 install -e .
-          sudo apt install -y --no-install-recommends iverilog
-          SIM=verilator pytest -v tests/test_receiver.py
+      run: |
+        SIM=verilator pytest -v tests/test_receiver.py
 
     - name: Verify with cocotb & icarus
       run: |
