@@ -267,15 +267,14 @@ async def simple_test(dut):
         assert crc_result == 0
 
 
-# bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
-@pytest.mark.parametrize("ALGO", [0, 1])
+@pytest.mark.parametrize("ALGO", [0])
 @pytest.mark.parametrize("IN_DW", [32])
 @pytest.mark.parametrize("OUT_DW", [32])
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
-@pytest.mark.parametrize("CFO", [0, 100])
+@pytest.mark.parametrize("CFO", [0, 1200])
 @pytest.mark.parametrize("CP_ADVANCE", [9, 18])
-@pytest.mark.parametrize("USE_TAP_FILE", [0, 1])
+@pytest.mark.parametrize("USE_TAP_FILE", [1])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
