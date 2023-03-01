@@ -94,6 +94,7 @@ if (ASYNC) begin
         if (!reset_ni) begin
             m_axis_out_tdata <= '0;
             m_axis_out_tvalid <= '0;
+            m_axis_out_tuser <= '0;
             rd_ptr <= '0;
         end else begin
             if ((rd_ptr != g2b(wr_ptr_grey)) && m_axis_out_tready) begin
@@ -152,6 +153,7 @@ else begin
         if (!reset_ni) begin
             m_axis_out_tdata <= '0;
             m_axis_out_tvalid <= '0;
+            m_axis_out_tuser <= '0;            
             rd_ptr <= '0;
         end else begin
             // output tdata and tuser as early as possible, even if tready is not yet asserted

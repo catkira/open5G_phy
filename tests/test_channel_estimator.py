@@ -180,7 +180,7 @@ async def simple_test3(dut):
         axs = np.ravel(axs)
     for i in range(num_symbols):
         new_symbol = np.fft.fftshift(np.fft.fft(waveform[pos:][:FFT_LEN]))
-        if (i+4)%7 == 0:
+        if (i + 4) % 7 == 0:
             pos += CP1_LEN + FFT_LEN
         else:
             pos += CP2_LEN + FFT_LEN
@@ -192,15 +192,18 @@ async def simple_test3(dut):
 
     symbol /= max(symbol.real.max(), symbol.imag.max())
     symbol *= (2 ** (tb.IN_DW // 2 - 1) - 1)
-    symbol = symbol.real.astype(int) + 1j*symbol.imag.astype(int)
+    symbol = symbol.real.astype(int) + 1j * symbol.imag.astype(int)
 
     max_wait_cycles = 100000
     clk_cnt = 0
     symbol_id = 0
     SC_cnt = 0
     ibar_SSB = 0
+    ibar_SSBs = []
     IQ_data = []
-    corrected_PBCH = []
+    corrected_PBCH = np.empty((10,432), 'complex')
+    corrected_PBCH_idx = 0
+    corrected_PBCH_sym_cnt = 0
     idle_clks = 0
     while clk_cnt < max_wait_cycles:
         await RisingEdge(dut.clk_i)
@@ -208,10 +211,9 @@ async def simple_test3(dut):
         if idle_clks > 0:
             idle_clks -= 1
             clk_cnt += 1
-            continue
 
         # need to wait until the PBCH_DMRS is generated
-        if (clk_cnt > 2000) and (symbol_id < num_symbols):
+        if (clk_cnt > 2000) and (symbol_id < num_symbols) and idle_clks == 0:
             if ((symbol_id + START_SYMBOL) in SSB_pattern) and (SC_cnt == SC_START):
                 dut.PBCH_start_i.value = 1
             else:
@@ -226,7 +228,7 @@ async def simple_test3(dut):
                 # this idle happens in reality automatically because of the cyclic prefix
                 idle_clks = 10
                 dut.s_axis_in_tvalid.value = 0
-            elif SC_cnt >= SC_START and SC_cnt <= FFT_LEN - 2*SC_START:
+            elif (SC_cnt >= SC_START) and (SC_cnt <= FFT_LEN - SC_START - 1):
                 data = (((int(symbol[symbol_id][SC_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
                     + ((int(symbol[symbol_id][SC_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1)))
                 dut.s_axis_in_tdata.value = data
@@ -241,21 +243,57 @@ async def simple_test3(dut):
             dut.s_axis_in_tvalid.value = 0
 
         if dut.m_axis_out_tvalid.value == 1 and dut.m_axis_out_tuser.value == 1:
-            corrected_PBCH.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
+            corrected_PBCH[corrected_PBCH_sym_cnt, corrected_PBCH_idx] = _twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2) \
+                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+            corrected_PBCH_idx += 1
+        if corrected_PBCH_idx == 432:
+            corrected_PBCH_sym_cnt += 1
+            corrected_PBCH_idx = 0
 
         if dut.debug_ibar_SSB_valid_o.value == 1:
             ibar_SSB_det = dut.debug_ibar_SSB_o.value.integer
             print(f'detected ibar_SSB = {ibar_SSB_det}')
+            ibar_SSBs.append(ibar_SSB)
             assert ibar_SSB_det == ibar_SSB
             ibar_SSB += 1
         clk_cnt += 1
+    assert corrected_PBCH_idx == 0
     print(f'finished after {clk_cnt} clk cycles')
-    print(f'received {len(corrected_PBCH)} PBCH bits')
+    print(f'received {corrected_PBCH_sym_cnt} PBCH messages')
+
+    # try to decode PBCH
+    for i in range(corrected_PBCH_sym_cnt):
+        ibar_SSB = ibar_SSBs[i]
+        nVar = 1
+        print(f'PBCH message {i} with ibar_SSB = {ibar_SSB}')
+        for mode in ['hard', 'soft']:
+            print(f'demodulation mode: {mode}')
+            pbchBits = py3gpp.nrSymbolDemodulate(corrected_PBCH[i,:], 'QPSK', nVar, mode)  
+
+            E = 864
+            v = ibar_SSB
+            scrambling_seq = py3gpp.nrPBCHPRBS(N_id, v, E)
+            scrambling_seq_bpsk = (-1)*scrambling_seq*2 + 1
+            pbchBits_descrambled = pbchBits * scrambling_seq_bpsk
+
+            A = 32
+            P = 24
+            K = A+P
+            N = 512 # calculated according to Section 5.3.1 of 3GPP TS 38.212
+            decIn = py3gpp.nrRateRecoverPolar(pbchBits_descrambled, K, N, False, discardRepetition=False)
+            decoded = py3gpp.nrPolarDecode(decIn, K, 0, 0)
+
+            # check CRC
+            _, crc_result = py3gpp.nrCRCDecode(decoded, '24C')
+            if crc_result == 0:
+                print("nrPolarDecode: PBCH CRC ok")
+            else:
+                print("nrPolarDecode: PBCH CRC failed")
+            assert crc_result == 0
 
     if os.environ.get('PLOTS') == '1':
         IQ_data = np.array(IQ_data)
-        plt.plot(IQ_data.real[8:200], IQ_data.imag[8:200], '.')
+        plt.plot(IQ_data.real[:240], IQ_data.imag[:240], '.')
         plt.show()
 
 @pytest.mark.parametrize("N_ID_1", [0, 335])
@@ -367,7 +405,7 @@ def test_PBCH_stream(IN_DW):
         sim_build=sim_build,
         testcase='simple_test3',
         force_compile=True,
-        defines = ['LUT_PATH=\"../../tests\"'],        
+        defines = ['LUT_PATH=\"../../tests\"'],
         waves=True
     )
 
