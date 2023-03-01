@@ -376,6 +376,7 @@ localparam MAX_PHASE = (2**(PHASE_DW - 1) - 1);
 localparam signed [PHASE_DW - 1 : 0] DEG45 = MAX_PHASE / 4;
 localparam signed [PHASE_DW - 1 : 0] DEG135 = 3 * DEG45;
 reg signed [PHASE_DW - 1 : 0] pilot_angle;
+reg [2 : 0] ibar_SSB_buf;
 
 localparam MAX_SYM_PER_BURST = 3;
 localparam MIN_PILOT_SPACING = 4;
@@ -408,6 +409,7 @@ always @(posedge clk_i) begin
         corr_data_fifo_in_valid <= '0;
         corr_data_fifo_in_data <= '0;
         start_idx <= '0;
+        ibar_SSB_buf <= '0;
     end else begin
         case(state_corrector)
             WAIT_FOR_INPUTS : begin
@@ -429,6 +431,7 @@ always @(posedge clk_i) begin
                         remaining_syms <= SYMS_PER_PBCH - 1;  
                         symbol_type <= SYMBOL_TYPE_PBCH;
                         state_corrector <= CALC_CORRECTION;
+                        ibar_SSB_buf <= ibar_SSB_detected;
                     end else if (in_fifo_user == 0) begin
                         // $display("calculate_phase: data symbol");
                         remaining_syms <= SYMS_PER_OTHER - 1;
@@ -458,13 +461,13 @@ always @(posedge clk_i) begin
                         // we are at a pilot location, calculate correction factor
                         // one corr_angle has to be used for 4 corr_data, because pilots are every 4th SC
                         // use simple piecewise const. corr. angle for now, it can be improved with linear interpolation later                            
-                        case(PBCH_DMRS[ibar_SSB_detected][pilot_SC_idx])
+                        case(PBCH_DMRS[ibar_SSB_buf][pilot_SC_idx])
                             2'b00 : pilot_angle = DEG45;
                             2'b01 : pilot_angle = -DEG45;
                             2'b10 : pilot_angle = DEG135;
                             2'b11 : pilot_angle = -DEG135;
                         endcase
-                        // if (symbol_cnt == 0)  $display("pilot = %x", PBCH_DMRS[ibar_SSB_detected][pilot_SC_idx]);
+                        // if (symbol_cnt == 0)  $display("pilot = %x", PBCH_DMRS[ibar_SSB_buf][pilot_SC_idx]);
                         
                         if ((remaining_syms == 1) && ((SC_cnt >= 48) && (SC_cnt <= 191))) begin
                             // This is a special case for the 2nd PBCH symbol
