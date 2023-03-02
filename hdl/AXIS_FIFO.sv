@@ -1,6 +1,7 @@
 `timescale 1ns / 1ns
-// This is a very simple async clock FIFO
-// It currently assumes that out_clk is faster than clk_i
+// This is a very simple FIFO.
+// Sync and async clock mode is supported. Operation mode is cut-through.
+// Async clock mode currently assumes that out_clk is faster than clk_i
 // Copyright (C) 2023  Benjamin Menkuec
 //
 // This program is free software: you can redistribute it and/or modify
@@ -91,7 +92,6 @@ if (ASYNC) begin
             end
         end
     end
-
 
     always @(posedge out_clk_i) begin
         if (!reset_ni) begin
