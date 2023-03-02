@@ -1,21 +1,24 @@
 [![Verify](https://github.com/catkira/open5G_rx/actions/workflows/verify.yml/badge.svg)](https://github.com/catkira/open5G_rx/actions/workflows/verify.yml)
 
 # Overview
-This is a verilog HDL core for a 5G NR receiver. It is optimized for low ressource usage so that it can run on a [PlutoSDR](https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/adalm-pluto.html), which has a Xilinx® Zynq Z-7010 with only 80 DSP slices and 28K logic cells.<br>
-Each PSS correlator only detects one of the possible three different PSS sequences. If a general cell search is needed, 3 PSS correlators need to be instanciated in parallel. If CFOs larger than one subcarrier spacing (15 kHz) are expected, more parallel PSS correlator instances are needed for different CFOs.<br>
+This is a verilog HDL core for a 5G NR receiver. It is optimized for low ressource usage so that it can run on a [PlutoSDR](https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/adalm-pluto.html), which has a Xilinx® Zynq Z-7010 with only 80 DSP slices and 28K logic cells. Since this design is optimized for low ressource usage, it can only demodulate at 3.84 MSPS which is equal to 256 point FFT or 20 RBs (Ressource Blocks). A ressource block in 5G consists of 12 subcarriers. The 256 point FFT contains only 20*12=240 usable subcarriers, because at each edge of the spectrum there are 8 zero carriers.<br>
+Cell search is limited to 1 frequency offset range. Within this frequency offset range, the PSS correlator works up to a CFO of about += 10 kHz.
+Each PSS correlator only detects one of the possible three different PSS sequences. If a general cell search for all 3 possible N_id_2's is needed, 3 PSS correlators need to be instanciated in parallel. If CFOs larger than the detection range of the PSS correlator are expected, the different CFO possibilities can be tried sequentially by configuring the receiver via its AXI-lite interface.<br>
 Implemented so far:<br>
 * Decimator which uses [this](https://github.com/catkira/CIC) CIC core
 * PSS correlator (detailed description below)
 * Peak detector (detailed description below)
 * FFT demodulator which uses [this](https://github.com/catkira/FFT) FFT core
 * SSS detector (detailed description below)
+* Frame sync (detailed description below)
 * Channel estimator (detailed description below)
 
 ![Overview diagram](doc/overview.jpg)
 
 <b>TODO:</b>
 * implement dynamic block scaling for FFT
-* finish channel estimator/corrector
+* implement amplitude correction in channel_estimator
+* implement PDCCH DMRS in channel_estimator
 * implement AXI stream FIFO or use Xilinx core
 * maybe optimize PSS correlator further like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
 
@@ -71,6 +74,10 @@ The FFT demodulator uses [this](https://github.com/catkira/FFT) FFT core. Since 
 The SSS detector currently operates in search mode, which means that it compares the received SSS sequence to all possible 335 SSS for the given N_id_1 which comes from the PSS detection.
 The code is optimized to not use any multiplication and no large additions. This is achieved by doing every operation in a separate clock cycle. This means the core needs about 335 * 127 = 42545 cycles to finish the detection, assuming the system clock is 100 MHz, that would be 425 us.
 The code is also memory optimized, by only storing the two m-sequences that are needed to construct all the possible SSS. It currently builds the stored m-sequences at startup using [this](https://github.com/catkira/LFSR) LFSR core. The code could be modified to have the m-sequences statically stored.
+
+# Frame sync
+This core keeps track of the current subframe number and controls the PSS detector. It sends the PSS detector to sleep for 20 ms after a SSB was detected.
+This core also sends the sync signals like PBCH_start to the FFT_demod core. The FFT_demod core needs this timing information, so that it can use long and short CP (Cyclic Prefix) when needed.
 
 # Channel estimator
 The channel estimator currently only corrects the phase angles, this is enough for BPSK and QPSK demodulation. It also detects the PBCH DMRS (DeModulation Reference Sequence) by comparing the incoming pilots with the 8 possible ibar_SSB configurations. The detected ibar_SSB is then send to the frame_sync core which uses this signal to align itself to the right subframe number.
