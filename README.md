@@ -40,8 +40,8 @@ Implemented so far:<br>
   git clone https://github.com/catkira/cocotb.git
   cd cocotb && pip install -e . && cd ..
   git clone https://github.com/verilator/verilator.git
-  git reset v5.006
   cd verilator
+  git reset v5.006
   ./configure
   make -j$(nproc) && sudo make install
   cd ..
