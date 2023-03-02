@@ -21,26 +21,27 @@ module AXIS_FIFO #(
     parameter DATA_WIDTH = 16,
     parameter FIFO_LEN = 8,      // has to be power of 2 !
     parameter USER_WIDTH = 1,
-    parameter ASYNC = 1
+    parameter ASYNC = 1,
+    parameter IN_MUX = 1
 )
 (
-    input                                       clk_i,
-    input                                       reset_ni,
+    input                                               clk_i,
+    input                                               reset_ni,
 
-    input           [DATA_WIDTH - 1 : 0]        s_axis_in_tdata,
-    input           [USER_WIDTH - 1 : 0]        s_axis_in_tuser,
-    input                                       s_axis_in_tlast,
-    input                                       s_axis_in_tvalid,
-    output  reg                                 s_axis_in_tfull,
+    input           [DATA_WIDTH * IN_MUX - 1 : 0]       s_axis_in_tdata,
+    input           [USER_WIDTH * IN_MUX - 1 : 0]       s_axis_in_tuser,
+    input                                               s_axis_in_tlast,
+    input                                               s_axis_in_tvalid,
+    output  reg                                         s_axis_in_tfull,
 
-    input                                       out_clk_i,
-    input                                       m_axis_out_tready,
-    output  reg     [DATA_WIDTH - 1 : 0]        m_axis_out_tdata,
-    output  reg     [USER_WIDTH - 1 : 0]        m_axis_out_tuser,
-    output  reg                                 m_axis_out_tlast,
-    output  reg                                 m_axis_out_tvalid,
-    output  reg     [$clog2(FIFO_LEN) - 1 : 0]  m_axis_out_tlevel,
-    output  reg                                 m_axis_out_tempty
+    input                                               out_clk_i,
+    input                                               m_axis_out_tready,
+    output  reg     [DATA_WIDTH - 1 : 0]                m_axis_out_tdata,
+    output  reg     [USER_WIDTH - 1 : 0]                m_axis_out_tuser,
+    output  reg                                         m_axis_out_tlast,
+    output  reg                                         m_axis_out_tvalid,
+    output  reg     [$clog2(FIFO_LEN) - 1 : 0]          m_axis_out_tlevel,
+    output  reg                                         m_axis_out_tempty
 );
 
 localparam PTR_WIDTH = $clog2(FIFO_LEN);
@@ -74,7 +75,7 @@ reg [DATA_WIDTH - 1  : 0]           mem [0 : FIFO_LEN - 1];
 reg [USER_WIDTH - 1  : 0]           mem_user [0 : FIFO_LEN - 1];
 reg [USER_WIDTH - 1  : 0]           mem_last [0 : FIFO_LEN - 1];
 
-if (ASYNC) begin
+if (ASYNC) begin  : GEN_ASYNC
     reg [PTR_WIDTH - 1 : 0]             rd_ptr;
     reg [PTR_WIDTH - 1 : 0]             wr_ptr_grey;    
     always @(posedge clk_i) begin
@@ -111,6 +112,7 @@ if (ASYNC) begin
     end
 
     // TODO: tfull, tuser, tlast, tempty, tlevel are not support for ASYNC = 1
+    // ASYNC currently only supports IN_MUX = 1
     always @(posedge clk_i) begin
         s_axis_in_tfull <= '0;
     end
@@ -124,7 +126,7 @@ if (ASYNC) begin
 end
 // -----------------------------------------------------------------------------------------------------
 // SYNC CLOCK
-else begin
+else begin : GEN_SYNC
     reg  [PTR_WIDTH : 0]            wr_ptr;
     reg  [PTR_WIDTH : 0]            rd_ptr;
     wire                            ptr_equal       = wr_ptr[PTR_WIDTH - 1 : 0] == rd_ptr[PTR_WIDTH - 1 : 0];
@@ -145,10 +147,29 @@ else begin
             end
         end else begin
             if (s_axis_in_tvalid) begin
-                mem[wr_ptr_addr] <= s_axis_in_tdata;
-                mem_last[wr_ptr_addr] <= s_axis_in_tlast;
-                if (USER_WIDTH > 0)  mem_user[wr_ptr_addr] <= s_axis_in_tuser;
-                wr_ptr <= wr_ptr + 1;
+                // for (integer i = 0; i < IN_MUX; i = i + 1) begin
+                //     mem[wr_ptr_addr + i] <= s_axis_in_tuser[(i + 1) * USER_WIDTH - 1 -: USER_WIDTH];
+                //     mem_last[wr_ptr_addr + i] <= (i == IN_MUX - 1 ? s_axis_in_tlast : 1'b0);
+                //     if (USER_WIDTH > 0)  mem_user[wr_ptr_addr + i] <= s_axis_in_tuser[(i + 1) * USER_WIDTH - 1 -: USER_WIDTH];
+                // end
+                wr_ptr <= wr_ptr + IN_MUX;
+            end
+        end
+    end
+
+    // its lame that verilog distinguishes between procedural and generational for loops
+    genvar ii;
+    for(ii = 0; ii < IN_MUX; ii = ii + 1) begin : GEN_LOOP
+        wire [DATA_WIDTH - 1 : 0] data = s_axis_in_tdata[DATA_WIDTH * (ii + 1) - 1 -: DATA_WIDTH];
+        if (USER_WIDTH > 0) begin : GEN_USER
+            wire [USER_WIDTH - 1 : 0] user = s_axis_in_tuser[USER_WIDTH * (ii + 1) - 1 -: USER_WIDTH];
+            always @(posedge clk_i)
+            if (s_axis_in_tvalid)  mem_user[wr_ptr_addr + ii] <= user;
+        end
+        always @(posedge clk_i) begin
+            if (s_axis_in_tvalid) begin
+                mem[wr_ptr_addr + ii] <= data;
+                mem_last[wr_ptr_addr + ii] <= (ii == IN_MUX - 1 ? s_axis_in_tlast : 1'b0);
             end
         end
     end
