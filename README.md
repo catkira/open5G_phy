@@ -33,6 +33,12 @@ Implemented so far:<br>
   pip install -e requirements.txt
   git clone https://github.com/catkira/cocotb.git
   cd cocotb && pip install -e . && cd ..
+  git clone https://github.com/verilator/verilator.git
+  git reset v5.006
+  cd verilator
+  ./configure
+  make -j20 && sudo make install
+  cd ..
   pytest --workers 8
 ```
 
