@@ -43,9 +43,9 @@ Implemented so far:<br>
   git reset v5.006
   cd verilator
   ./configure
-  make -j20 && sudo make install
+  make -j$(nproc) && sudo make install
   cd ..
-  pytest --workers 8
+  pytest --workers $(nproc)
 ```
 
 # Decimator
