@@ -18,6 +18,7 @@ module channel_estimator #(
 
     output  reg        [OUT_DW - 1 : 0]             m_axis_out_tdata,
     output  reg        [1 : 0]                      m_axis_out_tuser,    // used for symbol type
+    output  reg                                     m_axis_out_tlast,
     output  reg                                     m_axis_out_tvalid,
 
     // debug ports

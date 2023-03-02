@@ -55,19 +55,19 @@ class TB(object):
 async def simple_test(dut):
     tb = TB(dut)
     CFO = int(os.getenv('CFO'))
-    # CFO = 47 # works  -> DDS_inc 6, 13
-    CFO = 46 # does not work  -> DDS_inc 6, 13
     handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
     waveform = handle.read_samples()
     fs = 30720000
     print(f'CFO = {CFO} Hz')
-    waveform *= np.exp(np.arange(len(waveform))*1j*2*np.pi*CFO/fs)
-    waveform /= max(waveform.real.max(), waveform.imag.max())
+    waveform *= np.exp(np.arange(len(waveform)) * 1j * 2 * np.pi * CFO / fs)
     waveform = scipy.signal.decimate(waveform, 8, ftype='fir')  # decimate to 3.840 MSPS
     fs = 3.84e6
-    waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform *= (2 ** (tb.IN_DW // 2 - 1) - 1)
-    waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
+    waveform /= max(np.abs(waveform.real.max()), np.abs(waveform.imag.max()))
+    MAX_AMPLITUDE = (2 ** (tb.IN_DW // 2 - 1) - 1)
+    waveform *= MAX_AMPLITUDE * 0.98  # need this 0.98 because rounding errors caused overflows, nasty bug!
+    assert np.abs(waveform.real).max().astype(int) <= MAX_AMPLITUDE, "Error: input data overflow!"
+    assert np.abs(waveform.imag).max().astype(int) <= MAX_AMPLITUDE, "Error: input data overflow!"
+    waveform = waveform.real.astype(int) + 1j * waveform.imag.astype(int)
 
     await tb.cycle_reset()
 
@@ -192,7 +192,6 @@ async def simple_test(dut):
         ax.plot(np.real(corrected_PBCH[180 + 72:]), np.imag(corrected_PBCH[180 + 72:]), 'b.')
         plt.show()
 
-    received_PBCH= received_PBCH[:SYMBOL_LEN]
     received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_SIZE]))
     received_PBCH_ideal *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP2_LEN - CP_ADVANCE)))
     received_PBCH_ideal = received_PBCH_ideal[8:][:SYMBOL_LEN]
@@ -203,9 +202,10 @@ async def simple_test(dut):
             axs[0].plot(np.real(received_SSS)[i], np.imag(received_SSS)[i], 'r.')
         for i in range(SSS_LEN):
             axs[0].plot(np.real(received_SSS)[SSS_LEN:][i], np.imag(received_SSS)[SSS_LEN:][i], 'b.')
-        for i in range(len(received_PBCH)):
-            axs[1].plot(np.real(received_PBCH), np.imag(received_PBCH), 'r.')
-            axs[2].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), 'y.')
+        axs[1].plot(np.real(received_PBCH[:SYMBOL_LEN]), np.imag(received_PBCH[:SYMBOL_LEN]), 'r.')
+        axs[1].plot(np.real(received_PBCH[SYMBOL_LEN:][:SYMBOL_LEN]), np.imag(received_PBCH[SYMBOL_LEN:][:SYMBOL_LEN]), 'g.')
+        # axs[1].plot(np.real(received_PBCH[2*SYMBOL_LEN:][:SYMBOL_LEN]), np.imag(received_PBCH[2*SYMBOL_LEN:][:SYMBOL_LEN]), 'b.')
+        axs[2].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), 'y.')
         plt.show()
 
     peak_pos = np.argmax(received)
@@ -390,4 +390,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=200, CP_ADVANCE = 18, USE_TAP_FILE = 1)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2300, CP_ADVANCE = 18, USE_TAP_FILE = 1)
