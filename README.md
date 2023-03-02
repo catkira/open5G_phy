@@ -5,7 +5,7 @@ This is a verilog HDL core for a 5G NR receiver. It is optimized for low ressour
 Cell search is limited to 1 frequency offset range. Within this frequency offset range, the PSS correlator works up to a CFO of about += 10 kHz.
 Each PSS correlator only detects one of the possible three different PSS sequences. If a general cell search for all 3 possible N_id_2's is needed, 3 PSS correlators need to be instanciated in parallel. If CFOs larger than the detection range of the PSS correlator are expected, the different CFO possibilities can be tried sequentially by configuring the receiver via its AXI-lite interface.<br>
 Implemented so far:<br>
-* Decimator which uses [this](https://github.com/catkira/CIC) CIC core
+* Decimator (detailed description below)
 * PSS correlator (detailed description below)
 * Peak detector (detailed description below)
 * FFT demodulator (detailed description below)
@@ -50,7 +50,7 @@ Implemented so far:<br>
 
 # Decimator
 The incoming sample rate to the SSB_sync module should be 3.84 MSPS. This sample rate is then internally decimated to 1.92 MSPS so that the PSS and SSS detection cores can run most efficiently.
-The PBCH demodulation core needs 3.84 MSPS. Decimation is done by a CIC core which does not need any multiplications.
+The PBCH demodulation core needs 3.84 MSPS. Decimation is done by [this](https://github.com/catkira/CIC) CIC core which does not need any multiplications.
 
 # PSS correlator
 Without optimizations the PSS correlator would require 128 * 3 real multipliers, 3 real multipliers for each complex multiplication. The absolute value is calculated by an approximation and does not use any multipliers. This can be further optimized by taking into account that the PSS sequence in time domain is real valued. Therefore the PSS sequence in frequency domain is complex conjugate centrally symmetric. This can be used to reduce the required number of real multipliers to 128 * 2 + 2 as shown in [this](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8641097) paper. <br>
