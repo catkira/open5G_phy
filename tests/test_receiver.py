@@ -35,6 +35,7 @@ class TB(object):
         self.ALGO = int(dut.ALGO.value)
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
         self.CP_ADVANCE = int(dut.CP_ADVANCE.value)
+        self.LLR_DW = int(dut.LLR_DW.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -80,6 +81,7 @@ async def simple_test(dut):
     received_PBCH = []
     received_SSS = []
     corrected_PBCH = []
+    received_PBCH_LLR = []
     fft_started = False
     CP2_LEN = 18
     CP_ADVANCE = tb.CP_ADVANCE
@@ -129,9 +131,12 @@ async def simple_test(dut):
         # if dut.m_axis_SSS_tvalid.value.integer == 1:
         #     print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
 
+        if dut.m_axis_llr_out_tvalid.value == 1 and dut.m_axis_llr_out_tuser.value == 1:
+            received_PBCH_LLR.append(_twos_comp(dut.m_axis_llr_out_tdata.value.integer & (2 ** (tb.LLR_DW // 2) - 1), tb.LLR_DW // 2))
+
         if dut.m_axis_cest_out_tvalid.value == 1 and dut.m_axis_cest_out_tuser.value == 1:
             corrected_PBCH.append(_twos_comp(dut.m_axis_cest_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.m_axis_cest_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))    
+                + 1j * _twos_comp((dut.m_axis_cest_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
         if dut.PBCH_valid_o.value.integer == 1:
             # print(f"rx PBCH[{len(received_PBCH):3d}] re = {dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1):4x} " \
@@ -156,7 +161,9 @@ async def simple_test(dut):
 
     assert len(received_SSS) == 2 * SSS_LEN
     print(f'received {len(corrected_PBCH)} PBCH IQ samples')
+    print(f'received {len(received_PBCH_LLR)} PBCH LLRs samples')
     assert len(corrected_PBCH) == 432, print('received PBCH does not have correct length!')
+    assert len(received_PBCH_LLR) == 432 * 2, print('received PBCH LLRs do not have correct length!')
 
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
     ideal_SSS_sym *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP2_LEN - CP_ADVANCE)))
@@ -243,9 +250,12 @@ async def simple_test(dut):
     ibar_SSB = 0 # TODO grab this from hdl
     nVar = 1
     corrected_PBCH = np.array(corrected_PBCH)
-    for mode in ['hard', 'soft']:
+    for mode in ['hard', 'soft', 'hdl']:
         print(f'demodulation mode: {mode}')
-        pbchBits = py3gpp.nrSymbolDemodulate(corrected_PBCH, 'QPSK', nVar, mode)  
+        if mode == 'hdl':
+            pbchBits = np.array(received_PBCH_LLR)
+        else:
+            pbchBits = py3gpp.nrSymbolDemodulate(corrected_PBCH, 'QPSK', nVar, mode)
 
         E = 864
         v = ibar_SSB
@@ -268,7 +278,6 @@ async def simple_test(dut):
             print("nrPolarDecode: PBCH CRC failed")
         assert crc_result == 0
 
-
 @pytest.mark.parametrize("ALGO", [0])
 @pytest.mark.parametrize("IN_DW", [32])
 @pytest.mark.parametrize("OUT_DW", [32])
@@ -277,7 +286,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("CFO", [0, 1200])
 @pytest.mark.parametrize("CP_ADVANCE", [9, 18])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE):
+@pytest.mark.parametrize("LLR_DW", [16])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE, LLR_DW):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -291,6 +301,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
         os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
         os.path.join(rtl_dir, 'frame_sync.sv'),
         os.path.join(rtl_dir, 'channel_estimator.sv'),
+        os.path.join(rtl_dir, 'demap.sv'),
         os.path.join(rtl_dir, 'PSS_detector_regmap.sv'),
         os.path.join(rtl_dir, 'AXI_lite_interface.sv'),
         os.path.join(rtl_dir, 'PSS_detector.sv'),
@@ -318,7 +329,6 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
         os.path.join(rtl_dir, 'FFT/buffers/inbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/outbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v')
-        #os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v')
     ]
     if os.environ.get('SIM') != 'verilator':
         verilog_sources.append(os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v'))
@@ -338,6 +348,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['CP_ADVANCE'] = CP_ADVANCE
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
+    parameters['LLR_DW'] = LLR_DW
     os.environ['CFO'] = str(CFO)
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
@@ -390,4 +401,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2300, CP_ADVANCE = 18, USE_TAP_FILE = 1)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2300, CP_ADVANCE = 18, USE_TAP_FILE = 1, LLR_DW = 16)

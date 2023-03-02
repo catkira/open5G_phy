@@ -265,9 +265,9 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'SSS_detector.sv'),
-        os.path.join(rtl_dir, 'LFSR/LFSR.sv'),        
+        os.path.join(rtl_dir, 'LFSR/LFSR.sv'),     
         os.path.join(rtl_dir, 'FFT_demod.sv'),
-        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v'),        
+        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v'),
         os.path.join(rtl_dir, 'CIC/cic_d.sv'),
         os.path.join(rtl_dir, 'CIC/comb.sv'),
         os.path.join(rtl_dir, 'CIC/downsampler.sv'),
@@ -286,7 +286,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE)
         os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v')
     ]
     if os.environ.get('SIM') != 'verilator':
-        verilog_sources.append(os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v'))    
+        verilog_sources.append(os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v'))
     includes = [
         os.path.join(rtl_dir, 'CIC'),
         os.path.join(rtl_dir, 'fft-core')

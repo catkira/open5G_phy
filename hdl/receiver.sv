@@ -22,6 +22,7 @@ module receiver
     parameter TAP_FILE_0 = "",
     parameter TAP_FILE_1 = "",
     parameter TAP_FILE_2 = "",
+    parameter LLR_DW = 8,
 
     localparam FFT_OUT_DW `VL_RD = 32,
     localparam N_id_1_MAX `VL_RD = 335,
@@ -40,10 +41,17 @@ module receiver
 
     output                                          PBCH_valid_o,
     output                                          SSS_valid_o,
+
     output          [FFT_OUT_DW-1:0]                m_axis_cest_out_tdata,
     output          [1 : 0]                         m_axis_cest_out_tuser,
     output                                          m_axis_cest_out_tlast,
     output                                          m_axis_cest_out_tvalid,
+
+    output          [LLR_DW - 1 : 0]                m_axis_llr_out_tdata,
+    output          [1 : 0]                         m_axis_llr_out_tuser,
+    output                                          m_axis_llr_out_tlast,
+    output                                          m_axis_llr_out_tvalid,
+
     output          [FFT_OUT_DW-1:0]                m_axis_demod_out_tdata,
     output                                          m_axis_demod_out_tvalid,
     output          [$clog2(N_id_1_MAX) - 1 : 0]    m_axis_SSS_tdata,
@@ -368,6 +376,25 @@ channel_estimator_i(
 
     .debug_ibar_SSB_o(ce_ibar_SSB),
     .debug_ibar_SSB_valid_o(ce_ibar_SSB_valid)
+);
+
+demap #(
+    .IQ_DW(IN_DW / 2),
+    .LLR_DW(LLR_DW)
+)
+demap_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+
+    .s_axis_in_tdata(m_axis_cest_out_tdata),
+    .s_axis_in_tuser(m_axis_cest_out_tuser),
+    .s_axis_in_tlast(m_axis_cest_out_tlast),
+    .s_axis_in_tvalid(m_axis_cest_out_tvalid),
+
+    .m_axis_out_tdata(m_axis_llr_out_tdata),
+    .m_axis_out_tuser(m_axis_llr_out_tuser),
+    .m_axis_out_tlast(m_axis_llr_out_tlast),
+    .m_axis_out_tvalid(m_axis_llr_out_tvalid)
 );
 
 endmodule
