@@ -242,11 +242,12 @@ async def simple_test3(dut):
         else:
             dut.s_axis_in_tvalid.value = 0
 
-        if dut.m_axis_out_tvalid.value == 1 and dut.m_axis_out_tuser.value == 1:
+        if (dut.m_axis_out_tvalid.value == 1) and (dut.m_axis_out_tuser.value == 1):
             corrected_PBCH[corrected_PBCH_sym_cnt, corrected_PBCH_idx] = _twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2) \
                 + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
             corrected_PBCH_idx += 1
-        if corrected_PBCH_idx == 432:
+        
+        if dut.m_axis_out_tlast.value == 1:
             corrected_PBCH_sym_cnt += 1
             corrected_PBCH_idx = 0
 

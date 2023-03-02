@@ -28,6 +28,7 @@ module AXIS_FIFO #(
 
     input           [DATA_WIDTH - 1 : 0]        s_axis_in_tdata,
     input           [USER_WIDTH - 1 : 0]        s_axis_in_tuser,
+    input                                       s_axis_in_tlast,
     input                                       s_axis_in_tvalid,
     output  reg                                 s_axis_in_tfull,
 
@@ -35,6 +36,7 @@ module AXIS_FIFO #(
     input                                       m_axis_out_tready,
     output  reg     [DATA_WIDTH - 1 : 0]        m_axis_out_tdata,
     output  reg     [USER_WIDTH - 1 : 0]        m_axis_out_tuser,
+    output  reg                                 m_axis_out_tlast,
     output  reg                                 m_axis_out_tvalid,
     output  reg     [$clog2(FIFO_LEN) - 1 : 0]  m_axis_out_tlevel,
     output  reg                                 m_axis_out_tempty
@@ -69,6 +71,7 @@ endfunction
 
 reg [DATA_WIDTH - 1  : 0]           mem [0 : FIFO_LEN - 1];
 reg [USER_WIDTH - 1  : 0]           mem_user [0 : FIFO_LEN - 1];
+reg [USER_WIDTH - 1  : 0]           mem_last [0 : FIFO_LEN - 1];
 
 if (ASYNC) begin
     reg [PTR_WIDTH - 1 : 0]             rd_ptr;
@@ -94,7 +97,6 @@ if (ASYNC) begin
         if (!reset_ni) begin
             m_axis_out_tdata <= '0;
             m_axis_out_tvalid <= '0;
-            m_axis_out_tuser <= '0;
             rd_ptr <= '0;
         end else begin
             if ((rd_ptr != g2b(wr_ptr_grey)) && m_axis_out_tready) begin
@@ -108,12 +110,14 @@ if (ASYNC) begin
         end
     end
 
-    // TODO: tfull, tempty, tlevel are not support for ASYNC = 1
+    // TODO: tfull, tuser, tlast, tempty, tlevel are not support for ASYNC = 1
     always @(posedge clk_i) begin
         s_axis_in_tfull <= '0;
     end
 
     always @(posedge out_clk_i) begin
+        m_axis_out_tuser <= '0;
+        m_axis_out_tlast <= '0;
         m_axis_out_tempty <= 1;
         m_axis_out_tlevel <= '0;
     end
@@ -137,10 +141,12 @@ else begin
             for(integer i = 0; i < FIFO_LEN; i = i + 1) begin
                 mem[i] = '0;  // Non-delayed for verilator
                 if (USER_WIDTH > 0)  mem_user[i] = '0;
+                mem_last[i] = '0;
             end
         end else begin
             if (s_axis_in_tvalid) begin
                 mem[wr_ptr_addr] <= s_axis_in_tdata;
+                mem_last[wr_ptr_addr] <= s_axis_in_tlast;
                 if (USER_WIDTH > 0)  mem_user[wr_ptr_addr] <= s_axis_in_tuser;
                 wr_ptr <= wr_ptr + 1;
             end
@@ -152,13 +158,15 @@ else begin
     always @(posedge clk_i) begin
         if (!reset_ni) begin
             m_axis_out_tdata <= '0;
-            m_axis_out_tvalid <= '0;
+            m_axis_out_tlast <= '0;
             m_axis_out_tuser <= '0;            
+            m_axis_out_tvalid <= '0;
             rd_ptr <= '0;
         end else begin
             // output tdata and tuser as early as possible, even if tready is not yet asserted
             // this is a feature and can be used to peek inside the fifo without taking data out !
             m_axis_out_tdata <= mem[rd_ptr_addr];
+            m_axis_out_tlast <= mem_last[rd_ptr_addr];
             if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr];                
 
             if ((!empty) && m_axis_out_tready) begin

@@ -42,6 +42,7 @@ module receiver
     output                                          SSS_valid_o,
     output          [FFT_OUT_DW-1:0]                m_axis_cest_out_tdata,
     output          [1 : 0]                         m_axis_cest_out_tuser,
+    output                                          m_axis_cest_out_tlast,
     output                                          m_axis_cest_out_tvalid,
     output          [FFT_OUT_DW-1:0]                m_axis_demod_out_tdata,
     output                                          m_axis_demod_out_tvalid,
@@ -362,6 +363,7 @@ channel_estimator_i(
 
     .m_axis_out_tdata(m_axis_cest_out_tdata),
     .m_axis_out_tuser(m_axis_cest_out_tuser),
+    .m_axis_out_tlast(m_axis_cest_out_tlast),
     .m_axis_out_tvalid(m_axis_cest_out_tvalid),
 
     .debug_ibar_SSB_o(ce_ibar_SSB),

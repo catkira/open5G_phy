@@ -392,7 +392,6 @@ reg  signed [PHASE_DW - 1 : 0] corr_angle_DDS_in;
 reg                            corr_angle_DDS_valid_in;
 localparam  [1 : 0]            SYMBOL_TYPE_OTHER = 0;
 localparam  [1 : 0]            SYMBOL_TYPE_PBCH = 1;
-localparam  [1 : 0]            SYMBOL_TYPE_END = 2;
 reg         [1 : 0]            symbol_type;
 reg         [2 : 0]            remaining_syms;
 localparam                     SYMS_PER_PBCH = 3;
@@ -410,6 +409,7 @@ always @(posedge clk_i) begin
         remaining_syms <= '0;
         corr_data_fifo_in_valid <= '0;
         corr_data_fifo_in_data <= '0;
+        corr_data_fifo_in_last <= '0;
         start_idx <= '0;
         ibar_SSB_buf <= '0;
     end else begin
@@ -494,6 +494,12 @@ always @(posedge clk_i) begin
                         end
                     end
 
+                    if (SC_cnt == FFT_LEN - 2 - ZERO_CARRIERS) begin
+                        corr_data_fifo_in_last <= remaining_syms == 0;
+                    end else begin
+                        corr_data_fifo_in_last <= '0;
+                    end
+
                     if (SC_cnt == FFT_LEN - 1 - ZERO_CARRIERS) begin
                         if (remaining_syms > 0) begin
                             // if (symbol_type == SYMBOL_TYPE_PBCH)  $display("starting with PBCH symbol %d", SYMS_PER_PBCH - remaining_syms);
@@ -504,7 +510,6 @@ always @(posedge clk_i) begin
                             state_corrector <= WAIT_FOR_INPUTS;
                             symbol_cnt <= symbol_cnt + 1;
                         end
-                        corr_data_fifo_in_tuser <= SYMBOL_TYPE_END;
                     end else begin
                         corr_data_fifo_in_tuser <= symbol_type;
                         SC_cnt <= SC_cnt + 1;
@@ -539,10 +544,14 @@ always @(posedge clk_i) begin
                         corr_data_fifo_in_valid <= 1;          
                     end
 
+                    if (SC_cnt == FFT_LEN - 2 - ZERO_CARRIERS) begin
+                        corr_data_fifo_in_last <= remaining_syms == 0;
+                    end else begin
+                        corr_data_fifo_in_last <= '0;
+                    end                    
+
                     if (SC_cnt == FFT_LEN - 1 - ZERO_CARRIERS) begin
                         state_corrector <= WAIT_FOR_INPUTS;
-                        symbol_type <= SYMBOL_TYPE_END;
-                        corr_data_fifo_in_tuser <= SYMBOL_TYPE_END;
                         if (symbol_cnt == SYMS_BTWN_SSB - 1)    symbol_cnt <= '0;
                         else                                    symbol_cnt <= symbol_cnt + 1;
                     end else begin
@@ -552,6 +561,7 @@ always @(posedge clk_i) begin
                 end
                 else begin
                     corr_angle_DDS_in <= 0;
+                    corr_data_fifo_in_last <= '0;
                     corr_data_fifo_in_valid <= '0;
                     corr_angle_DDS_valid_in <= '0;
                 end
@@ -612,6 +622,8 @@ reg [IN_DW - 1 : 0] corr_data_fifo_out_data;
 reg corr_data_fifo_out_valid;
 reg corr_data_fifo_out_empty;
 reg corr_data_fifo_out_ready;
+reg corr_data_fifo_out_last;
+reg corr_data_fifo_in_last;
 reg [1 : 0] corr_data_fifo_in_tuser;
 reg [$clog2(FFT_LEN) - 1 : 0] corr_data_fifo_out_level;
 reg [1 : 0] corr_data_fifo_out_symbol_type;
@@ -625,14 +637,16 @@ corr_data_fifo_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
     .s_axis_in_tdata(corr_data_fifo_in_data),
-    .s_axis_in_tvalid(corr_data_fifo_in_valid),
     .s_axis_in_tuser(corr_data_fifo_in_tuser),
+    .s_axis_in_tlast(corr_data_fifo_in_last),
+    .s_axis_in_tvalid(corr_data_fifo_in_valid),
 
     .m_axis_out_tready(corr_data_fifo_out_ready),
     .m_axis_out_tdata(corr_data_fifo_out_data),
     .m_axis_out_tvalid(corr_data_fifo_out_valid),
     .m_axis_out_tempty(corr_data_fifo_out_empty),
     .m_axis_out_tuser(corr_data_fifo_out_symbol_type),
+    .m_axis_out_tlast(corr_data_fifo_out_last),
     .m_axis_out_tlevel(corr_data_fifo_out_level)
 );
 
@@ -640,15 +654,24 @@ corr_data_fifo_i(
 // because the delay line and complex multiplier needs some clks
 localparam COMPLEX_MULT_DELAY = 6;
 localparam CORR_DATA_DELAY = 4;
-localparam CORR_DELAY = CORR_DATA_DELAY + COMPLEX_MULT_DELAY + 2;
+localparam CORR_DELAY = CORR_DATA_DELAY + COMPLEX_MULT_DELAY;
 reg [1 : 0] symbol_type_delayed [0 : CORR_DELAY - 1];
+reg         tlast_delayed [0 : CORR_DELAY - 1];
 assign m_axis_out_tuser = symbol_type_delayed[CORR_DELAY - 1];
+assign m_axis_out_tlast = tlast_delayed[CORR_DELAY - 1];
 always @(posedge clk_i) begin
     if (!reset_ni) begin
-        for (integer i = 0; i < CORR_DELAY; i = i + 1)  symbol_type_delayed[i] <= '0;
+        for (integer i = 0; i < CORR_DELAY; i = i + 1) begin
+            symbol_type_delayed[i] <= '0;
+            tlast_delayed[i] <= '0;
+        end
     end else begin
         symbol_type_delayed[0] <= corr_data_fifo_out_symbol_type;
-        for (integer i = 0; i < CORR_DELAY - 1; i = i + 1)  symbol_type_delayed[i + 1] <= symbol_type_delayed[i];
+        tlast_delayed[0] <= corr_data_fifo_out_last;
+        for (integer i = 0; i < CORR_DELAY - 1; i = i + 1)  begin
+            symbol_type_delayed[i + 1] <= symbol_type_delayed[i];
+            tlast_delayed[i + 1] <= tlast_delayed[i];
+        end
     end
 end
 
@@ -656,19 +679,23 @@ end
 // output of corr_data_fifo_out_data has to be delayed by 0 .. 3 cycles, depending on the pilot location
 reg signed [IN_DW - 1 : 0] corr_data_delayed [0 : CORR_DATA_DELAY - 1];
 reg                        corr_valid_delayed [0 : CORR_DATA_DELAY - 1];
+reg                        corr_last_delayed [0 : CORR_DATA_DELAY - 1];
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         for (integer i = 0; i < 4; i = i + 1) begin
             corr_data_delayed[i] = '0;
             corr_valid_delayed[i] = '0;
+            corr_last_delayed[i] = '0;
         end
     end else begin
         for (integer i = 0; i < 4; i = i + 1) begin
             if (i == 0)  begin
                 corr_data_delayed[0] <= corr_data_fifo_out_data;
+                corr_last_delayed[0] <= corr_data_fifo_out_last;
                 corr_valid_delayed[0] <= corr_data_fifo_out_valid;
             end else begin
                 corr_data_delayed[i] = corr_data_delayed[i - 1];
+                corr_last_delayed[i] <= corr_last_delayed[i - 1];
                 corr_valid_delayed[i] = corr_valid_delayed[i - 1];
             end
         end
@@ -708,9 +735,9 @@ always @(posedge clk_i) begin
                 end
             end
             STATE_INTERP_INTERPOLATE : begin
-                if ((corr_data_fifo_out_symbol_type == SYMBOL_TYPE_END) && corr_data_fifo_out_valid) begin
-                    corr_angle_fifo_out_ready <= '0;
+                if (corr_data_fifo_out_last && corr_data_fifo_out_valid) begin
                     corr_data_fifo_out_ready <= '0;
+                    corr_angle_fifo_out_ready <= '0;
                     state_interp <= STATE_INTERP_WAIT_FOR_START;
                 end else if (!corr_angle_fifo_out_empty) begin
                     corr_data_fifo_out_ready <= '1;
