@@ -64,7 +64,7 @@ async def simple_test(dut):
     fs = 3.84e6
     waveform /= max(np.abs(waveform.real.max()), np.abs(waveform.imag.max()))
     MAX_AMPLITUDE = (2 ** (tb.IN_DW // 2 - 1) - 1)
-    waveform *= MAX_AMPLITUDE * 0.98  # need this 0.98 because rounding errors caused overflows, nasty bug!
+    waveform *= MAX_AMPLITUDE * 0.9  # need this 0.9 because rounding errors caused overflows, nasty bug!
     assert np.abs(waveform.real).max().astype(int) <= MAX_AMPLITUDE, "Error: input data overflow!"
     assert np.abs(waveform.imag).max().astype(int) <= MAX_AMPLITUDE, "Error: input data overflow!"
     waveform = waveform.real.astype(int) + 1j * waveform.imag.astype(int)
