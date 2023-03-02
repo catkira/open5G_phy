@@ -13,7 +13,7 @@ Implemented so far:<br>
 * Frame sync (detailed description below)
 * Channel estimator (detailed description below)
 
-Disclaimer: It is unlikely that this low ressource implementation will become a 5G NR phy with all possible features. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication.
+<b>Disclaimer: It is unlikely that this low ressource implementation will become a 5G NR phy with all possible features. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication. </b>
 
 ![Overview diagram](doc/overview.jpg)
 
