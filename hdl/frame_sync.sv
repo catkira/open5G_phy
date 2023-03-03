@@ -20,6 +20,7 @@ module frame_sync #(
     output  reg        [1 : 0]                      requested_N_id_2_o,
 
     output  reg        [OUT_DW - 1 : 0]             m_axis_out_tdata,
+    output  reg        [20 : 0]                     m_axis_out_tuser,
     output  reg                                     m_axis_out_tvalid,
     output  reg        [$clog2(MAX_CP_LEN) - 1: 0]  CP_len_o,
     output  reg                                     symbol_start_o,
@@ -30,8 +31,10 @@ always @(posedge clk_i) begin
     if (!reset_ni) begin
         m_axis_out_tdata <= '0;
         m_axis_out_tvalid <= '0;
+        m_axis_out_tuser <= '0;
     end else begin
         m_axis_out_tdata <= s_axis_in_tdata;
+        // TODO: put subframe number, slot number, symbol number into tuser
         m_axis_out_tvalid <= s_axis_in_tvalid;
     end
 end
