@@ -98,7 +98,9 @@ This core keeps track of the current frame, subframe, slot and symbol number and
 ![Frame structure diagram](doc/frame_structure.jpg)
 It currently only supports 15 kHz SCS (subcarrier spacing) and the frame structure shown in the diagram above.
 It sends the PSS detector to sleep for 20 ms after a SSB was detected.
-This core also sends the sync signals like PBCH_start to the FFT_demod core. The FFT_demod core needs this timing information, so that it can use long and short CP (Cyclic Prefix) when needed.
+This core also sends the sync signals like SSB_start to the FFT_demod core. The FFT_demod core needs this timing information to generate timing information like SSS_valid and symbol_type information in its tuser output.
+<br>
+TODO: output frame, subframe, slot and symbol number together with SSB_start and CP length of current symbol in tuser.
 
 # Channel estimator
 The channel estimator currently only corrects the phase angles, this is enough for BPSK and QPSK demodulation. It also detects the PBCH DMRS (DeModulation Reference Sequence) by comparing the incoming pilots with the 8 possible ibar_SSB configurations. The detected ibar_SSB is then send to the frame_sync core which uses this signal to align itself to the right subframe number.
