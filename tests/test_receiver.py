@@ -203,7 +203,7 @@ async def simple_test(dut):
     received_PBCH_ideal = received_PBCH_ideal[8:][:SYMBOL_LEN]
     received_PBCH_ideal = (received_PBCH_ideal.real.astype(int) + 1j * received_PBCH_ideal.imag.astype(int))
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
-        _, axs = plt.subplots(3, 1, figsize=(5, 10))
+        _, axs = plt.subplots(1, 3, figsize=(10, 5))
         axs[0].set_title('CFO corrected SSS')
         axs[0].plot(np.real(received_SSS)[:SSS_LEN], np.imag(received_SSS)[:SSS_LEN], 'r.')
         axs[0].plot(np.real(received_SSS)[SSS_LEN:][:SSS_LEN], np.imag(received_SSS)[SSS_LEN:][:SSS_LEN], 'b.')
