@@ -34,7 +34,11 @@ Implemented so far:<br>
 * Channel estimator  :  ? DSP slices
 
 # Tests
+Testbenches are written in Python using cocotb. For simulation both iverilog and verilator are used. Iverilog is used for short tests whereas iverilog is used for tests with larger data throughput.
+<br>
+To install the necessary requirements for running the tests do (assuming You start in the dir where this repo is cloned):
 ```
+  cd ..
   sudo apt install iverilog
   pip install -e requirements.txt
   git clone https://github.com/catkira/cocotb.git
@@ -45,7 +49,15 @@ Implemented so far:<br>
   ./configure
   make -j$(nproc) && sudo make install
   cd ..
+  cd open5G_rx
+```
+Then to run all tests do:
+```
   pytest --workers $(nproc)
+```
+If You only want to run a simulation of the receiver do:
+```
+  pytest --workers $(nproc) tests/test_receiver.py
 ```
 
 # Decimator
