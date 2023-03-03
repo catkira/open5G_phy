@@ -246,6 +246,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE):
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'CFO_calc.sv'),
         os.path.join(rtl_dir, 'FFT_demod.sv'),
+        os.path.join(rtl_dir, 'frame_sync.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v'),
         os.path.join(rtl_dir, 'CIC/cic_d.sv'),
         os.path.join(rtl_dir, 'CIC/comb.sv'),

@@ -104,7 +104,7 @@ assign fft_sync_debug_o = fft_sync;
 
 // this delay line is needed because peak_detected goes high
 // at the end of SSS symbol plus some additional delay
-localparam DELAY_LINE_LEN = 16;
+localparam DELAY_LINE_LEN = 14;
 reg [IN_DW-1:0] delay_line_data  [0 : DELAY_LINE_LEN - 1];
 reg             delay_line_valid [0 : DELAY_LINE_LEN - 1];
 always @(posedge clk_i) begin
@@ -123,6 +123,37 @@ always @(posedge clk_i) begin
     end
 end
 
+reg [IN_DW - 1 : 0]     fs_out_tdata;
+reg fs_out_tvalid;
+reg fs_out_SSB_start;
+reg fs_out_symbol_start;
+wire fs_out_tlast;
+
+frame_sync #(
+    .IN_DW(IN_DW)
+)
+frame_sync_i
+(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+    .N_id_2_i(),
+    .N_id_2_valid_i(peak_detected),
+    .ibar_SSB_i(),
+    .ibar_SSB_valid_i(),
+    .s_axis_in_tdata(delay_line_data[DELAY_LINE_LEN - 1]),
+    .s_axis_in_tvalid(delay_line_valid[DELAY_LINE_LEN - 1]),
+
+    .PSS_detector_mode_o(),
+    .requested_N_id_2_o(),
+
+    .m_axis_out_tdata(fs_out_tdata),
+    .m_axis_out_tuser(),
+    .m_axis_out_tlast(fs_out_tlast),
+    .m_axis_out_tvalid(fs_out_tvalid),
+    .symbol_start_o(fs_out_symbol_start),
+    .SSB_start_o(fs_out_SSB_start)
+);
+
 FFT_demod #(
     .IN_DW(IN_DW),
     .CP_ADVANCE(CP_ADVANCE)
@@ -130,10 +161,10 @@ FFT_demod #(
 FFT_demod_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
-    .SSB_start_i(peak_detected),
-    .s_axis_in_tdata(delay_line_data[DELAY_LINE_LEN-1]),
-    .s_axis_in_tvalid(delay_line_valid[DELAY_LINE_LEN-1]),
-
+    .SSB_start_i(fs_out_SSB_start),
+    .s_axis_in_tdata(fs_out_tdata),
+    .s_axis_in_tlast(fs_out_tlast),
+    .s_axis_in_tvalid(fs_out_tvalid),
     .m_axis_out_tdata(m_axis_out_tdata),
     .m_axis_out_tuser(),
     .m_axis_out_tlast(),
