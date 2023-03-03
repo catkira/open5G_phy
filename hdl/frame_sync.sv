@@ -20,22 +20,26 @@ module frame_sync #(
     output  reg        [1 : 0]                      requested_N_id_2_o,
 
     output  reg        [OUT_DW - 1 : 0]             m_axis_out_tdata,
-    output  reg        [20 : 0]                     m_axis_out_tuser,
+    output  reg        [13 : 0]                     m_axis_out_tuser,
+    output  reg                                     m_axis_out_tlast,
     output  reg                                     m_axis_out_tvalid,
-    output  reg        [$clog2(MAX_CP_LEN) - 1: 0]  CP_len_o,
     output  reg                                     symbol_start_o,
     output  reg                                     SSB_start_o
 );
 
+reg [$clog2(MAX_CP_LEN) - 1: 0] CP_len;
+localparam SYM_PER_SF = 14;
+localparam SFN_MAX = 20;
+reg [IN_DW - 1 : 0] s_axis_in_tdata_f;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         m_axis_out_tdata <= '0;
-        m_axis_out_tvalid <= '0;
         m_axis_out_tuser <= '0;
+        s_axis_in_tdata_f <= '0;
     end else begin
-        m_axis_out_tdata <= s_axis_in_tdata;
-        // TODO: put subframe number, slot number, symbol number into tuser
-        m_axis_out_tvalid <= s_axis_in_tvalid;
+        s_axis_in_tdata_f <= s_axis_in_tdata;
+        m_axis_out_tdata <= s_axis_in_tdata_f;
+        m_axis_out_tuser <= {sfn,  sym_cnt[$clog2(SYM_PER_SF) - 1 : 0], current_CP_len};
     end
 end
 
@@ -107,8 +111,6 @@ end
 // sym_cnt is the current symbol number within the current subframe
 //
 // TODO: add timeout to WAIT_FOR_IBAR state
-localparam SFN_MAX = 20;
-localparam SYM_PER_SF = 14;
 localparam FFT_LEN = 256;
 localparam CP1_LEN = 20;
 localparam CP2_LEN = 18;
@@ -139,11 +141,14 @@ always @(posedge clk_i) begin
         symbol_start_o <= '0;
         SSB_start_o <= '0;
         syms_to_next_SSB <= '0;
+        m_axis_out_tvalid <= '0;
+        m_axis_out_tlast <= '0;
     end else begin
         case (state)
             WAIT_FOR_SSB: begin
                 if (N_id_2_valid_i) begin
                     sample_cnt <= 1;
+                    m_axis_out_tvalid <= 1;
                     // whether we are on symbol 3 or symbol 9 depends on ibar_SSB
                     // assume for now that we are at symbol 3
                     // it might have to be corrected once ibar_SSB arrives
@@ -182,6 +187,7 @@ always @(posedge clk_i) begin
 
                 if (s_axis_in_tvalid) begin
                     if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
+                        m_axis_out_tlast <= 1;
                         sym_cnt = sym_cnt + 1;
                         if (sym_cnt >= SYM_PER_SF) begin  // perform modulo SYM_PER_SF operation
                             sym_cnt = sym_cnt - SYM_PER_SF;
@@ -193,6 +199,7 @@ always @(posedge clk_i) begin
                         syms_to_next_SSB <= syms_to_next_SSB + 1;                        
                     end else begin
                         sample_cnt <= sample_cnt + 1;
+                        m_axis_out_tlast <= '0;
                     end
                 end
             end
@@ -203,17 +210,18 @@ always @(posedge clk_i) begin
 
                 if (find_SSB) begin
                     if (N_id_2_valid_i) begin
+                        m_axis_out_tvalid <= 1;
                         // expected sample_cnt is 0, if actual sample_cnt deviates +-1, perform realignment
                         if (sample_cnt == 0) begin
                             // SSB arrives as expected, no STO correction needed
                             $display("SSB is on time");
                         end else if (sample_cnt < 2) begin
                             // SSB arrives too late
-                            // correct this STO by outputting symbol_start and PBCH_start a bit later
+                            // correct this STO by outputting symbol_start and SSB_start a bit later
                             $display("SSB is late");
                         end else if (sample_cnt > (FFT_LEN + current_CP_len - 2)) begin
                             // SSB arrives too early
-                            // correct this STO by outputting symbol_start and PBCH_start a bit earlier
+                            // correct this STO by outputting symbol_start and SSB_start a bit earlier
                             $display("SSB is early");
                         end
                         find_SSB <= '0;
@@ -237,6 +245,7 @@ always @(posedge clk_i) begin
 
                 if (s_axis_in_tvalid) begin
                     if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
+                        m_axis_out_tlast <= 1;
                         sym_cnt = sym_cnt + 1;
                         if (sym_cnt >= SYM_PER_SF) begin  // perform modulo SYM_PER_SF operation
                             sym_cnt = sym_cnt - SYM_PER_SF;
@@ -248,10 +257,12 @@ always @(posedge clk_i) begin
                         syms_to_next_SSB <= syms_to_next_SSB + 1;
                     end else begin
                         sample_cnt <= sample_cnt + 1;
+                        m_axis_out_tlast <= '0;
                     end
 
                     if ((sample_cnt == FFT_LEN + current_CP_len - 2) && (syms_to_next_SSB == (SYMS_BTWN_SSB - 1))) begin
                         find_SSB <= 1;
+                        m_axis_out_tvalid <= '0;
                         $display("find SSB ...");
                     end
                 end

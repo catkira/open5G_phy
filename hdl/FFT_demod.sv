@@ -10,6 +10,8 @@ module FFT_demod #(
     input                                       clk_i,
     input                                       reset_ni,
     input   wire       [IN_DW - 1 : 0]          s_axis_in_tdata,
+    input   wire       [13 : 0]                 s_axis_in_tuser,    
+    input                                       s_axis_in_tlast,
     input                                       s_axis_in_tvalid,
     input                                       SSB_start_i,
     output  reg        [OUT_DW - 1 : 0]         m_axis_out_tdata,
@@ -26,55 +28,52 @@ reg [IN_DW - 1 : 0] in_data_f;
 reg in_valid_f;
 reg [OUT_DW - 1 : 0] out_data_f;
 localparam SSB_LEN = 4;
-reg [2 : 0] state2;
 reg [$clog2(CP_LEN) : 0] CP_cnt;
 reg [$clog2(FFT_LEN) : 0] in_cnt;
 localparam SYMS_BTWN_SSB = 14 * 20;
-reg [$clog2(SYMS_BTWN_SSB) - 1 : 0] current_in_symbol;
+reg [2 : 0] state_in;
+localparam [2 : 0]  STATE_IN_SKIP_CP = 0;
+localparam [2 : 0]  STATE_IN_PROCESS_SYMBOL = 1;
+localparam [2 : 0]  STATE_IN_SKIP_END = 2;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
-        state2 <= '0;
+        state_in <= STATE_IN_SKIP_CP;
         in_cnt <= '0;
-        CP_cnt <= '0;
-        current_in_symbol <= '0;
-    end else if (state2 == 0) begin // wait for SSB
-        if (SSB_start_i) begin
-            CP_cnt <= CP_LEN - CP_ADVANCE;
-            state2 <= 1;
-            // $display("- state2 <= 2");
-        end
-    end else if (state2 == 1) begin // skip CP
-        if (CP_cnt == (CP_LEN - 1)) begin
-            state2 <= 2;
-            // $display("state2 <= 2");
-            CP_cnt <= '0;
-        end else begin
-            // $display("skipping CP %d", fft_in_en);
-            CP_cnt <= s_axis_in_tvalid ? CP_cnt + 1 : CP_cnt;
-        end
-    end else if (state2 == 2) begin //
-        if (in_cnt != (FFT_LEN - 1)) begin
-            in_cnt <= s_axis_in_tvalid ? in_cnt + 1 : in_cnt;
-        end else begin
+        CP_cnt <= CP_LEN - CP_ADVANCE;
+    end else if (state_in == STATE_IN_SKIP_CP) begin // skip CP
+        if (s_axis_in_tvalid) begin
             in_cnt <= '0;
-            // $display("state2 <= 1");
-            if (current_in_symbol == SYMS_BTWN_SSB - 1) begin
-                current_in_symbol <= '0;
-                state2 <= 0;
+            if (CP_cnt == (CP_LEN - 1)) begin
+                state_in <= STATE_IN_PROCESS_SYMBOL;
+                CP_cnt <= '0;
             end else begin
-                current_in_symbol <= current_in_symbol + 1;
-                state2 <= 1;
+                CP_cnt <= CP_cnt + 1;
             end
         end
+    end else if (state_in == STATE_IN_PROCESS_SYMBOL) begin // process symbol
+        if (s_axis_in_tvalid) begin
+            if (in_cnt != (FFT_LEN - 1)) begin
+                in_cnt <= in_cnt + 1;
+            end else if (s_axis_in_tlast) begin
+                state_in <= STATE_IN_SKIP_CP;
+                CP_cnt <= CP_LEN - CP_ADVANCE;
+            end else begin
+                state_in <= STATE_IN_SKIP_END;
+                CP_cnt <= CP_LEN - CP_ADVANCE;
+            end
+        end
+    end else if (state_in == STATE_IN_SKIP_END) begin // skip repetition at end of symbol
+        if (s_axis_in_tvalid && s_axis_in_tlast) state_in <= STATE_IN_SKIP_CP;
     end
-    in_data_f <= s_axis_in_tdata;
-    in_valid_f <= s_axis_in_tvalid;
+
+    if (s_axis_in_tvalid) begin
+        in_data_f <= s_axis_in_tdata;
+        in_valid_f <= s_axis_in_tvalid;
+    end
 end
 
 
 // This process generates sync signals at the FFT output
-
-// TODO: filter out zero carrier here already !!
 
 localparam SC_START = 8;
 localparam SC_USED = 240;
@@ -130,7 +129,7 @@ wire fft_sync = fft_val && (out_cnt == 0);
 wire fft_val;
 reg fft_val_f;
 
-wire fft_in_en = in_valid_f && (state2 == 2);
+wire fft_in_en = in_valid_f && (state_in == STATE_IN_PROCESS_SYMBOL);
 
 fft #(
     .NFFT(NFFT),

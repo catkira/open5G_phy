@@ -65,7 +65,7 @@ async def simple_test(dut):
     fs = 3.84e6
     waveform /= max(np.abs(waveform.real.max()), np.abs(waveform.imag.max()))
     MAX_AMPLITUDE = (2 ** (tb.IN_DW // 2 - 1) - 1)
-    waveform *= MAX_AMPLITUDE * 0.9  # need this 0.9 because rounding errors caused overflows, nasty bug!
+    waveform *= MAX_AMPLITUDE * 0.8  # need this 0.8 because rounding errors caused overflows, nasty bug!
     assert np.abs(waveform.real).max().astype(int) <= MAX_AMPLITUDE, "Error: input data overflow!"
     assert np.abs(waveform.imag).max().astype(int) <= MAX_AMPLITUDE, "Error: input data overflow!"
     waveform = waveform.real.astype(int) + 1j * waveform.imag.astype(int)
@@ -88,7 +88,6 @@ async def simple_test(dut):
     FFT_SIZE = 256
     SSS_LEN = 127
     SSS_START = 64
-    # DETECTOR_LATENCY = 18
     DETECTOR_LATENCY = 27
     FFT_OUT_DW = 32
     SYMBOL_LEN = 240
@@ -153,9 +152,9 @@ async def simple_test(dut):
             received_fft.append(_twos_comp(dut.fft_result_debug_o.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
-    assert len(received_SSS) == 2 * SSS_LEN
     print(f'received {len(corrected_PBCH)} PBCH IQ samples')
     print(f'received {len(received_PBCH_LLR)} PBCH LLRs samples')
+    assert len(received_SSS) == 2 * SSS_LEN
     assert len(corrected_PBCH) == 432, print('received PBCH does not have correct length!')
     assert len(received_PBCH_LLR) == 432 * 2, print('received PBCH LLRs do not have correct length!')
 
@@ -211,7 +210,7 @@ async def simple_test(dut):
         axs[1].set_title('CFO corrected PBCH')
         axs[1].plot(np.real(received_PBCH[:SYMBOL_LEN]), np.imag(received_PBCH[:SYMBOL_LEN]), 'r.')
         axs[1].plot(np.real(received_PBCH[SYMBOL_LEN:][:SYMBOL_LEN]), np.imag(received_PBCH[SYMBOL_LEN:][:SYMBOL_LEN]), 'g.')
-        # axs[1].plot(np.real(received_PBCH[2*SYMBOL_LEN:][:SYMBOL_LEN]), np.imag(received_PBCH[2*SYMBOL_LEN:][:SYMBOL_LEN]), 'b.')
+        axs[1].plot(np.real(received_PBCH[2*SYMBOL_LEN:][:SYMBOL_LEN]), np.imag(received_PBCH[2*SYMBOL_LEN:][:SYMBOL_LEN]), 'b.')
         #axs[2].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), 'y.')
 
         axs[2].set_title('CFO and channel corrected PBCH')
@@ -223,26 +222,10 @@ async def simple_test(dut):
     peak_pos = np.argmax(received)
     print(f'highest peak at {peak_pos}')
 
-    # assert len(received_SSS) == 127
-    # for i in range(FFT_SIZE):
-    #     print(f'core : {received_fft[i]}')
-    #     print(f'demod: {received_fft_demod[i]}')
-    # for i in range(len(received_PBCH)):
-    #     print(f'{received_PBCH[i]} <-> {np.fft.fftshift(np.fft.fft(received_fft_ideal[:256]))}')
-    # print('--------------')
-    # for i in range(len(received_PBCH)):
-    #     print(received_PBCH_ideal[i])
-
     NFFT = 8
     scaling_factor = 2**(tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mode
     ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
-    error_signal = received_SSS[:SSS_LEN] - ideal_SSS
-    # for i in range(len(received_SSS)):
-    #     if received_SSS[i] != ideal_SSS[i]:
-    #         print(f'{received_SSS[i]} != {ideal_SSS[i]}')
-    # assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
 
-    # assert np.array_equal(received_PBCH, received_PBCH_ideal)  # TODO: make this pass
     assert peak_pos == 850
     corr = np.zeros(335)
     for i in range(335):
@@ -406,4 +389,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE,
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2300, CP_ADVANCE = 9, USE_TAP_FILE = 1, LLR_DW = 16)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2400, CP_ADVANCE = 9, USE_TAP_FILE = 1, LLR_DW = 16)
