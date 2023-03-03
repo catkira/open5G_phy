@@ -118,12 +118,6 @@ async def simple_test(dut):
             rx_ADC_data.append(waveform[clk_cnt - DETECTOR_LATENCY])
             # print(f'pos = {in_counter - DETECTOR_LATENCY - CFO_CALC_LATENCY}     ---------------------------- ')
 
-        if dut.fft_demod_PBCH_start_o == 1:
-            print(f'{rx_counter}: PBCH start')
-
-        if dut.fft_demod_SSS_start_o == 1 and len(received_fft_demod) == 0:
-            print(f'{rx_counter}: SSS start')
-
         if dut.PBCH_valid_o.value.integer == 1:
             # print(f"rx PBCH[{len(received_PBCH):3d}] re = {dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1):4x} " \
             #     "im = {(dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1):4x}")

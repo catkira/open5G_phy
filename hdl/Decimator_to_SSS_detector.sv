@@ -150,9 +150,9 @@ FFT_demod_i(
     .s_axis_in_tdata(delay_line_data[DELAY_LINE_LEN - 1]),
     .s_axis_in_tvalid(delay_line_valid[DELAY_LINE_LEN - 1]),
     .m_axis_out_tdata(m_axis_out_tdata),
+    .m_axis_out_tuser(),
+    .m_axis_out_tlast(),
     .m_axis_out_tvalid(m_axis_out_tvalid),
-    .PBCH_start_o(fft_demod_PBCH_start_o),
-    .SSS_start_o(fft_demod_SSS_start_o),
     .PBCH_valid_o(PBCH_valid_o),
     .SSS_valid_o(SSS_valid_o)
 );

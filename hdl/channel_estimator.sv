@@ -11,10 +11,10 @@ module channel_estimator #(
     input                                           clk_i,
     input                                           reset_ni,
     input   wire       [IN_DW - 1 : 0]              s_axis_in_tdata,
+    input   wire                                    s_axis_in_tuser,
     input                                           s_axis_in_tvalid,
     input   wire       [$clog2(MAX_CELL_ID) - 1: 0] N_id_i,
     input                                           N_id_valid_i,
-    input                                           PBCH_start_i,
 
     output  reg        [OUT_DW - 1 : 0]             m_axis_out_tdata,
     output  reg        [1 : 0]                      m_axis_out_tuser,    // used for symbol type
@@ -225,7 +225,7 @@ always @(posedge clk_i) begin
         case (state_det_ibar)
             0: begin
                 debug_ibar_SSB_valid_o <= 0;
-                if (PBCH_start_i && PBCH_DMRS_ready) begin
+                if (s_axis_in_tuser && PBCH_DMRS_ready) begin
                     pilots_ready <= '0;
                     state_det_ibar <= 1;
                     PBCH_sym_idx <= '0;
@@ -305,7 +305,7 @@ data_FIFO_i(
     .reset_ni(reset_ni),
 
     .s_axis_in_tdata(s_axis_in_tdata),
-    .s_axis_in_tuser(PBCH_start_i),
+    .s_axis_in_tuser(s_axis_in_tuser),
     .s_axis_in_tvalid(s_axis_in_tvalid),
 
     .m_axis_out_tready(in_fifo_ready),

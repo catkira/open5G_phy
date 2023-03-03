@@ -65,9 +65,7 @@ module receiver
     output  reg                                     peak_detected_debug_o,
     output  wire    [FFT_OUT_DW-1:0]                fft_result_debug_o,
     output  wire                                    fft_sync_debug_o,
-    output  wire    [15:0]                          sync_wait_counter_debug_o,
-    output  reg                                     fft_demod_PBCH_start_o,
-    output  reg                                     fft_demod_SSS_start_o
+    output  wire    [15:0]                          sync_wait_counter_debug_o
 );
 
 wire [IN_DW - 1 : 0] m_axis_cic_tdata;
@@ -313,6 +311,7 @@ frame_sync_i
 );
 
 wire [FFT_OUT_DW - 1 : 0] fft_demod_out_tdata;
+wire [1 : 0]              fft_demod_out_tuser;
 wire                      fft_demod_out_tvalid;
 assign m_axis_demod_out_tdata = fft_demod_out_tdata;
 assign m_axis_demod_out_tvalid = fft_demod_out_tvalid;
@@ -327,9 +326,9 @@ FFT_demod_i(
     .s_axis_in_tdata(fs_out_tdata),
     .s_axis_in_tvalid(fs_out_tvalid),
     .m_axis_out_tdata(fft_demod_out_tdata),
+    .m_axis_out_tuser(fft_demod_out_tuser),
+    .m_axis_out_tlast(),
     .m_axis_out_tvalid(fft_demod_out_tvalid),
-    .PBCH_start_o(fft_demod_PBCH_start_o),
-    .SSS_start_o(fft_demod_SSS_start_o),
     .PBCH_valid_o(PBCH_valid_o),
     .SSS_valid_o(SSS_valid_o)
 );
@@ -365,8 +364,8 @@ channel_estimator_i(
     .reset_ni(reset_ni),
     .N_id_i(N_id),
     .N_id_valid_i(N_id_valid),
-    .PBCH_start_i(fft_demod_PBCH_start_o),
     .s_axis_in_tdata(fft_demod_out_tdata),
+    .s_axis_in_tuser(fft_demod_out_tuser),
     .s_axis_in_tvalid(fft_demod_out_tvalid),
 
     .m_axis_out_tdata(m_axis_cest_out_tdata),

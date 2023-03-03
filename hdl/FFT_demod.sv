@@ -13,12 +13,11 @@ module FFT_demod #(
     input                                       s_axis_in_tvalid,
     input                                       SSB_start_i,
     output  reg        [OUT_DW - 1 : 0]         m_axis_out_tdata,
+    output  reg        [1 : 0]                  m_axis_out_tuser,
+    output  reg                                 m_axis_out_tlast,
     output  reg                                 m_axis_out_tvalid,
-    output                                      PBCH_start_o,
-    output                                      SSS_start_o,
     output                                      PBCH_valid_o,
-    output                                      SSS_valid_o,
-    output  reg                                 symbol_start_o
+    output                                      SSS_valid_o
 );
 
 
@@ -83,24 +82,25 @@ localparam SC_END = SC_START + SC_USED;
 localparam SSS_START = 64;
 localparam SSS_LEN = 127;
 reg [$clog2(SYMS_BTWN_SSB) - 1 : 0] current_out_symbol;
-reg PBCH_start;
 reg PBCH_valid;
-reg SSS_start;
 reg SSS_valid;
-reg symbol_start;
+reg PBCH_symbol;
+reg last_SC;
 reg [$clog2(FFT_LEN) - 1 : 0] out_cnt;
 wire valid_SC = (out_cnt >= SC_START) && (out_cnt <= SC_END - 1);
 wire valid_SSS_SC = (out_cnt >= SSS_START) && (out_cnt <= SSS_START + SSS_LEN - 1);
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         out_cnt <= '0;
-        PBCH_start <= '0;
-        SSS_start <= '0;
         SSS_valid <= '0;
         PBCH_valid <= '0;
+        PBCH_symbol <= '0;
         current_out_symbol <= '0;
+        last_SC <= '0;
     end else begin
         if (fft_val) begin
+            last_SC <= (out_cnt == (FFT_LEN - 1 - 2 * SC_START));
+            
             if (out_cnt == (FFT_LEN - 1)) begin
                 if (current_out_symbol == SYMS_BTWN_SSB - 1) begin
                     current_out_symbol <= '0;
@@ -112,17 +112,14 @@ always @(posedge clk_i) begin
             end else begin
                 out_cnt <= out_cnt + 1;
             end
-            PBCH_start <= (out_cnt == SC_START) && (current_out_symbol == 0);
+
             PBCH_valid <= valid_SC && (current_out_symbol == 0);
-            SSS_start  <= (out_cnt == SSS_START) && (current_out_symbol == 1);
             SSS_valid  <= valid_SSS_SC && (current_out_symbol == 1);
-            symbol_start <= (out_cnt == SC_START);           
+            PBCH_symbol <= (current_out_symbol == 0);
         end else begin
-            PBCH_start <= '0;
             PBCH_valid <= '0;
-            SSS_start <= '0;
             SSS_valid <= '0;
-            symbol_start <= '0;
+            last_SC <= '0;
         end
     end
 end
@@ -140,7 +137,7 @@ fft #(
     .FORMAT(0),
     .DATA_WIDTH(IN_DW / 2),
     .TWDL_WIDTH(IN_DW / 2),
-    .XSERIES("NEW"),
+    .XSERIES("NEW"),   // use "OLD" for Zynq7, "NEW" for MPSoC
     .USE_MLT(0),
     .SHIFTED(1)
 )
@@ -159,20 +156,21 @@ fft(
 // This process corrects 'phase CFO' caused by CP
 if (CP_ADVANCE != CP_LEN) begin
     localparam MULT_DELAY = 6;
-    reg [MULT_DELAY - 1: 0] PBCH_start_delay;
     reg [MULT_DELAY - 1 : 0] PBCH_valid_delay;
-    reg [MULT_DELAY - 1 : 0] SSS_start_delay;
     reg [MULT_DELAY - 1 : 0] SSS_valid_delay;
+    reg [MULT_DELAY - 1 : 0] last_SC_delay;
+    reg [MULT_DELAY - 1 : 0] PBCH_symbol_delay;
 
     reg [OUT_DW - 1 : 0] coeff [0 : 2**NFFT - 1];
     reg [NFFT - 1 : 0] coeff_idx;
 
-    reg PBCH_start_f, PBCH_valid_f;
-    reg SSS_start_f, SSS_valid_f;
-    assign PBCH_start_o = PBCH_start_f;
+    reg PBCH_valid_f;
+    reg SSS_valid_f;
+    reg last_SC_f;
+    reg PBCH_symbol_f;
     assign PBCH_valid_o = PBCH_valid_f;
-    assign SSS_start_o = SSS_start_f;
     assign SSS_valid_o = SSS_valid_f;
+    assign m_axis_out_tuser = PBCH_symbol_f;
 
     initial begin
         real PI = 3.1415926535;
@@ -215,49 +213,50 @@ if (CP_ADVANCE != CP_LEN) begin
             coeff_idx <= '0;
             fft_val_f <= '0;
             out_data_f <= '0;
-            PBCH_start_delay <= '0;
             PBCH_valid_delay <= '0;
-            SSS_start_delay <= '0;
             SSS_valid_delay <= '0;
-            PBCH_start_f <= '0;
-            SSS_start_f <= '0;
+            last_SC_delay <= '0;
             SSS_valid_f <= '0;
             PBCH_valid_f <= '0;
+            last_SC_f <= '0;
+            PBCH_symbol_f <= '0;
         end else begin
             fft_val_f <= fft_val && valid_SC;
             out_data_f <= {fft_result_im, fft_result_re};
-            SSS_start_delay[0] <= SSS_start;
             SSS_valid_delay[0] <= SSS_valid;
-            PBCH_start_delay[0] <= PBCH_start;
             PBCH_valid_delay[0] <= PBCH_valid;
+            last_SC_delay[0] <= last_SC;
+            PBCH_symbol_delay[0] <= PBCH_symbol;
             for (integer i = 0; i < (MULT_DELAY - 1); i = i + 1) begin
-                SSS_start_delay[i+1] <= SSS_start_delay[i];
                 SSS_valid_delay[i+1] <= SSS_valid_delay[i];
-                PBCH_start_delay[i+1] <= PBCH_start_delay[i];
                 PBCH_valid_delay[i+1] <= PBCH_valid_delay[i];
+                last_SC_delay[i+1] <= last_SC_delay[i];
+                PBCH_symbol_delay[i+1] <= PBCH_symbol_delay[i];
             end
-            SSS_start_f <= SSS_start_delay[MULT_DELAY - 1];
             SSS_valid_f <= SSS_valid_delay[MULT_DELAY - 1];
-            PBCH_start_f <= PBCH_start_delay[MULT_DELAY - 1];
             PBCH_valid_f <= PBCH_valid_delay[MULT_DELAY - 1];
+            last_SC_f <= last_SC_delay[MULT_DELAY - 1];
+            PBCH_symbol_f <= PBCH_symbol_delay[MULT_DELAY - 1];
 
             if (fft_sync) coeff_idx <= '0;
             else coeff_idx <= coeff_idx + 1;
         end
     end
 end else begin
-    assign SSS_start_o = SSS_start;
     assign SSS_valid_o = SSS_valid;
-    assign PBCH_start_o = PBCH_start;
     assign PBCH_valid_o = PBCH_valid;
 
     always @(posedge clk_i) begin
         if (!reset_ni) begin
-            m_axis_out_tvalid <= '0;
             m_axis_out_tdata <= '0;
+            m_axis_out_tuser <= '0;
+            m_axis_out_tlast <= '0;
+            m_axis_out_tvalid <= '0;
         end else begin
-            m_axis_out_tvalid <= fft_val && valid_SC;
             m_axis_out_tdata <= {fft_result_im, fft_result_re};
+            m_axis_out_tlast <= last_SC;
+            m_axis_out_tuser <= PBCH_symbol;
+            m_axis_out_tvalid <= fft_val && valid_SC;
         end
     end
 end

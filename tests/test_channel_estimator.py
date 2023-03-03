@@ -215,9 +215,9 @@ async def simple_test3(dut):
         # need to wait until the PBCH_DMRS is generated
         if (clk_cnt > 2000) and (symbol_id < num_symbols) and idle_clks == 0:
             if ((symbol_id + START_SYMBOL) in SSB_pattern) and (SC_cnt == SC_START):
-                dut.PBCH_start_i.value = 1
+                dut.s_axis_in_tuser.value = 1
             else:
-                dut.PBCH_start_i.value = 0
+                dut.s_axis_in_tuser.value = 0
             if SC_cnt == 0:
                 print(f'sending symbol {symbol_id}')
 
@@ -259,6 +259,7 @@ async def simple_test3(dut):
             ibar_SSB += 1
         clk_cnt += 1
     assert corrected_PBCH_idx == 0
+    assert corrected_PBCH_sym_cnt == 4
     print(f'finished after {clk_cnt} clk cycles')
     print(f'received {corrected_PBCH_sym_cnt} PBCH messages')
 

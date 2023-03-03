@@ -122,12 +122,6 @@ async def simple_test(dut):
         if dut.peak_detected_debug_o.value.integer == 1 or len(rx_ADC_data) > 0:
             rx_ADC_data.append(waveform[in_counter - DETECTOR_LATENCY])
 
-        if dut.fft_demod_PBCH_start_o == 1:
-            print(f'{rx_counter}: PBCH start')
-
-        if dut.fft_demod_SSS_start_o == 1:
-            print(f'{rx_counter}: SSS start')
-
         # if dut.m_axis_SSS_tvalid.value.integer == 1:
         #     print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
 
@@ -401,4 +395,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE,
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2300, CP_ADVANCE = 18, USE_TAP_FILE = 1, LLR_DW = 16)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2300, CP_ADVANCE = 9, USE_TAP_FILE = 1, LLR_DW = 16)

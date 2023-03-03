@@ -125,12 +125,6 @@ async def simple_test(dut):
         if dut.peak_detected_debug_o.value.integer == 1 or len(rx_ADC_data) > 0:
             rx_ADC_data.append(waveform[clk_cnt - DETECTOR_LATENCY])
 
-        if dut.fft_demod_PBCH_start_o == 1:
-            print(f'{rx_counter}: PBCH start')
-
-        if dut.fft_demod_SSS_start_o == 1:
-            print(f'{rx_counter}: SSS start')
-
         if dut.m_axis_SSS_tvalid.value.integer == 1:
             detected_N_id = dut.N_id_o.value.integer
             detected_N_id_1 = dut.m_axis_SSS_tdata.value.integer
