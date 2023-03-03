@@ -13,7 +13,7 @@ Implemented so far:<br>
 * Frame sync (detailed description below)
 * Channel estimator (detailed description below)
 
-<b>Disclaimer: It is unlikely that this low ressource implementation will become a 5G NR phy with all possible features. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication. </b>
+<b>Disclaimer: It is unlikely that this design which is optimized for mobility and low ressource usage will implement all possible 5G NR phy features in hdl. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication. In a later stage a generic IQ ressource grid monitor can be implemented, which sends user selectable OFDM symbols via AXI-DMA to the A9 core. This can then be used to implement full 5G functionality on the CPU. </b>
 
 ![Overview diagram](doc/overview.jpg)
 
@@ -24,6 +24,7 @@ Implemented so far:<br>
 * implement AXI stream FIFO or use Xilinx core
 * implement QAM demod for PDSCH
 * maybe optimize PSS correlator further like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
+* implement generic IQ ressource grid monitor with AXI-DMA interface (can use Xilinx or ADI axi-dma core)
 
 # Ressource usage
 * Decimator          :  0 DSP slices
