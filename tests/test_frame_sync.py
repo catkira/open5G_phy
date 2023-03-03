@@ -125,12 +125,12 @@ async def stream_tb(dut):
             SC_cnt += 1
 
         if pos == SSB_POS[1] + 2:
-            assert dut.PBCH_start_o.value == 1
+            assert dut.SSB_start_o.value == 1
 
         if dut.symbol_start_o.value == 1:
             print('symbol_start')
-        if dut.PBCH_start_o.value == 1:
-            print(f'PBCH_start at pos = {pos}')
+        if dut.SSB_start_o.value == 1:
+            print(f'SSB_start at pos = {pos}')
         clk_cnt += 1
         pos += 1
     print(f'finished after {clk_cnt} clk cycles')
