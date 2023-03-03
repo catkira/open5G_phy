@@ -94,7 +94,7 @@ The code is optimized to not use any multiplication and no large additions. This
 The code is also memory optimized, by only storing the two m-sequences that are needed to construct all the possible SSS. It currently builds the stored m-sequences at startup using [this](https://github.com/catkira/LFSR) LFSR core. The code could be modified to have the m-sequences statically stored.
 
 # Frame sync
-This core keeps track of the current subframe number and controls the PSS detector. It sends the PSS detector to sleep for 20 ms after a SSB was detected.
+This core keeps track of the current subframe, slot and symbol number and controls the PSS detector. It sends the PSS detector to sleep for 20 ms after a SSB was detected.
 This core also sends the sync signals like PBCH_start to the FFT_demod core. The FFT_demod core needs this timing information, so that it can use long and short CP (Cyclic Prefix) when needed.
 
 # Channel estimator
