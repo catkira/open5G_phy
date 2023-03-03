@@ -23,8 +23,7 @@ module frame_sync #(
     output  reg                                     m_axis_out_tvalid,
     output  reg        [$clog2(MAX_CP_LEN) - 1: 0]  CP_len_o,
     output  reg                                     symbol_start_o,
-    output  reg                                     PBCH_start_o,
-    output  reg                                     SSS_start_o
+    output  reg                                     SSB_start_o
 );
 
 always @(posedge clk_i) begin
@@ -135,8 +134,7 @@ always @(posedge clk_i) begin
         expected_SSB_sym <= '0;
         find_SSB <= '0;
         symbol_start_o <= '0;
-        PBCH_start_o <= '0;
-        SSS_start_o <= '0;
+        SSB_start_o <= '0;
         syms_to_next_SSB <= '0;
     end else begin
         case (state)
@@ -151,9 +149,9 @@ always @(posedge clk_i) begin
                     expected_SSB_sym <= 3;
                     state <= WAIT_FOR_IBAR;
                     syms_to_next_SSB <= '0;
-                    PBCH_start_o <= 1;
+                    SSB_start_o <= 1;
                 end else begin
-                    PBCH_start_o <= '0;
+                    SSB_start_o <= '0;
                 end
             end
             WAIT_FOR_IBAR: begin
@@ -173,10 +171,10 @@ always @(posedge clk_i) begin
                 end
 
                 if (N_id_2_valid_i) begin
-                    // output of PBCH_start_o in WAIT_FOR_IBAR state is needed, because channel_estimator needs it to detect ibar_SSB
-                    PBCH_start_o <= 1;
+                    // output of SSB_start_o in WAIT_FOR_IBAR state is needed, because channel_estimator needs it to detect ibar_SSB
+                    SSB_start_o <= 1;
                 end else begin
-                    PBCH_start_o <= '0;
+                    SSB_start_o <= '0;
                 end
 
                 if (s_axis_in_tvalid) begin
@@ -231,8 +229,8 @@ always @(posedge clk_i) begin
                     end
                 end
 
-                if (N_id_2_valid_i && find_SSB)  PBCH_start_o <= '1;
-                else                          PBCH_start_o <= '0;
+                if (N_id_2_valid_i && find_SSB)  SSB_start_o <= '1;
+                else                          SSB_start_o <= '0;
 
                 if (s_axis_in_tvalid) begin
                     if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin

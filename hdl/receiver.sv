@@ -281,10 +281,8 @@ end
 
 reg [IN_DW - 1 : 0]     fs_out_tdata;
 reg fs_out_tvalid;
-reg fs_out_PBCH_start;
+reg fs_out_SSB_start;
 reg fs_out_symbol_start;
-reg fs_out_SSS_start;
-
 
 frame_sync #(
     .IN_DW(IN_DW)
@@ -306,8 +304,7 @@ frame_sync_i
     .m_axis_out_tdata(fs_out_tdata),
     .m_axis_out_tvalid(fs_out_tvalid),
     .symbol_start_o(fs_out_symbol_start),
-    .PBCH_start_o(fs_out_PBCH_start),
-    .SSS_start_o(fs_out_SSS_start)
+    .SSB_start_o(fs_out_SSB_start)
 );
 
 wire [FFT_OUT_DW - 1 : 0] fft_demod_out_tdata;
@@ -322,7 +319,7 @@ FFT_demod #(
 FFT_demod_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
-    .SSB_start_i(fs_out_PBCH_start),
+    .SSB_start_i(fs_out_SSB_start),
     .s_axis_in_tdata(fs_out_tdata),
     .s_axis_in_tvalid(fs_out_tvalid),
     .m_axis_out_tdata(fft_demod_out_tdata),
