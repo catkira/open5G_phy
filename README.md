@@ -60,6 +60,7 @@ If You only want to run a simulation of the receiver do:
 ```
   pytest --workers $(nproc) tests/test_receiver.py
 ```
+![Plots from test_receiver.py](doc/receiver_test_constellation_diagram.png)
 
 # Decimator
 The incoming sample rate to the SSB_sync module should be 3.84 MSPS. This sample rate is then internally decimated to 1.92 MSPS so that the PSS and SSS detection cores can run most efficiently.
