@@ -60,6 +60,7 @@ If You only want to run a simulation of the receiver do:
 ```
   pytest --workers $(nproc) tests/test_receiver.py
 ```
+The following diagram shows the plots that test_receiver.py generates. The first plot shows the uncorrected IQ constellation plot for a PBCH packet which consists of 3 OFDM symbols. The second diagram shows the CFO corrected IQ constellation plot, red dots are from the first SSB, green dots are from the second SSB. The second SSB is received 20 ms after the first SSB and might contain a better CFO correction, because CFO correction improves itself iteratively up to a certain point. The third diagram shows the CFO and channel corrected IQ constellation of a PBCH packet. The red dots are from the first symbol, green dots from the second symbol and blue dots from the third symbol.
 ![Plots from test_receiver.py](doc/receiver_test_constellation_diagram.png)
 
 # Decimator
