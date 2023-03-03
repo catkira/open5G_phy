@@ -123,7 +123,7 @@ async def simple_test2(dut):
                     + ((int(PBCH[PBCH_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1)))
                 dut.s_axis_in_tdata.value = data
                 dut.s_axis_in_tvalid.value = 1
-                dut.PBCH_start_i.value = PBCH_cnt == SC_START
+                dut.SSB_start_i.value = PBCH_cnt == SC_START
                 PBCH_cnt += 1
                 SC_cnt += 1
             else:
