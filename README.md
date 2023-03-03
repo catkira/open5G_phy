@@ -35,7 +35,7 @@ Implemented so far:<br>
 * Channel estimator  :  ? DSP slices
 
 # Tests
-Testbenches are written in Python using cocotb. For simulation both iverilog and verilator are used. Iverilog is used for short tests whereas iverilog is used for tests with larger data throughput.
+Testbenches are written in Python using cocotb. For simulation both iverilog and Verilator are used. Iverilog is used for short tests whereas Verilator is used for tests with larger data throughput.
 <br>
 To install the necessary requirements for running the tests do (assuming You start in the dir where this repo is cloned):
 ```
