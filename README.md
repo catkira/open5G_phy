@@ -1,7 +1,7 @@
 [![Verify](https://github.com/catkira/open5G_rx/actions/workflows/verify.yml/badge.svg)](https://github.com/catkira/open5G_rx/actions/workflows/verify.yml)
 
 # Overview
-This is a verilog HDL core for a 5G NR receiver. It is optimized for low ressource usage so that it can run on a [PlutoSDR](https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/adalm-pluto.html), which has a Xilinx® Zynq Z-7010 with only 80 DSP slices and 28K logic cells. Since this design is optimized for low ressource usage, it can only demodulate at 3.84 MSPS which is equal to 256 point FFT or 20 RBs (Ressource Blocks). A ressource block in 5G consists of 12 subcarriers. The 256 point FFT contains only 20*12=240 usable subcarriers, because at each edge of the spectrum there are 8 zero carriers.<br>
+This is a verilog HDL core for a 5G NR lower Phy receiver. It is optimized for low ressource usage so that it can run on a [PlutoSDR](https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/adalm-pluto.html), which has a Xilinx® Zynq Z-7010 with only 80 DSP slices and 28K logic cells. Since this design is optimized for low ressource usage, it can only demodulate at 3.84 MSPS which is equal to 256 point FFT or 20 RBs (Ressource Blocks). A ressource block in 5G consists of 12 subcarriers. The 256 point FFT contains only 20*12=240 usable subcarriers, because at each edge of the spectrum there are 8 zero carriers.<br>
 Cell search is limited to 1 frequency offset range. Within this frequency offset range, the PSS correlator works up to a CFO of about += 10 kHz.
 Each PSS correlator only detects one of the possible three different PSS sequences. If a general cell search for all 3 possible N_id_2's is needed, 3 PSS correlators need to be instanciated in parallel. If CFOs larger than the detection range of the PSS correlator are expected, the different CFO possibilities can be tried sequentially by configuring the receiver via its AXI-lite interface.<br>
 
@@ -14,7 +14,7 @@ Implemented so far:<br>
 * Frame sync (detailed description below)
 * Channel estimator (detailed description below)
 
-<b>Disclaimer: It is unlikely that this design which is optimized for mobility and low ressource usage will implement all possible 5G NR phy features in hdl. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication. In a later stage a generic IQ ressource grid monitor can be implemented, which sends user selectable OFDM symbols via AXI-DMA to the A9 core. This can then be used to implement full 5G functionality on the CPU, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. </b>
+<b>Disclaimer: It is unlikely that this design which is optimized for mobility and low ressource usage will implement all possible 5G NR Phy features in hdl. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication. In a later stage a generic IQ ressource grid monitor can be implemented, which sends user selectable OFDM symbols via AXI-DMA to the A9 core. This can then be used to implement full 5G functionality on the CPU, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project).</b>
 
 ![Overview diagram](doc/overview.jpg)
 
