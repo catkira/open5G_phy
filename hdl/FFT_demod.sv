@@ -1,16 +1,23 @@
 module FFT_demod #(
     parameter IN_DW = 32,           // input data width
-    parameter CP_ADVANCE = 9,
+    parameter HALF_CP_ADVANCE = 1,
     localparam OUT_DW = IN_DW,
     localparam NFFT = 8,
     localparam FFT_LEN = 2 ** NFFT,
-    localparam CP_LEN = 18
+    localparam MAX_CP_LEN = 20,
+    localparam SFN_MAX = 1023,
+    localparam SUBFRAMES_PER_FRAME = 20,
+    localparam SYM_PER_SF = 14,
+    localparam SFN_WIDTH = $clog2(SFN_MAX),
+    localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1),
+    localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1),
+    localparam USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + $clog2(MAX_CP_LEN)
 )
 (
     input                                       clk_i,
     input                                       reset_ni,
     input   wire       [IN_DW - 1 : 0]          s_axis_in_tdata,
-    input   wire       [13 : 0]                 s_axis_in_tuser,    
+    input   wire       [USER_WIDTH - 1 : 0]     s_axis_in_tuser,    
     input                                       s_axis_in_tlast,
     input                                       s_axis_in_tvalid,
     input                                       SSB_start_i,
@@ -28,7 +35,8 @@ reg [IN_DW - 1 : 0] in_data_f;
 reg in_valid_f;
 reg [OUT_DW - 1 : 0] out_data_f;
 localparam SSB_LEN = 4;
-reg [$clog2(CP_LEN) : 0] CP_cnt;
+reg [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len;
+reg [$clog2(MAX_CP_LEN) - 1: 0] CP_cnt;
 reg [$clog2(FFT_LEN) : 0] in_cnt;
 localparam SYMS_BTWN_SSB = 14 * 20;
 reg [2 : 0] state_in;
@@ -39,11 +47,12 @@ always @(posedge clk_i) begin
     if (!reset_ni) begin
         state_in <= STATE_IN_SKIP_CP;
         in_cnt <= '0;
-        CP_cnt <= CP_LEN - CP_ADVANCE;
+        current_CP_len <= 18;
+        CP_cnt <= HALF_CP_ADVANCE ? 9 : 0;
     end else if (state_in == STATE_IN_SKIP_CP) begin // skip CP
         if (s_axis_in_tvalid) begin
             in_cnt <= '0;
-            if (CP_cnt == (CP_LEN - 1)) begin
+            if (CP_cnt == (current_CP_len - 1)) begin
                 state_in <= STATE_IN_PROCESS_SYMBOL;
                 CP_cnt <= '0;
             end else begin
@@ -56,10 +65,10 @@ always @(posedge clk_i) begin
                 in_cnt <= in_cnt + 1;
             end else if (s_axis_in_tlast) begin
                 state_in <= STATE_IN_SKIP_CP;
-                CP_cnt <= CP_LEN - CP_ADVANCE;
+                CP_cnt <= HALF_CP_ADVANCE ? current_CP_len - 9 : 0;
             end else begin
                 state_in <= STATE_IN_SKIP_END;
-                CP_cnt <= CP_LEN - CP_ADVANCE;
+                CP_cnt <= HALF_CP_ADVANCE ? current_CP_len - 9 : 0;
             end
         end
     end else if (state_in == STATE_IN_SKIP_END) begin // skip repetition at end of symbol
@@ -67,6 +76,7 @@ always @(posedge clk_i) begin
     end
 
     if (s_axis_in_tvalid) begin
+        current_CP_len <= s_axis_in_tuser[$clog2(MAX_CP_LEN) - 1 : 0];
         in_data_f <= s_axis_in_tdata;
         in_valid_f <= s_axis_in_tvalid;
     end
@@ -153,7 +163,7 @@ fft(
 );
 
 // This process corrects 'phase CFO' caused by CP
-if (CP_ADVANCE != CP_LEN) begin
+if (HALF_CP_ADVANCE) begin
     localparam MULT_DELAY = 6;
     reg [MULT_DELAY - 1 : 0] PBCH_valid_delay;
     reg [MULT_DELAY - 1 : 0] SSS_valid_delay;
@@ -173,16 +183,15 @@ if (CP_ADVANCE != CP_LEN) begin
 
     initial begin
         real PI = 3.1415926535;
+        integer CP_LEN = 18;
+        integer CP_ADVANCE = 9;
         real angle_step = 2 * PI * $itor((CP_LEN - CP_ADVANCE)) / $itor((2**NFFT));
         real angle_acc = 0;
         // if real variables are declared inside the for loop, bugs appear, fking shit
         for (integer i = 0; i < 2**NFFT; i = i + 1) begin
             coeff[i][OUT_DW / 2 - 1 : 0]      = $cos(angle_acc + PI * (CP_LEN - CP_ADVANCE)) * (2 ** (OUT_DW / 2 - 1) - 1);
             coeff[i][OUT_DW - 1 : OUT_DW / 2] = $sin(angle_acc + PI * (CP_LEN - CP_ADVANCE)) * (2 ** (OUT_DW / 2 - 1) - 1);
-            // $display("coeff[%d] = %x,  angle = %f", i, coeff[i], angle_acc);
-
             angle_acc = angle_acc + angle_step;
-            // if (angle_acc > PI) angle_acc = angle_acc - 2*PI; 
         end
     end
 

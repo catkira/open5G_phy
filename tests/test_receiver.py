@@ -34,7 +34,7 @@ class TB(object):
         self.PSS_LEN = int(dut.PSS_LEN.value)
         self.ALGO = int(dut.ALGO.value)
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
-        self.CP_ADVANCE = int(dut.CP_ADVANCE.value)
+        self.HALF_CP_ADVANCE = int(dut.HALF_CP_ADVANCE.value)
         self.LLR_DW = int(dut.LLR_DW.value)
 
         self.log = logging.getLogger('cocotb.tb')
@@ -84,7 +84,7 @@ async def simple_test(dut):
     received_PBCH_LLR = []
     fft_started = False
     CP2_LEN = 18
-    CP_ADVANCE = tb.CP_ADVANCE
+    HALF_CP_ADVANCE = tb.HALF_CP_ADVANCE
     FFT_SIZE = 256
     SSS_LEN = 127
     SSS_START = 64
@@ -158,6 +158,7 @@ async def simple_test(dut):
     assert len(corrected_PBCH) == 432, print('received PBCH does not have correct length!')
     assert len(received_PBCH_LLR) == 432 * 2, print('received PBCH LLRs do not have correct length!')
 
+    CP_ADVANCE = 9 if HALF_CP_ADVANCE else 18
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
     ideal_SSS_sym *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP2_LEN - CP_ADVANCE)))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
@@ -272,10 +273,10 @@ async def simple_test(dut):
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("CFO", [0, 1200])
-@pytest.mark.parametrize("CP_ADVANCE", [9, 18])
+@pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
 @pytest.mark.parametrize("LLR_DW", [16])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE, LLR_DW):
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -334,7 +335,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE,
     parameters['PSS_LEN'] = PSS_LEN
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
-    parameters['CP_ADVANCE'] = CP_ADVANCE
+    parameters['HALF_CP_ADVANCE'] = HALF_CP_ADVANCE
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
     parameters['LLR_DW'] = LLR_DW
     os.environ['CFO'] = str(CFO)
@@ -389,4 +390,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, CP_ADVANCE, USE_TAP_FILE,
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2400, CP_ADVANCE = 9, USE_TAP_FILE = 1, LLR_DW = 16)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 16)

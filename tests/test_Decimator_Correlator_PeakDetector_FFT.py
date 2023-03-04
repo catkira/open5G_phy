@@ -36,7 +36,7 @@ class TB(object):
         self.PSS_LEN = int(dut.PSS_LEN.value)
         self.ALGO = int(dut.ALGO.value)
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
-        self.CP_ADVANCE = int(dut.CP_ADVANCE.value)
+        self.HALF_CP_ADVANCE = int(dut.HALF_CP_ADVANCE.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -82,7 +82,7 @@ async def simple_test(dut):
 
     MAX_CLK_CNT = 3000
     CP_LEN = 18
-    CP_ADVANCE = int(dut.CP_ADVANCE.value)
+    HALF_CP_ADVANCE = tb.HALF_CP_ADVANCE
     NFFT = 8
     FFT_SIZE = 2 ** NFFT
     DETECTOR_LATENCY = 18
@@ -148,6 +148,7 @@ async def simple_test(dut):
     for i in range(SSS_LEN):
         print(f'SSS[{i}] = {int(received_SSS[i].real > 0)}')
 
+    CP_ADVANCE = 9 if HALF_CP_ADVANCE else 18
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
     ideal_SSS_sym *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP_LEN - CP_ADVANCE)))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
@@ -227,8 +228,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("OUT_DW", [32])
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
-@pytest.mark.parametrize("CP_ADVANCE", [9, 18])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE):
+@pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE):
     dut = 'Decimator_Correlator_PeakDetector_FFT'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -238,7 +239,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE):
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'div.sv'),
         os.path.join(rtl_dir, 'atan.sv'),
-        os.path.join(rtl_dir, 'atan2.sv'),  
+        os.path.join(rtl_dir, 'atan2.sv'),
         os.path.join(rtl_dir, 'PSS_detector_regmap.sv'),
         os.path.join(rtl_dir, 'AXI_lite_interface.sv'),
         os.path.join(rtl_dir, 'PSS_detector.sv'),
@@ -279,7 +280,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE):
     parameters['PSS_LEN'] = PSS_LEN
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
-    parameters['CP_ADVANCE'] = CP_ADVANCE
+    parameters['HALF_CP_ADVANCE'] = HALF_CP_ADVANCE
     parameters_no_taps = parameters.copy()
 
     for i in range(3):
@@ -295,7 +296,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE):
                                     + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
 
-    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
+    sim_build='sim_build/Decimator_to_FFT_' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
@@ -313,4 +314,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CP_ADVANCE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CP_ADVANCE = 9)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 0)

@@ -17,7 +17,7 @@ module receiver
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_2 `VL_RD = {(PSS_LEN * TAP_DW){1'b0}},
     parameter ALGO `VL_RD = 1,
     parameter WINDOW_LEN `VL_RD = 8,
-    parameter CP_ADVANCE `VL_RD = 9,
+    parameter HALF_CP_ADVANCE `VL_RD = 9,
     parameter USE_TAP_FILE = 0,
     parameter TAP_FILE_0 = "",
     parameter TAP_FILE_1 = "",
@@ -277,7 +277,18 @@ always @(posedge clk_i) begin
     end
 end
 
+
+localparam MAX_CP_LEN = 20;
+localparam SFN_MAX = 1023;
+localparam SUBFRAMES_PER_FRAME = 20;
+localparam SYM_PER_SF = 14;
+localparam SFN_WIDTH = $clog2(SFN_MAX);
+localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1);
+localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1);
+localparam USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + $clog2(MAX_CP_LEN);
+
 reg [IN_DW - 1 : 0]     fs_out_tdata;
+reg [USER_WIDTH - 1 : 0] fs_out_tuser;
 reg fs_out_tvalid;
 reg fs_out_SSB_start;
 reg fs_out_symbol_start;
@@ -301,7 +312,7 @@ frame_sync_i
     .requested_N_id_2_o(requested_N_id_2),
 
     .m_axis_out_tdata(fs_out_tdata),
-    .m_axis_out_tuser(),
+    .m_axis_out_tuser(fs_out_tuser),
     .m_axis_out_tlast(fs_out_tlast),
     .m_axis_out_tvalid(fs_out_tvalid),
     .symbol_start_o(fs_out_symbol_start),
@@ -315,7 +326,7 @@ assign m_axis_demod_out_tdata = fft_demod_out_tdata;
 assign m_axis_demod_out_tvalid = fft_demod_out_tvalid;
 FFT_demod #(
     .IN_DW(IN_DW),
-    .CP_ADVANCE(CP_ADVANCE)
+    .HALF_CP_ADVANCE(HALF_CP_ADVANCE)
 )
 FFT_demod_i(
     .clk_i(clk_i),
@@ -323,6 +334,7 @@ FFT_demod_i(
     .SSB_start_i(fs_out_SSB_start),
     .s_axis_in_tdata(fs_out_tdata),
     .s_axis_in_tlast(fs_out_tlast),
+    .s_axis_in_tuser(fs_out_tuser),
     .s_axis_in_tvalid(fs_out_tvalid),
     .m_axis_out_tdata(fft_demod_out_tdata),
     .m_axis_out_tuser(fft_demod_out_tuser),
