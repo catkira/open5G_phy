@@ -23,10 +23,11 @@ Implemented so far:<br>
 * implement amplitude correction in channel_estimator
 * implement PDCCH DMRS in channel_estimator
 * implement AXI stream FIFO or use Xilinx core
+* implement generic Ressource Grid Subscriber core with AXI-DMA interface
+optional:
 * implement QAM demod for PDSCH
 * refactor PBCH DMRS generation and PBCH DMRS detection into separate cores
 * maybe optimize PSS correlator further like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
-* implement generic Ressource Grid Subscriber core with AXI-DMA interface
 
 # Ressource usage
 * Decimator                 :  0 DSP slices
