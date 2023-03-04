@@ -11,13 +11,13 @@ module channel_estimator #(
     input                                           clk_i,
     input                                           reset_ni,
     input   wire       [IN_DW - 1 : 0]              s_axis_in_tdata,
-    input   wire                                    s_axis_in_tuser,
+    input   wire                                    s_axis_in_tuser,     // 1 bit, 1 -> PBCH message, 0 -> other
     input                                           s_axis_in_tvalid,
     input   wire       [$clog2(MAX_CELL_ID) - 1: 0] N_id_i,
     input                                           N_id_valid_i,
 
     output  reg        [OUT_DW - 1 : 0]             m_axis_out_tdata,
-    output  reg        [1 : 0]                      m_axis_out_tuser,    // used for symbol type
+    output  reg        [1 : 0]                      m_axis_out_tuser,    // 2 bits, 1 -> PBCH message, 0 -> other
     output  reg                                     m_axis_out_tlast,
     output  reg                                     m_axis_out_tvalid,
 

@@ -319,9 +319,10 @@ frame_sync_i
     .SSB_start_o(fs_out_SSB_start)
 );
 
-wire [FFT_OUT_DW - 1 : 0] fft_demod_out_tdata;
-wire [1 : 0]              fft_demod_out_tuser;
-wire                      fft_demod_out_tvalid;
+localparam FFT_DEMOD_OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + 1;
+wire [FFT_OUT_DW - 1 : 0]                   fft_demod_out_tdata;
+wire [FFT_DEMOD_OUT_USER_WIDTH - 1 : 0]     fft_demod_out_tuser;
+wire                                        fft_demod_out_tvalid;
 assign m_axis_demod_out_tdata = fft_demod_out_tdata;
 assign m_axis_demod_out_tvalid = fft_demod_out_tvalid;
 FFT_demod #(
@@ -376,7 +377,7 @@ channel_estimator_i(
     .N_id_i(N_id),
     .N_id_valid_i(N_id_valid),
     .s_axis_in_tdata(fft_demod_out_tdata),
-    .s_axis_in_tuser(fft_demod_out_tuser),
+    .s_axis_in_tuser(fft_demod_out_tuser[0]),
     .s_axis_in_tvalid(fft_demod_out_tvalid),
 
     .m_axis_out_tdata(m_axis_cest_out_tdata),
