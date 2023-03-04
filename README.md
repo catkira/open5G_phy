@@ -97,7 +97,7 @@ The code is optimized to not use any multiplication and no large additions. This
 The code is also memory optimized, by only storing the two m-sequences that are needed to construct all the possible SSS. It currently builds the stored m-sequences at startup using [this](https://github.com/catkira/LFSR) LFSR core. The code could be modified to have the m-sequences statically stored.
 
 # Frame sync
-This core keeps track of the current frame, subframe, slot and symbol number and controls the PSS detector. The 10 bit systen frame number (SFN) whichs is contained in the BCH message needs to be sent to this core via AXI.
+This core keeps track of the current frame, subframe, slot and symbol number and controls the PSS detector. The 10 bit system frame number (SFN) whichs is contained in the BCH message needs to be sent to this core via AXI.
 ![Frame structure diagram](doc/frame_structure.jpg)
 This core currently only supports 15 kHz SCS (subcarrier spacing) and the frame structure shown in the diagram above.
 It also controls the PSS detector by sending it to sleep for 20 ms after a SSB was detected.
