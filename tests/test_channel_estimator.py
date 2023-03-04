@@ -253,7 +253,7 @@ async def simple_test3(dut):
 
         if dut.debug_ibar_SSB_valid_o.value == 1:
             ibar_SSB_det = dut.debug_ibar_SSB_o.value.integer
-            print(f'detected ibar_SSB = {ibar_SSB_det}')
+            print(f'detected SSB index (ibar_SSB) = {ibar_SSB_det}')
             ibar_SSBs.append(ibar_SSB)
             assert ibar_SSB_det == ibar_SSB
             ibar_SSB += 1
@@ -267,7 +267,7 @@ async def simple_test3(dut):
     for i in range(corrected_PBCH_sym_cnt):
         ibar_SSB = ibar_SSBs[i]
         nVar = 1
-        print(f'PBCH message {i} with ibar_SSB = {ibar_SSB}')
+        print(f'PBCH message {i} with SSB index (ibar_SSB) = {ibar_SSB}')
         for mode in ['hard', 'soft']:
             print(f'demodulation mode: {mode}')
             pbchBits = py3gpp.nrSymbolDemodulate(corrected_PBCH[i,:], 'QPSK', nVar, mode)  
@@ -310,7 +310,7 @@ def test_PBCH_DMRS_gen(N_ID_1, N_ID_2):
         os.path.join(rtl_dir, 'div.sv'),
         os.path.join(rtl_dir, 'atan.sv'),
         os.path.join(rtl_dir, 'atan2.sv'),
-        os.path.join(rtl_dir, 'DDS/dds.sv'),        
+        os.path.join(rtl_dir, 'DDS/dds.sv'),
         os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
         os.path.join(rtl_dir, 'LFSR/LFSR.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
