@@ -14,7 +14,7 @@ Implemented so far:<br>
 * Frame sync (detailed description below)
 * Channel estimator (detailed description below)
 
-<b>Disclaimer: It is unlikely that this design which is optimized for mobility and low ressource usage will implement all possible 5G NR Phy features in hdl. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication. In a later stage a generic IQ ressource grid monitor can be implemented, which sends user selectable OFDM symbols via AXI-DMA to the A9 core. This can then be used to implement full 5G functionality on the CPU, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project).</b>
+<b>Disclaimer: It is unlikely that this design which is optimized for mobility and low ressource usage will implement all possible 5G NR Phy features in hdl. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication. In a later stage a generic 'Ressource Grid Subscriber' core can be implemented, which sends user selectable OFDM symbols via AXI-DMA to the A9 core. This can then be used to implement full 5G functionality on the CPU, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project).</b>
 
 ![Overview diagram](doc/overview.jpg)
 
@@ -25,15 +25,16 @@ Implemented so far:<br>
 * implement AXI stream FIFO or use Xilinx core
 * implement QAM demod for PDSCH
 * maybe optimize PSS correlator further like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
-* implement generic IQ ressource grid monitor with AXI-DMA interface (can use Xilinx or ADI axi-dma core)
+* implement generic Ressource Grid Subscriber core with AXI-DMA interface
 
 # Ressource usage
-* Decimator          :  0 DSP slices
-* PSS correlator     :  6 DSP slices (with MULT_REUSE=64)
-* Peak detector      :  0 DSP slices
-* FFT demodulator    :  ? DSP slices
-* SSS detector       :  ? DSP slices
-* Channel estimator  :  ? DSP slices
+* Decimator                 :  0 DSP slices
+* PSS correlator            :  6 DSP slices (with MULT_REUSE=64)
+* Peak detector             :  0 DSP slices
+* FFT demodulator           :  ? DSP slices
+* SSS detector              :  ? DSP slices
+* Channel estimator         :  ? DSP slices
+* Ressource Grid Subscriber :  ? DSP slices
 
 # Tests
 Testbenches are written in Python using cocotb. For simulation both iverilog and Verilator are used. Iverilog is used for short tests whereas Verilator is used for tests with larger data throughput.
@@ -107,3 +108,6 @@ TODO: output frame, subframe, slot and symbol number together with SSB_start and
 The channel estimator currently only corrects the phase angles, this is enough for BPSK and QPSK demodulation. It also detects the PBCH DMRS (DeModulation Reference Sequence) by comparing the incoming pilots with the 8 possible ibar_SSB configurations. The detected ibar_SSB is then send to the frame_sync core which uses this signal to align itself to the right subframe number.
 ![Channel estimator diagram](doc/channel_estimator.jpg)
 TODO: add PDCCH DMRS
+
+# Ressource Grid Subscriber
+TODO
