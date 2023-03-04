@@ -105,9 +105,10 @@ This core also sends the sync signals like SSB_start to the FFT_demod core. The 
 <br>
 Frame sync outputs IQ samples in an AXI stream interface. The tuser field contains the following information {sfn, subframe_number, symbol_number, current_CP_len}. One packet has the length 512 + 18 or 512 + 20 depending on the CP length. tlast is used to signal end of packet.
 
+# Ressource Grid Subscriber
+This core provides RBs (ressource blocks) from the ressource grid to the CPU. RBs can be selected by setting SC_start, SC_end, sym_start, sym_end via the AXI lite interface. This means that any group of RBs that is a 'rectangle' on the ressource grid can be received by the CPU. If multiple 'rectangles' from the ressource grid should be received, multiple instances of this core can be instanciated in parallel.
+TODO: implement this core
+
 # Channel estimator
 The channel estimator currently only corrects the phase angles, this is enough for BPSK and QPSK demodulation. It also detects the PBCH DMRS (DeModulation Reference Sequence) by comparing the incoming pilots with the 8 possible ibar_SSB configurations. The detected ibar_SSB is then send to the frame_sync core which uses this signal to align itself to the right subframe number.
 ![Channel estimator diagram](doc/channel_estimator.jpg)
-
-# Ressource Grid Subscriber
-TODO
