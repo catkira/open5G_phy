@@ -20,10 +20,10 @@ Implemented so far:<br>
 
 <b>TODO:</b>
 * implement dynamic block scaling for FFT
-* implement PDCCH DMRS in channel_estimator
 * implement AXI stream FIFO or use Xilinx core
 * implement generic Ressource Grid Subscriber core with AXI-DMA interface
 * (optional) implement amplitude correction in channel_estimator
+* (optional) implement PDCCH DMRS in channel_estimator
 * (optional) implement QAM demod for PDSCH
 * (optional) refactor PBCH DMRS generation and PBCH DMRS detection into separate cores
 * (optional) optimize PSS correlator further like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
