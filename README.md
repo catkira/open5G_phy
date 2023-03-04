@@ -105,8 +105,11 @@ This core also sends the sync signals like SSB_start to the FFT_demod core. The 
 <br>
 Frame sync outputs IQ samples in an AXI stream interface. The tuser field contains the following information {sfn, subframe_number, symbol_number, current_CP_len}. One packet has the length 512 + 18 or 512 + 20 depending on the CP length. tlast is used to signal end of packet.
 
-# Ressource Grid Subscriber
+# Ressource Grid Subscriber (RGS)
 This core provides RBs (ressource blocks) from the ressource grid to the CPU. RBs can be selected by setting SC_start, SC_end, sym_start, sym_end via the AXI lite interface. This means that any group of RBs that is a 'rectangle' on the ressource grid can be received by the CPU. If multiple 'rectangles' from the ressource grid should be received, multiple instances of this core can be instanciated in parallel.
+<br>
+A possible use case for this core is to receive the CORESET after a PBCH message has been decoded. The MIB (Master Information Block) contains information where the CORESET can be found on the ressource grid (potentially multiple locaions that have to be tried -> search space). The RGS core can be configured accordingly and then decode (QPSK demapping, channel estimation, polar decoding) the CORESET message on the CPU.
+<br>
 TODO: implement this core
 
 # Channel estimator
