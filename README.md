@@ -14,7 +14,7 @@ Implemented so far:<br>
 * Frame sync (detailed description below)
 * Channel estimator (detailed description below)
 
-<b>Disclaimer: It is unlikely that this design which is optimized for mobility and low ressource usage will implement all possible 5G NR Phy features in hdl. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication. In a later stage a generic 'Ressource Grid Subscriber' core can be implemented, which sends user selectable OFDM symbols via AXI-DMA to the A9 core. This can then be used to implement full 5G functionality on the CPU, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project).</b>
+<b>Disclaimer: It is unlikely that this design which is optimized for mobility and low ressource usage will implement all possible 5G NR Phy features in hdl. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication. The 'Ressource Grid Subscriber' core can be used, which sends user selectable OFDM symbols via AXI-lite or AXI-DMA to the A9 core. This can then be used to implement full 5G functionality on the CPU, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project).</b>
 
 ![Overview diagram](doc/overview.jpg)
 
@@ -104,10 +104,16 @@ It also controls the PSS detector by sending it to sleep for 20 ms after a SSB w
 This core also sends the sync signals like SSB_start to the FFT_demod core. The FFT_demod core needs this timing information to generate timing information like SSS_valid and symbol_type information in its tuser output.
 <br>
 Frame sync outputs IQ samples in an AXI stream interface. The tuser field contains the following information {sfn, subframe_number, symbol_number, current_CP_len}. One packet has the length 512 + 18 or 512 + 20 depending on the CP length. tlast is used to signal end of packet.
+<br>
+<b>Important: after detection of the first SSB, sfn strats at 0. After decoding the MIB from the PBCH on the CPU, this core needs to receive the sfn of the SSB in order to output correct frame information in tuser. </b>
+
+# Ressource Grid Subscriber (RGS)
+This core provides RBs (ressource blocks) from the ressource grid to the CPU. RBs can be selected by setting SC_start, SC_end, sym_start, sym_end via the AXI lite interface. This means that any group of RBs that is a 'rectangle' on the ressource grid can be received by the CPU. If multiple 'rectangles' from the ressource grid should be received, multiple instances of this core can be instanciated in parallel.
+<br>
+A possible use case for this core is to receive the CORESET after a PBCH message has been decoded. The MIB (Master Information Block) contains information where the CORESET can be found on the ressource grid (potentially multiple locaions that have to be tried -> search space). The RGS core can be configured accordingly and then decode (QPSK demapping, channel estimation, polar decoding) the CORESET message on the CPU.
+<br>
+TODO: implement this core
 
 # Channel estimator
 The channel estimator currently only corrects the phase angles, this is enough for BPSK and QPSK demodulation. It also detects the PBCH DMRS (DeModulation Reference Sequence) by comparing the incoming pilots with the 8 possible ibar_SSB configurations. The detected ibar_SSB is then send to the frame_sync core which uses this signal to align itself to the right subframe number.
 ![Channel estimator diagram](doc/channel_estimator.jpg)
-
-# Ressource Grid Subscriber
-TODO
