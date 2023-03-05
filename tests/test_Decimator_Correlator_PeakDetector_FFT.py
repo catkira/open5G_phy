@@ -246,6 +246,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE):
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'CFO_calc.sv'),
+        os.path.join(rtl_dir, 'AXIS_FIFO.sv'),        
         os.path.join(rtl_dir, 'FFT_demod.sv'),
         os.path.join(rtl_dir, 'frame_sync.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v'),
