@@ -73,6 +73,13 @@ async def simple_test(dut):
 
     await tb.cycle_reset()
 
+    axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi_if"), dut.clk_i, dut.reset_ni, reset_active_level = False)
+
+    addr = 0
+    data = await axi_master.read_dword(4 * addr)
+    data = int(data)
+    assert data == 0x00010069
+
     rx_counter = 0
     in_counter = 0
     received = []
@@ -150,18 +157,6 @@ async def simple_test(dut):
     assert len(received_SSS) == 3 * SSS_LEN
     assert len(corrected_PBCH) == 432 * 2, print('received PBCH does not have correct length!')
     assert len(received_PBCH_LLR) == 432 * 4, print('received PBCH LLRs do not have correct length!')
-
-    axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi_if"), dut.clk_i)
-
-    addr = 0
-    data = await axi_master.read_dword(4 * addr)
-    data = int(data)
-    assert data == 0x00010069
-
-    addr = 7
-    data = await axi_master.read_dword(4 * addr)
-    data = int(data)
-    print(f'axis_axil_fifo contains {data} elements')
 
     CP_ADVANCE = 9 if HALF_CP_ADVANCE else 18
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
