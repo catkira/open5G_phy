@@ -148,8 +148,8 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'div.sv'),
-        os.path.join(rtl_dir, 'atan.sv'),        
-        os.path.join(rtl_dir, 'atan2.sv'),        
+        os.path.join(rtl_dir, 'atan.sv'),   
+        os.path.join(rtl_dir, 'atan2.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'PSS_detector_regmap.sv'),
@@ -216,7 +216,10 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
 @cocotb.test()
 async def axi_tb(dut):
     tb = TB(dut)
-    axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi"), dut.clk_i, dut.reset_ni)
+
+    await tb.cycle_reset()
+
+    axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi"), dut.clk_i, dut.reset_ni, reset_active_level = False)
     
     addr = 0
     data = await axi_master.read_dword(4 * addr)
@@ -228,8 +231,6 @@ async def axi_tb(dut):
     data = int(data)
     assert data == 0x69696969
 
-    await tb.cycle_reset()
-
 def test_axi():
     dut = 'PSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
@@ -239,6 +240,9 @@ def test_axi():
 
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'div.sv'),
+        os.path.join(rtl_dir, 'atan.sv'),   
+        os.path.join(rtl_dir, 'atan2.sv'),        
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'PSS_detector_regmap.sv'),
@@ -260,5 +264,5 @@ def test_axi():
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0, USE_TAP_FILE=1, DDS_DW = 24, CFO_DW = 24)
-    # test_axi()
+    # test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0, USE_TAP_FILE=1, DDS_DW = 24, CFO_DW = 24)
+    test_axi()

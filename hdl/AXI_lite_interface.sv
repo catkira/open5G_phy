@@ -85,7 +85,7 @@ module AXI_lite_interface #(
     wire    [31 : 0]                    rdata_s;
 
     // write channel interface
-    assign axi_bresp = 2'd0;
+    assign s_axi_bresp = 2'd0;
 
     always @(posedge clk_i) begin
         if (!reset_ni) begin

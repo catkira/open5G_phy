@@ -23,6 +23,7 @@ module receiver
     parameter TAP_FILE_1 = "",
     parameter TAP_FILE_2 = "",
     parameter LLR_DW = 8,
+    parameter ADDRESS_WIDTH = 16,
 
     localparam FFT_OUT_DW `VL_RD = 32,
     localparam N_id_1_MAX `VL_RD = 335,
@@ -56,6 +57,34 @@ module receiver
     output                                          m_axis_demod_out_tvalid,
     output          [$clog2(N_id_1_MAX) - 1 : 0]    m_axis_SSS_tdata,
     output                                          m_axis_SSS_tvalid,
+
+    // AXI lite interface
+    // write address channel
+    input           [ADDRESS_WIDTH - 1 : 0]     s_axi_if_awaddr,
+    input                                       s_axi_if_awvalid,
+    output  reg                                 s_axi_if_awready,
+    
+    // write data channel
+    input           [31 : 0]                    s_axi_if_wdata,
+    input           [ 3 : 0]                    s_axi_if_wstrb,      // not used
+    input                                       s_axi_if_wvalid,
+    output  reg                                 s_axi_if_wready,
+
+    // write response channel
+    output          [ 1 : 0]                    s_axi_if_bresp,
+    output  reg                                 s_axi_if_bvalid,
+    input                                       s_axi_if_bready,
+
+    // read address channel
+    input           [ADDRESS_WIDTH - 1 : 0]     s_axi_if_araddr,
+    input                                       s_axi_if_arvalid,
+    output  reg                                 s_axi_if_arready,
+
+    // read data channel
+    output  reg     [31 : 0]                    s_axi_if_rdata,
+    output          [ 1 : 0]                    s_axi_if_rresp,
+    output  reg                                 s_axi_if_rvalid,
+    input                                       s_axi_if_rready, 
     
     // debug outputs
     output  wire    [IN_DW-1:0]                     m_axis_cic_debug_tdata,
@@ -406,6 +435,42 @@ demap_i(
     .m_axis_out_tuser(m_axis_llr_out_tuser),
     .m_axis_out_tlast(m_axis_llr_out_tlast),
     .m_axis_out_tvalid(m_axis_llr_out_tvalid)
+);
+
+axis_axil_fifo #(
+    .DATA_WIDTH(LLR_DW),
+    .FIFO_LEN(2048),
+    .USER_WIDTH(1),
+    .IN_MUX(1),
+    .ADDRESS_WIDTH(ADDRESS_WIDTH)
+)
+axis_axil_fifo_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+
+    .s_axis_in_tdata(m_axis_llr_out_tdata),
+    .s_axis_in_tuser(m_axis_llr_out_tuser),
+    .s_axis_in_tlast(m_axis_llr_out_tlast),
+    .s_axis_in_tvalid(m_axis_llr_out_tvalid),
+    .s_axis_in_tfull(),
+
+    .s_axi_awaddr(s_axi_if_awaddr),
+    .s_axi_awvalid(s_axi_if_awvalid),
+    .s_axi_awready(s_axi_if_awready),
+    .s_axi_wdata(s_axi_if_wdata),
+    .s_axi_wstrb(s_axi_if_wstrb),
+    .s_axi_wvalid(s_axi_if_wvalid),
+    .s_axi_wready(s_axi_if_wready),
+    .s_axi_bresp(s_axi_if_bresp),
+    .s_axi_bvalid(s_axi_if_bvalid),
+    .s_axi_bready(s_axi_if_bready),
+    .s_axi_araddr(s_axi_if_araddr),
+    .s_axi_arvalid(s_axi_if_arvalid),
+    .s_axi_arready(s_axi_if_arready),
+    .s_axi_rdata(s_axi_if_rdata),
+    .s_axi_rresp(s_axi_if_rresp),
+    .s_axi_rvalid(s_axi_if_rvalid),
+    .s_axi_rready(s_axi_if_rready)
 );
 
 endmodule

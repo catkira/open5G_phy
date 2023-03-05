@@ -10,6 +10,7 @@ import cocotb
 import cocotb_test.simulator
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
+from cocotbext.axi import AxiLiteBus, AxiLiteMaster
 
 import py3gpp
 import sigmf
@@ -149,6 +150,18 @@ async def simple_test(dut):
     assert len(received_SSS) == 3 * SSS_LEN
     assert len(corrected_PBCH) == 432 * 2, print('received PBCH does not have correct length!')
     assert len(received_PBCH_LLR) == 432 * 4, print('received PBCH LLRs do not have correct length!')
+
+    axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi_if"), dut.clk_i)
+
+    addr = 0
+    data = await axi_master.read_dword(4 * addr)
+    data = int(data)
+    assert data == 0x00010069
+
+    addr = 7
+    data = await axi_master.read_dword(4 * addr)
+    data = int(data)
+    print(f'axis_axil_fifo contains {data} elements')
 
     CP_ADVANCE = 9 if HALF_CP_ADVANCE else 18
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
@@ -292,6 +305,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
         os.path.join(rtl_dir, 'SSS_detector.sv'),
         os.path.join(rtl_dir, 'LFSR/LFSR.sv'),
         os.path.join(rtl_dir, 'FFT_demod.sv'),
+        os.path.join(rtl_dir, 'axis_axil_fifo.sv'),
         os.path.join(rtl_dir, 'DDS', 'dds.sv'),
         os.path.join(rtl_dir, 'complex_multiplier', 'complex_multiplier.v'),
         os.path.join(rtl_dir, 'CIC/cic_d.sv'),
