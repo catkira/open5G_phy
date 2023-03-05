@@ -20,8 +20,7 @@ Implemented so far:<br>
 
 <b>TODO:</b>
 * implement dynamic block scaling for FFT
-* implement AXI stream FIFO or use Xilinx core
-* implement generic Ressource Grid Subscriber core with AXI-DMA interface
+* implement Ressource Grid Subscriber core with AXI-DMA interface
 * (optional) implement amplitude correction in channel_estimator
 * (optional) implement PDCCH DMRS in channel_estimator
 * (optional) implement QAM demod for PDSCH
