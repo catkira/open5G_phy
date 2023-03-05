@@ -186,11 +186,22 @@ always @(posedge clk_i) begin
                             end
                             2: begin
                                 sym_cnt = sym_cnt + 14 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
-                                subframe_number <= subframe_number + 1;
-                            end
+                                if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
+                                    subframe_number <= '0;
+                                    // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
+                                    sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
+                                end else begin
+                                    subframe_number <= subframe_number + 1;
+                                end                            end
                             3: begin
                                 sym_cnt = sym_cnt + 20 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
-                                subframe_number <= subframe_number + 1;
+                                if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
+                                    subframe_number <= '0;
+                                    // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
+                                    sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
+                                end else begin
+                                    subframe_number <= subframe_number + 1;
+                                end
                             end
                         endcase
                     end
@@ -218,11 +229,15 @@ always @(posedge clk_i) begin
                         sample_cnt <= '0;
                         if ((sym_cnt == 0) || (sym_cnt == 7))   current_CP_len <= CP1_LEN;
                         else                                    current_CP_len <= CP2_LEN;
-                        syms_since_last_SSB <= syms_since_last_SSB + 1;                        
+                        
+                        if ((syms_since_last_SSB == SYMS_BTWN_SSB - 1) || N_id_2_valid_i)   syms_since_last_SSB <= 0;
+                        else                                            syms_since_last_SSB <= syms_since_last_SSB + 1;                        
                     end else begin
                         sample_cnt <= sample_cnt + 1;
                         m_axis_out_tlast <= '0;
                     end
+                end else if (N_id_2_valid_i) begin
+                    syms_since_last_SSB <= 0;                    
                 end
 
                 if (N_id_2_valid_i) begin
@@ -269,8 +284,8 @@ always @(posedge clk_i) begin
                     end
                 end
 
-                if (N_id_2_valid_i && find_SSB)  SSB_start_o <= '1;
-                else                          SSB_start_o <= '0;
+                if (N_id_2_valid_i && find_SSB) SSB_start_o <= '1;
+                else                            SSB_start_o <= '0;
 
                 if (s_axis_in_tvalid) begin
                     if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
@@ -292,7 +307,9 @@ always @(posedge clk_i) begin
                         sample_cnt <= '0;
                         if ((sym_cnt == 0) || (sym_cnt == 7))   current_CP_len <= CP1_LEN;
                         else                                    current_CP_len <= CP2_LEN;
-                        syms_since_last_SSB <= syms_since_last_SSB + 1;
+                        
+                        if (N_id_2_valid_i) syms_since_last_SSB <= '0;
+                        else                syms_since_last_SSB <= syms_since_last_SSB + 1;
                     end else begin
                         sample_cnt <= sample_cnt + 1;
                         m_axis_out_tlast <= '0;
@@ -303,6 +320,8 @@ always @(posedge clk_i) begin
                         m_axis_out_tvalid <= '0;
                         $display("find SSB ...");
                     end
+                end else if (N_id_2_valid_i) begin
+                    syms_since_last_SSB <= '0;                    
                 end
             end
         endcase

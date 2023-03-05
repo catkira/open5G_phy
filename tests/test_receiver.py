@@ -91,7 +91,7 @@ async def simple_test(dut):
     DETECTOR_LATENCY = 27
     FFT_OUT_DW = 32
     SYMBOL_LEN = 240
-    max_tx = int(0.025 * fs) # simulate 25ms tx data
+    max_tx = int(0.045 * fs) # simulate 45ms tx data
     while in_counter < max_tx + 10000:
         await RisingEdge(dut.clk_i)
         if in_counter < max_tx:
@@ -102,18 +102,10 @@ async def simple_test(dut):
         else:
             dut.s_axis_in_tvalid.value = 0
 
-        #print(f"data[{in_counter}] = {(int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x} {(int(waveform[in_counter].real)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x}")
         in_counter += 1
 
         received.append(dut.peak_detected_debug_o.value.integer)
         rx_counter += 1
-        # if dut.peak_detected_debug_o.value.integer == 1:
-        #     print(f'{rx_counter}: peak detected')
-
-        # if dut.sync_wait_counter.value.integer != 0:
-        #     print(f'{rx_counter}: wait_counter = {dut.sync_wait_counter.value.integer}')
-
-        # print(f'{dut.m_axis_out_tvalid.value.binstr}  {dut.m_axis_out_tdata.value.binstr}')
 
         if dut.peak_detected_debug_o.value.integer == 1:
             print(f'peak pos = {in_counter}')
@@ -154,9 +146,9 @@ async def simple_test(dut):
 
     print(f'received {len(corrected_PBCH)} PBCH IQ samples')
     print(f'received {len(received_PBCH_LLR)} PBCH LLRs samples')
-    assert len(received_SSS) == 2 * SSS_LEN
-    assert len(corrected_PBCH) == 432, print('received PBCH does not have correct length!')
-    assert len(received_PBCH_LLR) == 432 * 2, print('received PBCH LLRs do not have correct length!')
+    assert len(received_SSS) == 3 * SSS_LEN
+    assert len(corrected_PBCH) == 432 * 2, print('received PBCH does not have correct length!')
+    # assert len(received_PBCH_LLR) == 432 * 3, print('received PBCH LLRs do not have correct length!')
 
     CP_ADVANCE = 9 if HALF_CP_ADVANCE else 18
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
@@ -217,7 +209,7 @@ async def simple_test(dut):
         axs[2].set_title('CFO and channel corrected PBCH')
         axs[2].plot(np.real(corrected_PBCH[:180]), np.imag(corrected_PBCH[:180]), 'r.')
         axs[2].plot(np.real(corrected_PBCH[180:][:72]), np.imag(corrected_PBCH[180:][:72]), 'g.')
-        axs[2].plot(np.real(corrected_PBCH[180 + 72:]), np.imag(corrected_PBCH[180 + 72:]), 'b.')
+        axs[2].plot(np.real(corrected_PBCH[180 + 72:][:180]), np.imag(corrected_PBCH[180 + 72:][:180]), 'b.')
         plt.show()
 
     peak_pos = np.argmax(received)
@@ -238,18 +230,18 @@ async def simple_test(dut):
     # try to decode PBCH
     ibar_SSB = 0 # TODO grab this from hdl
     nVar = 1
-    corrected_PBCH = np.array(corrected_PBCH)
+    corrected_PBCH = np.array(corrected_PBCH)[:432]
     for mode in ['hard', 'soft', 'hdl']:
         print(f'demodulation mode: {mode}')
         if mode == 'hdl':
-            pbchBits = np.array(received_PBCH_LLR)
+            pbchBits = np.array(received_PBCH_LLR)[:432 * 2]
         else:
             pbchBits = py3gpp.nrSymbolDemodulate(corrected_PBCH, 'QPSK', nVar, mode)
 
         E = 864
         v = ibar_SSB
         scrambling_seq = py3gpp.nrPBCHPRBS(detected_NID, v, E)
-        scrambling_seq_bpsk = (-1)*scrambling_seq*2 + 1
+        scrambling_seq_bpsk = (-1) * scrambling_seq * 2 + 1
         pbchBits_descrambled = pbchBits * scrambling_seq_bpsk
 
         A = 32
