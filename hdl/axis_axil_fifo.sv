@@ -83,7 +83,7 @@ AXIS_FIFO_i(
 );
 
 wire rreq;
-wire [8:0] raddr;
+wire [ADDRESS_WIDTH - 3 : 0] raddr;
 reg [31:0] rdata;
 reg rack;
 
@@ -92,16 +92,18 @@ always @(posedge clk_i) begin
     if (!reset_ni) begin
         rack <= '0;
         state <= '0;
-    end else if (raddr == 9'h007) begin
+    end else if (raddr == 7) begin
         case (state)
             0 : begin
-                fifo_ready <= 1;
-                state <= 1;
                 rack <= '0;
+                if ((!fifo_empty) && rreq) begin // this will block forever if fifo is empty !
+                    fifo_ready <= 1;
+                    state <= 1;
+                end
             end
             1 : begin
+                fifo_ready <= '0;
                 if (fifo_valid) begin
-                    fifo_ready <= '0;
                     state <= 2;
                     rack <= 1;
                 end
@@ -111,7 +113,7 @@ always @(posedge clk_i) begin
                 state <= '0;
             end
         endcase
-    end else if (raddr < 9'h005) begin
+    end else begin
         rack <= rreq;   // ack immediately after req
     end
 end

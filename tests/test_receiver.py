@@ -53,6 +53,19 @@ class TB(object):
         self.dut.reset_ni.value = 1
         await RisingEdge(self.dut.clk_i)
 
+    async def read_axil(self, addr):
+        self.dut.s_axi_if_araddr.value = addr
+        self.dut.s_axi_if_arvalid.value = 1
+        self.dut.s_axi_if_rready.value = 1
+        await RisingEdge(self.dut.clk_i)
+        while self.dut.s_axi_if_rvalid.value == 0:
+            await RisingEdge(self.dut.clk_i)
+        self.dut.s_axi_if_arvalid.value = 0
+        self.dut.s_axi_if_rready.value = 0
+        data = self.dut.s_axi_if_rdata.value.integer
+        return data
+
+
 @cocotb.test()
 async def simple_test(dut):
     tb = TB(dut)
@@ -73,12 +86,18 @@ async def simple_test(dut):
 
     await tb.cycle_reset()
 
-    axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi_if"), dut.clk_i, dut.reset_ni, reset_active_level = False)
+    # cocotbext-axi hangs with Verilator -> https://github.com/verilator/verilator/issues/3919
+    # axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi_if"), dut.clk_i, dut.reset_ni, reset_active_level = False)
+    # addr = 0
+    # data = await axi_master.read_dword(4 * addr)
+    # data = int(data)
+    # assert data == 0x00010069
 
-    addr = 0
-    data = await axi_master.read_dword(4 * addr)
-    data = int(data)
+    data = await tb.read_axil(addr = 0)
+    print(f'axi-lite fifo: id = {data:x}')
     assert data == 0x00010069
+    data = await tb.read_axil(addr = 5 * 4)
+    print(f'axi-lite fifo: level = {data}')
 
     rx_counter = 0
     in_counter = 0
@@ -157,6 +176,18 @@ async def simple_test(dut):
     assert len(received_SSS) == 3 * SSS_LEN
     assert len(corrected_PBCH) == 432 * 2, print('received PBCH does not have correct length!')
     assert len(received_PBCH_LLR) == 432 * 4, print('received PBCH LLRs do not have correct length!')
+
+    data = await tb.read_axil(addr = 0)
+    print(f'axi-lite fifo: id = {data:x}')
+    data = await tb.read_axil(addr = 5 * 4)
+    print(f'axi-lite fifo: level = {data}')
+    assert data == 864 * 2
+    fifo_data = []
+    for i in range(data):
+        data = await tb.read_axil(addr = 7 * 4)
+        fifo_data.append(_twos_comp(data & (2 ** (tb.LLR_DW // 2) - 1), tb.LLR_DW // 2))
+    assert np.array_equal(np.array(received_PBCH_LLR), np.array(fifo_data))
+
 
     CP_ADVANCE = 9 if HALF_CP_ADVANCE else 18
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))

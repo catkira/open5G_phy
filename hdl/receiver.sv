@@ -449,9 +449,9 @@ axis_axil_fifo_i(
     .reset_ni(reset_ni),
 
     .s_axis_in_tdata(m_axis_llr_out_tdata),
-    .s_axis_in_tuser(m_axis_llr_out_tuser),
+    .s_axis_in_tuser(m_axis_llr_out_tuser[0]),
     .s_axis_in_tlast(m_axis_llr_out_tlast),
-    .s_axis_in_tvalid(m_axis_llr_out_tvalid),
+    .s_axis_in_tvalid(m_axis_llr_out_tvalid && (m_axis_llr_out_tuser == 1)),  // only store PBCH bits in FIFO
     .s_axis_in_tfull(),
 
     .s_axi_awaddr(s_axi_if_awaddr),
