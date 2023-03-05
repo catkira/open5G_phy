@@ -148,7 +148,7 @@ async def simple_test(dut):
     print(f'received {len(received_PBCH_LLR)} PBCH LLRs samples')
     assert len(received_SSS) == 3 * SSS_LEN
     assert len(corrected_PBCH) == 432 * 2, print('received PBCH does not have correct length!')
-    # assert len(received_PBCH_LLR) == 432 * 3, print('received PBCH LLRs do not have correct length!')
+    assert len(received_PBCH_LLR) == 432 * 4, print('received PBCH LLRs do not have correct length!')
 
     CP_ADVANCE = 9 if HALF_CP_ADVANCE else 18
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
