@@ -121,5 +121,9 @@ The data rate at the output of this core is 240 * 100 symbols/s * 240 SC/symbol 
 A non-continuous mode will possibly be added in the future. In the non-continuous mode it can be configured which symbols and subcarriers should be forwarded. This feature would need to scatter-gather functionality in order two forward two different blocks that are close to each other on the time axis.
 
 # Channel estimator
-The channel estimator currently only corrects the phase angles, this is enough for BPSK and QPSK demodulation. It also detects the PBCH DMRS (DeModulation Reference Sequence) by comparing the incoming pilots with the 8 possible ibar_SSB configurations. The detected ibar_SSB is then send to the frame_sync core which uses this signal to align itself to the right subframe number.
+The channel estimator currently only corrects the phase angles, this is enough for BPSK and QPSK demodulation. It also detects the PBCH DMRS (DeModulation Reference Sequence) by comparing the incoming pilots with the 8 possible ibar_SSB configurations. The 5G standard recommends to blind decode the received PBCH for all 8 possible ibar_SSBs. This has the advantage of knowing whether a valid PBCH was received. Detecting ibar_SSB by comparing PBCH DMRS's only can lead to wrong detected ibar_SSB.
+<br>
+TODO: The detected ibar_SSB can be verified by setting a threshold on the correlation of the PBCH DMRS comparison. If the result is below the threshold the PSS detector should go back into search mode and search for another SSB.
+<br>
+The detected ibar_SSB is then send to the frame_sync core which uses this signal to align itself to the right subframe number.
 ![Channel estimator diagram](doc/channel_estimator.jpg)
