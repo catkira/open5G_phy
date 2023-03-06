@@ -107,11 +107,8 @@ Frame sync outputs IQ samples in an AXI stream interface. The tuser field contai
 <b>Important: after detection of the first SSB, sfn strats at 0. After decoding the MIB from the PBCH on the CPU, this core needs to receive the sfn of the SSB in order to output correct frame information in tuser. </b>
 
 # Ressource Grid Subscriber (RGS)
-This core provides RBs (ressource blocks) from the ressource grid to the CPU. RBs can be selected by setting SC_start, SC_end, sym_start, sym_end via the AXI lite interface. This means that any group of RBs that is a 'rectangle' on the ressource grid can be received by the CPU. If multiple 'rectangles' from the ressource grid should be received, multiple instances of this core can be instanciated in parallel.
-<br>
-A possible use case for this core is to receive the CORESET after a PBCH message has been decoded. The MIB (Master Information Block) contains information where the CORESET can be found on the ressource grid (potentially multiple locaions that have to be tried -> search space). The RGS core can be configured accordingly and then decode (QPSK demapping, channel estimation, polar decoding) the CORESET message on the CPU.
-<br>
-TODO: implement this core
+This core controls which symbols get forwarded to the AXI-DMA core. The core can be configured to start with a certain {Frame, Subframe, Symbol)-number. The core also monitors possible overflows, this can happen if the AXI-DMA core is not configured fast enough to transfer all incoming symbols to the CPU. In case of an overflow, this core will stop forwarding symbols and set an overflow flag. Forwarding can then be reenabled by setting the start {Frame, Subframe, Symbol)-number again.
+Starting will a defined symbol is necessary, because the AXI-DMA core cannot transfer any meta information with the payload.
 
 # Channel estimator
 The channel estimator currently only corrects the phase angles, this is enough for BPSK and QPSK demodulation. It also detects the PBCH DMRS (DeModulation Reference Sequence) by comparing the incoming pilots with the 8 possible ibar_SSB configurations. The detected ibar_SSB is then send to the frame_sync core which uses this signal to align itself to the right subframe number.
