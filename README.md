@@ -109,6 +109,10 @@ Frame sync outputs IQ samples in an AXI stream interface. The tuser field contai
 # Ressource Grid Subscriber (RGS)
 This core controls which symbols get forwarded to the AXI-DMA core. The core can be configured to start with a certain {Frame, Subframe, Symbol)-number. The core also monitors possible overflows, this can happen if the AXI-DMA core is not configured fast enough to transfer all incoming symbols to the CPU. In case of an overflow, this core will stop forwarding symbols and set an overflow flag. Forwarding can then be reenabled by setting the start {Frame, Subframe, Symbol)-number again.
 Starting will a defined symbol is necessary, because the AXI-DMA core cannot transfer any meta information with the payload.
+<br>
+The data rate at the output of this core is 240 * 100 symbols/s * 240 SC/symbol * 2 byte/SC = 11.52 MB/s
+<br>
+A non-continuous mode will possibly be added in the future. In the non-continuous mode it can be configured which symbols and subcarriers should be forwarded. This feature would need to scatter-gather functionality in order two forward two different blocks that are close to each other on the time axis.
 
 # Channel estimator
 The channel estimator currently only corrects the phase angles, this is enough for BPSK and QPSK demodulation. It also detects the PBCH DMRS (DeModulation Reference Sequence) by comparing the incoming pilots with the 8 possible ibar_SSB configurations. The detected ibar_SSB is then send to the frame_sync core which uses this signal to align itself to the right subframe number.
