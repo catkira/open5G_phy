@@ -272,7 +272,25 @@ PSS_detector_i(
     .N_id_2_o(N_id_2),
     .CFO_DDS_inc_o(CFO_DDS_inc),
     .CFO_angle_o(),
-    .CFO_valid_o(CFO_valid)
+    .CFO_valid_o(CFO_valid),
+
+    .s_axi_awaddr(s_axi_pss_awaddr),
+    .s_axi_awvalid(s_axi_pss_awvalid),
+    .s_axi_awready(s_axi_pss_awready),
+    .s_axi_wdata(s_axi_pss_wdata),
+    .s_axi_wstrb(s_axi_pss_wstrb),
+    .s_axi_wvalid(s_axi_pss_wvalid),
+    .s_axi_wready(s_axi_pss_wready),
+    .s_axi_bresp(s_axi_pss_bresp),
+    .s_axi_bvalid(s_axi_pss_bvalid),
+    .s_axi_bready(s_axi_pss_bready),
+    .s_axi_araddr(s_axi_pss_araddr),
+    .s_axi_arvalid(s_axi_pss_arvalid),
+    .s_axi_arready(s_axi_pss_arready),
+    .s_axi_rdata(s_axi_pss_rdata),
+    .s_axi_rresp(s_axi_pss_rresp),
+    .s_axi_rvalid(s_axi_pss_rvalid),
+    .s_axi_rready(s_axi_pss_rready)    
 );
 
 assign peak_detected_debug_o = N_id_2_valid;
@@ -437,12 +455,14 @@ demap_i(
     .m_axis_out_tvalid(m_axis_llr_out_tvalid)
 );
 
+localparam OFFSET_ADDR_WIDTH = ADDRESS_WIDTH - 2;
+
 axis_axil_fifo #(
     .DATA_WIDTH(LLR_DW),
     .FIFO_LEN(2048),
     .USER_WIDTH(1),
     .IN_MUX(1),
-    .ADDRESS_WIDTH(ADDRESS_WIDTH)
+    .ADDRESS_WIDTH(OFFSET_ADDR_WIDTH)
 )
 axis_axil_fifo_i(
     .clk_i(clk_i),
@@ -454,23 +474,146 @@ axis_axil_fifo_i(
     .s_axis_in_tvalid(m_axis_llr_out_tvalid && (m_axis_llr_out_tuser == 1)),  // only store PBCH bits in FIFO
     .s_axis_in_tfull(),
 
-    .s_axi_awaddr(s_axi_if_awaddr),
-    .s_axi_awvalid(s_axi_if_awvalid),
-    .s_axi_awready(s_axi_if_awready),
-    .s_axi_wdata(s_axi_if_wdata),
-    .s_axi_wstrb(s_axi_if_wstrb),
-    .s_axi_wvalid(s_axi_if_wvalid),
-    .s_axi_wready(s_axi_if_wready),
-    .s_axi_bresp(s_axi_if_bresp),
-    .s_axi_bvalid(s_axi_if_bvalid),
-    .s_axi_bready(s_axi_if_bready),
-    .s_axi_araddr(s_axi_if_araddr),
-    .s_axi_arvalid(s_axi_if_arvalid),
-    .s_axi_arready(s_axi_if_arready),
-    .s_axi_rdata(s_axi_if_rdata),
-    .s_axi_rresp(s_axi_if_rresp),
-    .s_axi_rvalid(s_axi_if_rvalid),
-    .s_axi_rready(s_axi_if_rready)
+    .s_axi_awaddr(s_axi_fifo_awaddr),
+    .s_axi_awvalid(s_axi_fifo_awvalid),
+    .s_axi_awready(s_axi_fifo_awready),
+    .s_axi_wdata(s_axi_fifo_wdata),
+    .s_axi_wstrb(s_axi_fifo_wstrb),
+    .s_axi_wvalid(s_axi_fifo_wvalid),
+    .s_axi_wready(s_axi_fifo_wready),
+    .s_axi_bresp(s_axi_fifo_bresp),
+    .s_axi_bvalid(s_axi_fifo_bvalid),
+    .s_axi_bready(s_axi_fifo_bready),
+    .s_axi_araddr(s_axi_fifo_araddr),
+    .s_axi_arvalid(s_axi_fifo_arvalid),
+    .s_axi_arready(s_axi_fifo_arready),
+    .s_axi_rdata(s_axi_fifo_rdata),
+    .s_axi_rresp(s_axi_fifo_rresp),
+    .s_axi_rvalid(s_axi_fifo_rvalid),
+    .s_axi_rready(s_axi_fifo_rready)
+);
+
+// ------------------------------------------------------------------
+// --------------   wires for axis_axil_fifo_i  ---------------------
+wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_fifo_awaddr;
+wire                                        s_axi_fifo_awvalid;
+wire                                        s_axi_fifo_awready;
+// write data channel
+wire            [31 : 0]                    s_axi_fifo_wdata;
+wire            [ 3 : 0]                    s_axi_fifo_wstrb;     // not used
+wire                                        s_axi_fifo_wvalid;
+wire                                        s_axi_fifo_wready;
+// write response channel
+wire            [ 1 : 0]                    s_axi_fifo_bresp;
+wire                                        s_axi_fifo_bvalid;
+wire                                        s_axi_fifo_bready;
+// read address channel
+wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_fifo_araddr;
+wire                                        s_axi_fifo_arvalid;
+wire                                        s_axi_fifo_arready;
+// read data channel
+wire            [31 : 0]                    s_axi_fifo_rdata;
+wire            [ 1 : 0]                    s_axi_fifo_rresp;
+wire                                        s_axi_fifo_rvalid;
+wire                                        s_axi_fifo_rready;
+// ------------------------------------------------------------------
+
+// ------------------------------------------------------------------
+// --------------   wires for PSS_detector_i  -----------------------
+wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_pss_awaddr;
+wire                                            s_axi_pss_awvalid;
+wire                                            s_axi_pss_awready;
+// write data channel
+wire            [31 : 0]                        s_axi_pss_wdata;
+wire            [ 3 : 0]                        s_axi_pss_wstrb;     // not used
+wire                                            s_axi_pss_wvalid;
+wire                                            s_axi_pss_wready;
+// write response channel
+wire            [ 1 : 0]                        s_axi_pss_bresp;
+wire                                            s_axi_pss_bvalid;
+wire                                            s_axi_pss_bready;
+// read address channel
+wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_pss_araddr;
+wire                                            s_axi_pss_arvalid;
+wire                                            s_axi_pss_arready;
+// read data channel
+wire            [31 : 0]                        s_axi_pss_rdata;
+wire            [ 1 : 0]                        s_axi_pss_rresp;
+wire                                            s_axi_pss_rvalid;
+wire                                            s_axi_pss_rready;
+// ------------------------------------------------------------------
+
+
+axil_interconnect_wrap_1x4 #(
+    .DATA_WIDTH(32),
+    .ADDR_WIDTH(ADDRESS_WIDTH),
+    .M_REGIONS(1),
+    .M00_ADDR_WIDTH(OFFSET_ADDR_WIDTH),
+    .M01_ADDR_WIDTH(OFFSET_ADDR_WIDTH),
+    .M02_ADDR_WIDTH(OFFSET_ADDR_WIDTH),
+    .M03_ADDR_WIDTH(OFFSET_ADDR_WIDTH),
+    .M00_BASE_ADDR(0 << OFFSET_ADDR_WIDTH),
+    .M01_BASE_ADDR(1 << OFFSET_ADDR_WIDTH),
+    .M02_BASE_ADDR(2 << OFFSET_ADDR_WIDTH),
+    .M03_BASE_ADDR(3 << OFFSET_ADDR_WIDTH)
+)
+axil_interconnect_wrap_1x4_i(
+    .clk(clk_i),
+    .rst(!reset_ni),
+
+    .s00_axil_awaddr(s_axi_if_awaddr),
+    .s00_axil_awvalid(s_axi_if_awvalid),
+    .s00_axil_awready(s_axi_if_awready),
+    .s00_axil_wdata(s_axi_if_wdata),
+    .s00_axil_wstrb(s_axi_if_wstrb),
+    .s00_axil_wvalid(s_axi_if_wvalid),
+    .s00_axil_wready(s_axi_if_wready),
+    .s00_axil_bresp(s_axi_if_bresp),
+    .s00_axil_bvalid(s_axi_if_bvalid),
+    .s00_axil_bready(s_axi_if_bready),
+    .s00_axil_araddr(s_axi_if_araddr),
+    .s00_axil_arvalid(s_axi_if_arvalid),
+    .s00_axil_arready(s_axi_if_arready),
+    .s00_axil_rdata(s_axi_if_rdata),
+    .s00_axil_rresp(s_axi_if_rresp),
+    .s00_axil_rvalid(s_axi_if_rvalid),
+    .s00_axil_rready(s_axi_if_rready),
+
+    .m00_axil_awaddr(s_axi_fifo_awaddr),
+    .m00_axil_awvalid(s_axi_fifo_awvalid),
+    .m00_axil_awready(s_axi_fifo_awready),
+    .m00_axil_wdata(s_axi_fifo_wdata),
+    .m00_axil_wstrb(s_axi_fifo_wstrb),
+    .m00_axil_wvalid(s_axi_fifo_wvalid),
+    .m00_axil_wready(s_axi_fifo_wready),
+    .m00_axil_bresp(s_axi_fifo_bresp),
+    .m00_axil_bvalid(s_axi_fifo_bvalid),
+    .m00_axil_bready(s_axi_fifo_bready),
+    .m00_axil_araddr(s_axi_fifo_araddr),
+    .m00_axil_arvalid(s_axi_fifo_arvalid),
+    .m00_axil_arready(s_axi_fifo_arready),
+    .m00_axil_rdata(s_axi_fifo_rdata),
+    .m00_axil_rresp(s_axi_fifo_rresp),
+    .m00_axil_rvalid(s_axi_fifo_rvalid),
+    .m00_axil_rready(s_axi_fifo_rready),
+
+    .m01_axil_awaddr(s_axi_pss_awaddr),
+    .m01_axil_awvalid(s_axi_pss_awvalid),
+    .m01_axil_awready(s_axi_pss_awready),
+    .m01_axil_wdata(s_axi_pss_wdata),
+    .m01_axil_wstrb(s_axi_pss_wstrb),
+    .m01_axil_wvalid(s_axi_pss_wvalid),
+    .m01_axil_wready(s_axi_pss_wready),
+    .m01_axil_bresp(s_axi_pss_bresp),
+    .m01_axil_bvalid(s_axi_pss_bvalid),
+    .m01_axil_bready(s_axi_pss_bready),
+    .m01_axil_araddr(s_axi_pss_araddr),
+    .m01_axil_arvalid(s_axi_pss_arvalid),
+    .m01_axil_arready(s_axi_pss_arready),
+    .m01_axil_rdata(s_axi_pss_rdata),
+    .m01_axil_rresp(s_axi_pss_rresp),
+    .m01_axil_rvalid(s_axi_pss_rvalid),
+    .m01_axil_rready(s_axi_pss_rready)
 );
 
 endmodule

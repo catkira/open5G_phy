@@ -93,11 +93,16 @@ async def simple_test(dut):
     # data = int(data)
     # assert data == 0x00010069
 
-    data = await tb.read_axil(addr = 0)
+    data = await tb.read_axil(addr =  0)
     print(f'axi-lite fifo: id = {data:x}')
     assert data == 0x00010069
     data = await tb.read_axil(addr = 5 * 4)
     print(f'axi-lite fifo: level = {data}')
+
+    OFFSET_ADDR_WIDTH = 16 - 2
+    data = await tb.read_axil(addr =  0 + (1 << OFFSET_ADDR_WIDTH))
+    print(f'PSS detector: id = {data:x}')
+    assert data == 0x00040069
 
     rx_counter = 0
     in_counter = 0
@@ -315,6 +320,10 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
     unisim_dir = os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/unisims')
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'axil_interconnect_wrap_1x4.v'),
+        os.path.join(rtl_dir, 'verilog-axi', 'axil_interconnect.v'),
+        os.path.join(rtl_dir, 'verilog-axi', 'arbiter.v'),
+        os.path.join(rtl_dir, 'verilog-axi', 'priority_encoder.v'),
         os.path.join(rtl_dir, 'atan.sv'),
         os.path.join(rtl_dir, 'atan2.sv'),
         os.path.join(rtl_dir, 'div.sv'),
