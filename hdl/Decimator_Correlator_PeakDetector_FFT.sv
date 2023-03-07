@@ -166,6 +166,7 @@ frame_sync_i
 
 FFT_demod #(
     .IN_DW(IN_DW),
+    .OUT_DW(FFT_OUT_DW),
     .HALF_CP_ADVANCE(HALF_CP_ADVANCE)
 )
 FFT_demod_i(

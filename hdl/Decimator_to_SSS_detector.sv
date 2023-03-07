@@ -16,7 +16,8 @@ module Decimator_to_SSS_detector
     parameter TAP_FILE_0 = "",
     parameter TAP_FILE_1 = "",
     parameter TAP_FILE_2 = "",
-    localparam FFT_OUT_DW = 32,
+
+    localparam FFT_OUT_DW = 16,
     localparam N_id_1_MAX = 335,
     localparam N_id_MAX = 1007
 )
@@ -86,7 +87,7 @@ wire [1 : 0] N_id_2;
 
 PSS_detector #(
     .IN_DW(IN_DW),
-    .OUT_DW(OUT_DW),
+    .OUT_DW(OUT_DW),  // width of correlator output
     .TAP_DW(TAP_DW),
     .PSS_LEN(PSS_LEN),
     .PSS_LOCAL_0(PSS_LOCAL_0),
@@ -182,6 +183,7 @@ frame_sync_i
 
 FFT_demod #(
     .IN_DW(IN_DW),
+    .OUT_DW(FFT_OUT_DW),
     .HALF_CP_ADVANCE(HALF_CP_ADVANCE)
 )
 FFT_demod_i(

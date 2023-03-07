@@ -41,12 +41,7 @@ class TB(object):
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
 
-        # tests_dir = os.path.abspath(os.path.dirname(__file__))
-
         cocotb.start_soon(Clock(self.dut.clk_i, CLK_PERIOD_NS, units='ns').start())
-
-    async def generate_input(self):
-        pass
 
     async def cycle_reset(self):
         self.dut.s_axis_in_tvalid.value = 0
@@ -56,6 +51,13 @@ class TB(object):
         await RisingEdge(self.dut.clk_i)
         self.dut.reset_ni.value = 1
         await RisingEdge(self.dut.clk_i)
+
+    def fft_dbs(self, fft_signal, width):
+        max_im = np.abs(fft_signal.imag).max()
+        max_re = np.abs(fft_signal.real).max()
+        max_abs_val = max(max_im, max_re)
+        shift_factor = width - np.ceil(np.log2(max_abs_val)) - 1
+        return fft_signal * (2 ** shift_factor)
 
 @cocotb.test()
 async def simple_test(dut):
@@ -150,12 +152,16 @@ async def simple_test(dut):
 
     CP_ADVANCE = 9 if HALF_CP_ADVANCE else 18
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
+    scaling_factor = 2**(tb.IN_DW / 2 + NFFT - FFT_OUT_DW / 2) # FFT core is in truncation mode
+    ideal_SSS_sym = ideal_SSS_sym.real / scaling_factor + 1j * ideal_SSS_sym.imag / scaling_factor
+    ideal_SSS_sym = tb.fft_dbs(ideal_SSS_sym, FFT_OUT_DW / 2)
     ideal_SSS_sym *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP_LEN - CP_ADVANCE)))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         ax = plt.subplot(4, 2, 1)
         ax.plot(np.abs(ideal_SSS_sym))
         ax = plt.subplot(4, 2, 2)
+        ax.set_title('model')
         ax.plot(np.abs(ideal_SSS))
         ax = plt.subplot(4, 2, 3)
         ax.plot(np.real(ideal_SSS), 'r-')
@@ -165,9 +171,9 @@ async def simple_test(dut):
         ax.plot(np.real(ideal_SSS), np.imag(ideal_SSS), '.')
 
         ax = plt.subplot(4, 2, 5)
-        ax.plot(np.abs((received_SSS_sym)))
         ax = plt.subplot(4, 2, 6)
         ax.plot(np.abs(received_SSS))
+        ax.set_title('hdl')
         ax = plt.subplot(4, 2, 7)
         ax.plot(np.real(received_SSS), 'r-')
         ax = ax.twinx()
@@ -187,7 +193,9 @@ async def simple_test(dut):
             axs[0].plot(np.real(received_SSS), np.imag(received_SSS), '.')
         for i in range(len(received_PBCH)):
             axs[1].plot(np.real(received_PBCH), np.imag(received_PBCH), '.')
+            axs[1].set_title('hdl')
             axs[2].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), '.')
+            axs[2].set_title('model')
         plt.show()
 
     peak_pos = np.argmax(received)
@@ -203,12 +211,8 @@ async def simple_test(dut):
     # for i in range(len(received_PBCH)):
     #     print(received_PBCH_ideal[i])
 
-    scaling_factor = 2**(tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mode
-    ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
+
     error_signal = received_SSS - ideal_SSS
-    # for i in range(len(received_SSS)):
-    #     if received_SSS[i] != ideal_SSS[i]:
-    #         print(f'{received_SSS[i]} != {ideal_SSS[i]}')
     assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
 
     # assert np.array_equal(received_PBCH, received_PBCH_ideal)

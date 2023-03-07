@@ -58,6 +58,14 @@ class TB(object):
         self.dut.reset_ni.value = 1
         await RisingEdge(self.dut.clk_i)
 
+    def fft_dbs(self, fft_signal):
+        max_im = np.abs(fft_signal.imag).max()
+        max_re = np.abs(fft_signal.real).max()
+        max_abs_val = max(max_im, max_re)
+        width = 8
+        shift_factor = width - np.ceil(np.log2(max_abs_val)) - 1
+        return fft_signal * (2 ** shift_factor)
+
 @cocotb.test()
 async def simple_test(dut):
     tb = TB(dut)
@@ -156,6 +164,7 @@ async def simple_test(dut):
 
     CP_ADVANCE = 9 if HALF_CP_ADVANCE else 18
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
+    ideal_SSS_sym = tb.fft_dbs(ideal_SSS_sym)
     ideal_SSS_sym *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) +  np.pi * (CP_LEN - CP_ADVANCE)))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
@@ -209,12 +218,10 @@ async def simple_test(dut):
     # for i in range(len(received_PBCH)):
     #     print(received_PBCH_ideal[i])
 
-    scaling_factor = 2**(tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mode
-    ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
+    # scaling_factor = 2**(tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mod
+    # ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
+    ideal_SSS = tb.fft_dbs(ideal_SSS)
     error_signal = received_SSS - ideal_SSS
-    # for i in range(len(received_SSS)):
-    #     if received_SSS[i] != ideal_SSS[i]:
-    #         print(f'{received_SSS[i]} != {ideal_SSS[i]}')
     assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
 
     # assert np.array_equal(received_PBCH, received_PBCH_ideal)  # TODO: make this pass
