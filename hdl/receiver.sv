@@ -37,13 +37,13 @@ module receiver
     input                                           reset_ni,
 
     input                                           sample_clk_i,
-    input   wire    [IN_DW-1:0]                     s_axis_in_tdata,
+    input   wire    [IN_DW - 1 : 0]                 s_axis_in_tdata,
     input                                           s_axis_in_tvalid,
 
     output                                          PBCH_valid_o,
     output                                          SSS_valid_o,
 
-    output          [FFT_OUT_DW-1:0]                m_axis_cest_out_tdata,
+    output          [FFT_OUT_DW - 1 : 0]            m_axis_cest_out_tdata,
     output          [1 : 0]                         m_axis_cest_out_tuser,
     output                                          m_axis_cest_out_tlast,
     output                                          m_axis_cest_out_tvalid,
@@ -53,7 +53,7 @@ module receiver
     output                                          m_axis_llr_out_tlast,
     output                                          m_axis_llr_out_tvalid,
 
-    output          [FFT_OUT_DW-1:0]                m_axis_demod_out_tdata,
+    output          [FFT_OUT_DW - 1 : 0]            m_axis_demod_out_tdata,
     output                                          m_axis_demod_out_tvalid,
     output          [$clog2(N_id_1_MAX) - 1 : 0]    m_axis_SSS_tdata,
     output                                          m_axis_SSS_tvalid,
@@ -87,13 +87,11 @@ module receiver
     input                                       s_axi_if_rready, 
     
     // debug outputs
-    output  wire    [IN_DW-1:0]                     m_axis_cic_debug_tdata,
+    output  wire    [IN_DW - 1 : 0]                 m_axis_cic_debug_tdata,
     output  wire                                    m_axis_cic_debug_tvalid,
     output  wire    [OUT_DW - 1 : 0]                m_axis_correlator_debug_tdata,
     output  wire                                    m_axis_correlator_debug_tvalid,
     output  reg                                     peak_detected_debug_o,
-    output  wire    [FFT_OUT_DW-1:0]                fft_result_debug_o,
-    output  wire                                    fft_sync_debug_o,
     output  wire    [15:0]                          sync_wait_counter_debug_o
 );
 

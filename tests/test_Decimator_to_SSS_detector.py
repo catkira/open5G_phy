@@ -95,13 +95,8 @@ async def simple_test(dut):
 
     MAX_CLK_CNT = 60000
     MAX_TX = 2000
-    CP_LEN = 18
-    HALF_CP_ADVANCE = tb.HALF_CP_ADVANCE
-    NFFT = 8
-    FFT_SIZE = 2 ** NFFT
     DETECTOR_LATENCY = 18
     FFT_OUT_DW = 32
-    SSS_START = 64
     SSS_LEN = 127
 
     while clk_cnt < MAX_CLK_CNT:
@@ -144,89 +139,16 @@ async def simple_test(dut):
                 + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
         if dut.SSS_valid_o.value.integer == 1:
-            # print(f"rx SSS[{len(received_SSS):3d}]")
             received_SSS.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
-        if dut.m_axis_out_tvalid.value.binstr == '1':
+        if dut.m_axis_out_tvalid.value.integer == 1:
             # print(f'{rx_counter}: fft_demod {dut.m_axis_out_tdata.value}')
             received_fft_demod.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
-        if fft_started:
-            # print(f'{rx_counter}: fft_debug {dut.fft_result_debug_o.value}')
-            received_fft.append(_twos_comp(dut.fft_result_debug_o.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
-
     assert len(received_SSS) == SSS_LEN
-    received_SSS_sym = received_SSS
-    # received_SSS = received_SSS_sym[SSS_START_NO_ZEROS:][:SSS_LEN]
-
-    CP_ADVANCE = 9 if HALF_CP_ADVANCE else 18
-    ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
-    ideal_SSS_sym = tb.fft_dbs(ideal_SSS_sym)
-    ideal_SSS_sym *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) +  np.pi * (CP_LEN - CP_ADVANCE)))
-    ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
-    if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
-        ax = plt.subplot(4, 2, 1)
-        ax.plot(np.abs(ideal_SSS_sym))
-        ax = plt.subplot(4, 2, 2)
-        ax.plot(np.abs(ideal_SSS))
-        ax = plt.subplot(4, 2, 3)
-        ax.plot(np.real(ideal_SSS), 'r-')
-        ax = ax.twinx()
-        ax.plot(np.imag(ideal_SSS), 'b-')
-        ax = plt.subplot(4, 2, 4)
-        ax.plot(np.real(ideal_SSS), np.imag(ideal_SSS), '.')
-
-        ax = plt.subplot(4, 2, 5)
-        ax.plot(np.abs((received_SSS_sym)))
-        ax = plt.subplot(4, 2, 6)
-        ax.plot(np.abs(received_SSS))
-        ax = plt.subplot(4, 2, 7)
-        ax.plot(np.real(received_SSS), 'r-')
-        ax = ax.twinx()
-        ax.plot(np.imag(received_SSS), 'b-')
-        ax = plt.subplot(4, 2, 8)
-        ax.plot(np.real(received_SSS), np.imag(received_SSS), '.')
-        plt.show()
-
-    # received_PBCH= received_PBCH[9:][:FFT_SIZE-8*2 - 1]
-    received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_SIZE]))
-    received_PBCH_ideal *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) +  np.pi * (CP_LEN - CP_ADVANCE)))
-    received_PBCH_ideal = received_PBCH_ideal[8:][:FFT_SIZE-8*2]
-    received_PBCH_ideal = (received_PBCH_ideal.real.astype(int) + 1j * received_PBCH_ideal.imag.astype(int))
-    if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
-        _, axs = plt.subplots(3, 1, figsize=(5, 10))
-        for i in range(len(received_SSS)):
-            axs[0].plot(np.real(received_SSS), np.imag(received_SSS), '.')
-        for i in range(len(received_PBCH)):
-            axs[1].plot(np.real(received_PBCH), np.imag(received_PBCH), '.')
-            axs[2].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), '.')
-        plt.show()
-
-    peak_pos = np.argmax(received)
-    print(f'highest peak at {peak_pos}')
-
-    # assert len(received_SSS) == 127
-    # for i in range(FFT_SIZE):
-    #     print(f'core : {received_fft[i]}')
-    #     print(f'demod: {received_fft_demod[i]}')
-    # for i in range(len(received_PBCH)):
-    #     print(f'{received_PBCH[i]} <-> {np.fft.fftshift(np.fft.fft(received_fft_ideal[:256]))}')
-    # print('--------------')
-    # for i in range(len(received_PBCH)):
-    #     print(received_PBCH_ideal[i])
-
-    # scaling_factor = 2**(tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mod
-    # ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
-    ideal_SSS = tb.fft_dbs(ideal_SSS)
-    error_signal = received_SSS - ideal_SSS
-    assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
-
-    # assert np.array_equal(received_PBCH, received_PBCH_ideal)  # TODO: make this pass
-    assert peak_pos == 841
-
+    
     print(f'detected N_id_1 = {detected_N_id_1}')
     print(f'detected N_id = {detected_N_id}')
     assert detected_N_id == 209

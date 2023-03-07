@@ -17,30 +17,28 @@ module Decimator_to_SSS_detector
     parameter TAP_FILE_1 = "",
     parameter TAP_FILE_2 = "",
 
-    localparam FFT_OUT_DW = 16,
+    localparam FFT_OUT_DW = 32,
     localparam N_id_1_MAX = 335,
     localparam N_id_MAX = 1007
 )
 (
     input                                           clk_i,
     input                                           reset_ni,
-    input   wire    [IN_DW-1:0]                     s_axis_in_tdata,
+    input   wire    [IN_DW - 1 : 0]                 s_axis_in_tdata,
     input                                           s_axis_in_tvalid,
 
     output                                          PBCH_valid_o,
     output                                          SSS_valid_o,
-    output          [FFT_OUT_DW-1:0]                m_axis_out_tdata,
+    output          [FFT_OUT_DW - 1 : 0]            m_axis_out_tdata,
     output                                          m_axis_out_tvalid,
     output          [$clog2(N_id_1_MAX) - 1 : 0]    m_axis_SSS_tdata,
     output                                          m_axis_SSS_tvalid,
     output          [$clog2(N_id_MAX) - 1 : 0]      N_id_o,
     
     // debug outputs
-    output  wire    [IN_DW-1:0]                     m_axis_cic_debug_tdata,
+    output  wire    [IN_DW - 1 : 0]                 m_axis_cic_debug_tdata,
     output  wire                                    m_axis_cic_debug_tvalid,
     output                                          peak_detected_debug_o,
-    output  wire    [FFT_OUT_DW-1:0]                fft_result_debug_o,
-    output  wire                                    fft_sync_debug_o,
     output  wire    [15:0]                          sync_wait_counter_debug_o,
     output  reg                                     fft_demod_PBCH_start_o,
     output  reg                                     fft_demod_SSS_start_o
@@ -110,14 +108,6 @@ PSS_detector_i(
 );
 
 assign peak_detected_debug_o = N_id_2_valid;
-
-wire [FFT_OUT_DW - 1 : 0] fft_result, fft_result_demod;
-wire [FFT_OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
-wire fft_result_demod_valid;
-wire fft_sync;
-
-assign fft_result_debug_o = fft_result;
-assign fft_sync_debug_o = fft_sync;
 
 // this delay line is needed because peak_detected goes high
 // at the end of SSS symbol plus some additional delay
