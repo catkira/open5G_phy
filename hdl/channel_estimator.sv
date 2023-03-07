@@ -758,7 +758,8 @@ complex_multiplier #(
     .OPERAND_WIDTH_A(DDS_OUT_DW / 2),
     .OPERAND_WIDTH_B(IN_DW / 2),
     .OPERAND_WIDTH_OUT(IN_DW / 2),
-    .BLOCKING(0)
+    .BLOCKING(0),
+    .GROWTH_BITS(-2)
 )
 complex_multiplier_i(
     .aclk(clk_i),

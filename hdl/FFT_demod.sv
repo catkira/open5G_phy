@@ -1,7 +1,7 @@
 module FFT_demod #(
     parameter IN_DW = 32,           // input data width
     parameter HALF_CP_ADVANCE = 1,
-    localparam OUT_DW = IN_DW,
+    parameter OUT_DW = 16,
     localparam NFFT = 8,
     localparam FFT_LEN = 2 ** NFFT,
     localparam MAX_CP_LEN = 20,
@@ -170,7 +170,11 @@ always @(posedge clk_i) begin
 end
 
 wire [OUT_DW - 1 : 0] fft_result;
+wire [IN_DW / 2 - 1 : 0] fft_result_re_long, fft_result_im_long;
 wire [OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
+assign fft_result_re = fft_result_re_long[IN_DW / 2 - 1 -: OUT_DW / 2];
+assign fft_result_im = fft_result_im_long[IN_DW / 2 - 1 -: OUT_DW / 2];
+
 wire fft_sync = fft_val && (out_cnt == 0);
 wire fft_val;
 reg fft_val_f;
@@ -184,7 +188,8 @@ fft #(
     .TWDL_WIDTH(IN_DW / 2),
     .XSERIES("NEW"),   // use "OLD" for Zynq7, "NEW" for MPSoC
     .USE_MLT(0),
-    .SHIFTED(1)
+    .SHIFTED(1),
+    .DBS(1)
 )
 fft(
     .clk(clk_i),
@@ -193,8 +198,8 @@ fft(
     .di_re(in_data_f[IN_DW / 2 - 1 : 0]),
     .di_en(fft_in_en),
 
-    .do_re(fft_result_re),
-    .do_im(fft_result_im),
+    .do_re(fft_result_re_long),
+    .do_im(fft_result_im_long),
     .do_vl(fft_val)
 );
 

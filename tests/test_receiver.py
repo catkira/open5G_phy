@@ -121,7 +121,7 @@ async def simple_test(dut):
     SSS_LEN = 127
     SSS_START = 64
     DETECTOR_LATENCY = 27
-    FFT_OUT_DW = 32
+    FFT_OUT_DW = 16
     SYMBOL_LEN = 240
     max_tx = int(0.045 * fs) # simulate 45ms tx data
     while in_counter < max_tx + 10000:
@@ -311,7 +311,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("CFO", [0, 1200])
 @pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
-@pytest.mark.parametrize("LLR_DW", [16])
+@pytest.mark.parametrize("LLR_DW", [8])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
@@ -358,7 +358,8 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
         os.path.join(rtl_dir, 'FFT/delay/int_delay_line.v'),
         os.path.join(rtl_dir, 'FFT/buffers/inbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/outbuf_half_path.v'),
-        os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v')
+        os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v'),
+        os.path.join(rtl_dir, 'FFT/buffers/dynamic_block_scaling.v')
     ]
     if os.environ.get('SIM') != 'verilator':
         verilog_sources.append(os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v'))
@@ -431,4 +432,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 16)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8)

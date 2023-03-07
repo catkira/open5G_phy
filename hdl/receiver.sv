@@ -25,7 +25,7 @@ module receiver
     parameter LLR_DW = 8,
     parameter ADDRESS_WIDTH = 16,
 
-    localparam FFT_OUT_DW `VL_RD = 32,
+    localparam FFT_OUT_DW `VL_RD = 16,
     localparam N_id_1_MAX `VL_RD = 335,
     localparam DDS_PHASE_DW = 20,
     localparam DDS_OUT_DW = 32,
@@ -374,6 +374,7 @@ assign m_axis_demod_out_tdata = fft_demod_out_tdata;
 assign m_axis_demod_out_tvalid = fft_demod_out_tvalid;
 FFT_demod #(
     .IN_DW(IN_DW),
+    .OUT_DW(FFT_OUT_DW),
     .HALF_CP_ADVANCE(HALF_CP_ADVANCE)
 )
 FFT_demod_i(
@@ -416,7 +417,7 @@ reg [$clog2(N_ID_MAX) - 1 : 0] N_id;
 reg N_id_valid;
 
 channel_estimator #(
-    .IN_DW(IN_DW)
+    .IN_DW(FFT_OUT_DW)
 )
 channel_estimator_i(
     .clk_i(clk_i),
@@ -437,7 +438,7 @@ channel_estimator_i(
 );
 
 demap #(
-    .IQ_DW(IN_DW / 2),
+    .IQ_DW(FFT_OUT_DW / 2),
     .LLR_DW(LLR_DW)
 )
 demap_i(

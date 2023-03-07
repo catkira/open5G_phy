@@ -23,7 +23,7 @@ module demap #(
 (
     input                                           clk_i,
     input                                           reset_ni,
-    input   wire        [IQ_DW * 2 - 1 : 0]         s_axis_in_tdata,
+    input               [IQ_DW * 2 - 1 : 0]         s_axis_in_tdata,
     input               [1 : 0]                     s_axis_in_tuser,
     input                                           s_axis_in_tlast,
     input                                           s_axis_in_tvalid,
@@ -34,8 +34,19 @@ module demap #(
     output                                          m_axis_out_tvalid
 );
 
-wire [LLR_DW - 1 : 0] llr_I = s_axis_in_tdata[IQ_DW - 1 -: LLR_DW];  // assume LLR_DW is less or equal IQ_DW / 2
-wire [LLR_DW - 1 : 0] llr_Q = s_axis_in_tdata[IQ_DW * 2 - 1 -: LLR_DW];
+initial begin
+    if (LLR_DW > IQ_DW / 2) begin
+        $display("LLR_DW > IQ_DW / 2, this does not make sense!");
+    end
+end
+
+if (LLR_DW > IQ_DW / 2) begin
+    wire [LLR_DW - 1 : 0] llr_I = s_axis_in_tdata[IQ_DW - 1 -: IQ_DW / 2] << (LLR_DW - IQ_DW / 2);
+    wire [LLR_DW - 1 : 0] llr_Q = s_axis_in_tdata[IQ_DW / 2 - 1 -: IQ_DW / 2] << (LLR_DW - IQ_DW / 2);
+end else begin
+    wire [LLR_DW - 1 : 0] llr_I = s_axis_in_tdata[IQ_DW - 1 -: LLR_DW];
+    wire [LLR_DW - 1 : 0] llr_Q = s_axis_in_tdata[IQ_DW * 2 - 1 -: LLR_DW];
+end
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         out_fifo_valid_in <= '0;

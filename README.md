@@ -20,8 +20,8 @@ Implemented so far:<br>
 ![Overview diagram](doc/overview.jpg)
 
 <b>TODO:</b>
-* implement dynamic block scaling for FFT
 * implement Ressource Grid Subscriber core
+* add ADI AXI-DMAC core
 * (optional) implement amplitude correction in channel_estimator
 * (optional) implement PDCCH DMRS in channel_estimator
 * (optional) implement QAM demod for PDSCH
@@ -94,7 +94,7 @@ This core contains the decimator, PSS correlator, peak detector and CFO calculat
 There are usually multiple SSBs in one burst, which each SSBs coming from a different antenna. The UE is supposed to select the SSB with the strongest signal for synchronization. This design currently does not evaluate in HDL which SSB has the strongest signal, it just takes the first SSB which gets detected by the PSS correlator and peak detector. However, analysis which SSB is the best can be performed on the CPU. The CPU can then write the index of the strongest SSB (ibar_SSB) via AXI-lite to this core.
 
 # FFT demodulator
-The FFT demodulator uses [this](https://github.com/catkira/FFT) FFT core. Since the core runs at 122.88 MHz while the sample rate it only 3.84 MSPS, overclocking can be used to reduce the number of required multipliers. Normally a FFT would need 3 real multipliers per stage, with overclocking this can be reduced to 1 multiplier per stage. SSS would only need a 128 point FFT, but a 256 point FFT is used anyway, so that it can also be used for PBCH demodulation. This results in 8 real multipliers required for the FFT. The FFT demodulator is synchronized to the start signal from the Peak detector. It then continuously performs FFTs. There are special tag signals for the start of the SSS and PBCH symbols. Zero carriers are removed from the output, so that each FFT outputs 240 subcarriers. The cyclic prefix advance is configurable. The ideal cyclic prefix advance to prevent ISI (inter symbol interference) is half a cyclic prefix length.
+The FFT demodulator uses [this](https://github.com/catkira/FFT) FFT core, it is configured to use dynamic block scaling. Since the core runs at 122.88 MHz while the sample rate it only 3.84 MSPS, overclocking can be used to reduce the number of required multipliers. Normally a FFT would need 3 real multipliers per stage, with overclocking this can be reduced to 1 multiplier per stage. SSS would only need a 128 point FFT, but a 256 point FFT is used anyway, so that it can also be used for PBCH demodulation. This results in 8 real multipliers required for the FFT. The FFT demodulator is synchronized to the start signal from the Peak detector. It then continuously performs FFTs. There are special tag signals for the start of the SSS and PBCH symbols. Zero carriers are removed from the output, so that each FFT outputs 240 subcarriers. The cyclic prefix advance is configurable. The ideal cyclic prefix advance to prevent ISI (inter symbol interference) is half a cyclic prefix length.
 
 # SSS demodulator
 The SSS detector currently operates in search mode, which means that it compares the received SSS sequence to all possible 335 SSS for the given N_id_1 which comes from the PSS detection.

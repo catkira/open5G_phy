@@ -280,7 +280,8 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
         os.path.join(rtl_dir, 'FFT/delay/int_delay_line.v'),
         os.path.join(rtl_dir, 'FFT/buffers/inbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/outbuf_half_path.v'),
-        os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v')
+        os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v'),
+        os.path.join(rtl_dir, 'FFT/buffers/dynamic_block_scaling.v')        
     ]
     if os.environ.get('SIM') != 'verilator':
         verilog_sources.append(os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v'))
