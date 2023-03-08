@@ -580,7 +580,8 @@ dds #(
     .USE_TAYLOR(0),
     .SIN_COS(1),
     .NEGATIVE_SINE(0),
-    .NEGATIVE_COSINE(0)    
+    .NEGATIVE_COSINE(0),
+    .USE_LUT_FILE(0)
 )
 DDS_i(
     .clk(clk_i),
