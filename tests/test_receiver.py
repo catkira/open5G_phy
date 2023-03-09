@@ -53,17 +53,17 @@ class TB(object):
         self.dut.reset_ni.value = 1
         await RisingEdge(self.dut.clk_i)
 
-    async def read_axil(self, addr):
-        self.dut.s_axi_if_araddr.value = addr
-        self.dut.s_axi_if_arvalid.value = 1
-        self.dut.s_axi_if_rready.value = 1
-        await RisingEdge(self.dut.clk_i)
-        while self.dut.s_axi_if_rvalid.value == 0:
-            await RisingEdge(self.dut.clk_i)
-        self.dut.s_axi_if_arvalid.value = 0
-        self.dut.s_axi_if_rready.value = 0
-        data = self.dut.s_axi_if_rdata.value.integer
-        return data
+    # async def read_axil(self, addr):
+    #     self.dut.s_axi_if_araddr.value = addr
+    #     self.dut.s_axi_if_arvalid.value = 1
+    #     self.dut.s_axi_if_rready.value = 1
+    #     await RisingEdge(self.dut.clk_i)
+    #     while self.dut.s_axi_if_rvalid.value == 0:
+    #         await RisingEdge(self.dut.clk_i)
+    #     self.dut.s_axi_if_arvalid.value = 0
+    #     self.dut.s_axi_if_rready.value = 0
+    #     data = self.dut.s_axi_if_rdata.value.integer
+    #     return data
 
 
 @cocotb.test()
@@ -87,22 +87,33 @@ async def simple_test(dut):
     await tb.cycle_reset()
 
     # cocotbext-axi hangs with Verilator -> https://github.com/verilator/verilator/issues/3919
-    # axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi_if"), dut.clk_i, dut.reset_ni, reset_active_level = False)
-    # addr = 0
-    # data = await axi_master.read_dword(4 * addr)
-    # data = int(data)
-    # assert data == 0x00010069
-
-    data = await tb.read_axil(addr =  0)
-    print(f'axi-lite fifo: id = {data:x}')
+    # case_insensitive=False is a workaround https://github.com/alexforencich/verilog-axi/issues/48
+    axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi_if", case_insensitive=False), dut.clk_i, dut.reset_ni, reset_active_level = False)
+    addr = 0
+    data = await axi_master.read_dword(4 * addr)
+    data = int(data)
     assert data == 0x00010069
-    data = await tb.read_axil(addr = 5 * 4)
-    print(f'axi-lite fifo: level = {data}')
+    addr = 5
+    data = await axi_master.read_dword(4 * addr)
+    data = int(data)
+    assert data == 0x00000000
 
     OFFSET_ADDR_WIDTH = 16 - 2
-    data = await tb.read_axil(addr =  0 + (1 << OFFSET_ADDR_WIDTH))
-    print(f'PSS detector: id = {data:x}')
+    addr = 0
+    data = await axi_master.read_dword(addr + (1 << OFFSET_ADDR_WIDTH))
+    data = int(data)
     assert data == 0x00040069
+
+    # data = await tb.read_axil(addr =  0)
+    # print(f'axi-lite fifo: id = {data:x}')
+    # assert data == 0x00010069
+    # data = await tb.read_axil(addr = 5 * 4)
+    # print(f'axi-lite fifo: level = {data}')
+
+    # OFFSET_ADDR_WIDTH = 16 - 2
+    # data = await tb.read_axil(addr =  0 + (1 << OFFSET_ADDR_WIDTH))
+    # print(f'PSS detector: id = {data:x}')
+    # assert data == 0x00040069
 
     rx_counter = 0
     in_counter = 0
