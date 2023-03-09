@@ -40,12 +40,14 @@ initial begin
     end
 end
 
-if (LLR_DW > IQ_DW / 2) begin
-    wire [LLR_DW - 1 : 0] llr_I = s_axis_in_tdata[IQ_DW - 1 -: IQ_DW / 2] << (LLR_DW - IQ_DW / 2);
-    wire [LLR_DW - 1 : 0] llr_Q = s_axis_in_tdata[IQ_DW / 2 - 1 -: IQ_DW / 2] << (LLR_DW - IQ_DW / 2);
+wire [LLR_DW - 1 : 0] llr_I;
+wire [LLR_DW - 1 : 0] llr_Q;
+if (LLR_DW > IQ_DW) begin
+    assign llr_I = s_axis_in_tdata[IQ_DW - 1 -: IQ_DW] << (LLR_DW - IQ_DW);
+    assign llr_Q = s_axis_in_tdata[IQ_DW / 2 - 1 -: IQ_DW] << (LLR_DW - IQ_DW);
 end else begin
-    wire [LLR_DW - 1 : 0] llr_I = s_axis_in_tdata[IQ_DW - 1 -: LLR_DW];
-    wire [LLR_DW - 1 : 0] llr_Q = s_axis_in_tdata[IQ_DW * 2 - 1 -: LLR_DW];
+    assign llr_I = s_axis_in_tdata[IQ_DW - 1 -: LLR_DW];
+    assign llr_Q = s_axis_in_tdata[IQ_DW * 2 - 1 -: LLR_DW];
 end
 always @(posedge clk_i) begin
     if (!reset_ni) begin

@@ -53,17 +53,19 @@ class TB(object):
         self.dut.reset_ni.value = 1
         await RisingEdge(self.dut.clk_i)
 
-    # async def read_axil(self, addr):
-    #     self.dut.s_axi_if_araddr.value = addr
-    #     self.dut.s_axi_if_arvalid.value = 1
-    #     self.dut.s_axi_if_rready.value = 1
-    #     await RisingEdge(self.dut.clk_i)
-    #     while self.dut.s_axi_if_rvalid.value == 0:
-    #         await RisingEdge(self.dut.clk_i)
-    #     self.dut.s_axi_if_arvalid.value = 0
-    #     self.dut.s_axi_if_rready.value = 0
-    #     data = self.dut.s_axi_if_rdata.value.integer
-    #     return data
+    async def read_axil(self, addr):
+        self.dut.s_axi_if_araddr.value = addr
+        self.dut.s_axi_if_arvalid.value = 1
+        self.dut.s_axi_if_rready.value = 1
+        await RisingEdge(self.dut.clk_i)
+        while self.dut.s_axi_if_arready.value == 0:
+            await RisingEdge(self.dut.clk_i)
+        while self.dut.s_axi_if_rvalid.value == 0:
+            await RisingEdge(self.dut.clk_i)
+        self.dut.s_axi_if_arvalid.value = 0
+        self.dut.s_axi_if_rready.value = 0
+        data = self.dut.s_axi_if_rdata.value.integer
+        return data
 
 
 @cocotb.test()
@@ -85,35 +87,38 @@ async def simple_test(dut):
     waveform = waveform.real.astype(int) + 1j * waveform.imag.astype(int)
 
     await tb.cycle_reset()
+    USE_COCOTB_AXI = 1
 
-    # cocotbext-axi hangs with Verilator -> https://github.com/verilator/verilator/issues/3919
-    # case_insensitive=False is a workaround https://github.com/alexforencich/verilog-axi/issues/48
-    axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi_if", case_insensitive=False), dut.clk_i, dut.reset_ni, reset_active_level = False)
-    addr = 0
-    data = await axi_master.read_dword(4 * addr)
-    data = int(data)
-    assert data == 0x00010069
-    addr = 5
-    data = await axi_master.read_dword(4 * addr)
-    data = int(data)
-    assert data == 0x00000000
+    if USE_COCOTB_AXI:
+        # cocotbext-axi hangs with Verilator -> https://github.com/verilator/verilator/issues/3919
+        # case_insensitive=False is a workaround https://github.com/alexforencich/verilog-axi/issues/48
+        axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi_if", case_insensitive=False), dut.clk_i, dut.reset_ni, reset_active_level = False)
+        addr = 0
+        data = await axi_master.read_dword(4 * addr)
+        data = int(data)
+        assert data == 0x00010069
+        addr = 5
+        data = await axi_master.read_dword(4 * addr)
+        data = int(data)
+        assert data == 0x00000000
 
-    OFFSET_ADDR_WIDTH = 16 - 2
-    addr = 0
-    data = await axi_master.read_dword(addr + (1 << OFFSET_ADDR_WIDTH))
-    data = int(data)
-    assert data == 0x00040069
+        OFFSET_ADDR_WIDTH = 16 - 2
+        addr = 0
+        data = await axi_master.read_dword(addr + (1 << OFFSET_ADDR_WIDTH))
+        data = int(data)
+        assert data == 0x00040069
+    
+    else:
+        data = await tb.read_axil(0)
+        print(f'axi-lite fifo: id = {data:x}')
+        assert data == 0x00010069
+        data = await tb.read_axil(5 * 4)
+        print(f'axi-lite fifo: level = {data}')
 
-    # data = await tb.read_axil(addr =  0)
-    # print(f'axi-lite fifo: id = {data:x}')
-    # assert data == 0x00010069
-    # data = await tb.read_axil(addr = 5 * 4)
-    # print(f'axi-lite fifo: level = {data}')
-
-    # OFFSET_ADDR_WIDTH = 16 - 2
-    # data = await tb.read_axil(addr =  0 + (1 << OFFSET_ADDR_WIDTH))
-    # print(f'PSS detector: id = {data:x}')
-    # assert data == 0x00040069
+        OFFSET_ADDR_WIDTH = 16 - 2
+        data = await tb.read_axil(0 + (1 << OFFSET_ADDR_WIDTH))
+        print(f'PSS detector: id = {data:x}')
+        assert data == 0x00040069
 
     rx_counter = 0
     in_counter = 0
@@ -160,7 +165,7 @@ async def simple_test(dut):
         #     print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
 
         if dut.m_axis_llr_out_tvalid.value == 1 and dut.m_axis_llr_out_tuser.value == 1:
-            received_PBCH_LLR.append(_twos_comp(dut.m_axis_llr_out_tdata.value.integer & (2 ** (tb.LLR_DW // 2) - 1), tb.LLR_DW // 2))
+            received_PBCH_LLR.append(_twos_comp(dut.m_axis_llr_out_tdata.value.integer & (2 ** (tb.LLR_DW) - 1), tb.LLR_DW))
 
         if dut.m_axis_cest_out_tvalid.value == 1 and dut.m_axis_cest_out_tuser.value == 1:
             corrected_PBCH.append(_twos_comp(dut.m_axis_cest_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
@@ -191,16 +196,31 @@ async def simple_test(dut):
     assert len(received_SSS) == 3 * SSS_LEN
     assert len(corrected_PBCH) == 432 * 2, print('received PBCH does not have correct length!')
     assert len(received_PBCH_LLR) == 432 * 4, print('received PBCH LLRs do not have correct length!')
+    assert not np.array_equal(np.array(received_PBCH_LLR), np.zeros(len(received_PBCH_LLR)))
 
-    data = await tb.read_axil(addr = 0)
-    print(f'axi-lite fifo: id = {data:x}')
-    data = await tb.read_axil(addr = 5 * 4)
-    print(f'axi-lite fifo: level = {data}')
-    assert data == 864 * 2
     fifo_data = []
-    for i in range(data):
-        data = await tb.read_axil(addr = 7 * 4)
-        fifo_data.append(_twos_comp(data & (2 ** (tb.LLR_DW // 2) - 1), tb.LLR_DW // 2))
+    if USE_COCOTB_AXI:
+        addr = 5
+        data = await axi_master.read_dword(4 * addr)
+        data = int(data)
+        assert data == 864 * 2
+        for i in range(data):
+            data = await axi_master.read_dword(7 * 4)
+            fifo_data.append(_twos_comp(data & (2 ** (tb.LLR_DW) - 1), tb.LLR_DW))
+    else:
+        addr = 0
+        data = await tb.read_axil(addr * 4)
+        print(f'axi-lite fifo: id = {data:x}')
+        addr = 5
+        data = await tb.read_axil(addr * 4)
+        print(f'axi-lite fifo: level = {data}')
+        assert data == 864 * 2
+        addr = 7
+        for i in range(data):
+            data = await tb.read_axil(addr * 4)
+            fifo_data.append(_twos_comp(data & (2 ** (tb.LLR_DW) - 1), tb.LLR_DW))
+            print(data)
+    assert not np.array_equal(np.array(fifo_data), np.zeros(len(fifo_data)))
     assert np.array_equal(np.array(received_PBCH_LLR), np.array(fifo_data))
 
 
@@ -288,7 +308,7 @@ async def simple_test(dut):
     for mode in ['hard', 'soft', 'hdl']:
         print(f'demodulation mode: {mode}')
         if mode == 'hdl':
-            pbchBits = np.array(received_PBCH_LLR)[:432 * 2]
+            pbchBits = np.array(fifo_data)[:432 * 2]
         else:
             pbchBits = py3gpp.nrSymbolDemodulate(corrected_PBCH, 'QPSK', nVar, mode)
 
@@ -306,6 +326,7 @@ async def simple_test(dut):
         decoded = py3gpp.nrPolarDecode(decIn, K, 0, 0)
 
         # check CRC
+        print(decoded)
         _, crc_result = py3gpp.nrCRCDecode(decoded, '24C')
         if crc_result == 0:
             print("nrPolarDecode: PBCH CRC ok")
