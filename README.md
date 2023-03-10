@@ -113,10 +113,12 @@ Frame sync outputs IQ samples in an AXI stream interface. The tuser field contai
 <b>Important: after detection of the first SSB, sfn strats at 0. After decoding the MIB from the PBCH on the CPU, this core needs to receive the sfn of the SSB in order to output correct frame information in tuser. </b>
 
 # Ressource Grid Subscriber (RGS)
-This core controls which symbols get forwarded to the AXI-DMA core. The core can be configured to start with a certain {Frame, Subframe, Symbol)-number. The core also monitors possible overflows, this can happen if the AXI-DMA core is not configured fast enough to transfer all incoming symbols to the CPU. In case of an overflow, this core will stop forwarding symbols and set an overflow flag. Forwarding can then be reenabled by setting the start {Frame, Subframe, Symbol)-number again.
-Starting will a defined symbol is necessary, because the AXI-DMA core cannot transfer any meta information with the payload.
+This core sends the ressource grid via DMA to a circular buffer on the CPU. The core can be configured to start with a certain {Frame, Subframe, Symbol)-number. The core also monitors possible overflows, this should not happen if the DMA configuration of the CPU is correct. In case of an overflow, this core will stop forwarding symbols and set an overflow flag. Forwarding can then be reenabled by setting the start {Frame, Subframe, Symbol)-number again.
+Starting with a defined symbol is necessary, because the AXI-DMA core cannot transfer any meta information with the payload.
 <br>
 The data rate at the output of this core is 240 * 100 symbols/s * 240 SC/symbol * 2 byte/SC = 11.52 MB/s
+<br>
+The DMA implementation is similar to the [DmaBRAMWrite class](https://github.com/maia-sdr/maia-sdr/blob/main/maia-hdl/maia_hdl/dma.py) of [Maia SDR](https://github.com/maia-sdr).
 <br>
 A non-continuous mode will possibly be added in the future. In the non-continuous mode it can be configured which symbols and subcarriers should be forwarded. This feature would need to scatter-gather functionality in order two forward two different blocks that are close to each other on the time axis.
 
