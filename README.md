@@ -14,6 +14,8 @@ Implemented so far:<br>
 * SSS detector (detailed description below)
 * Frame sync (detailed description below)
 * Channel estimator (detailed description below)
+* Ressource grid subscriber  (detailed description below)
+* DMA ring writer (detailed description below)
 
 <b>Disclaimer: It is unlikely that this design which is optimized for mobility and low ressource usage will implement all possible 5G NR Phy features in hdl. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication. The 'Ressource Grid Subscriber' core can be used, which sends user selectable OFDM symbols via AXI-DMA to the A9 core. This can then be used to implement full 5G functionality on the CPU, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project).</b>
 
@@ -118,9 +120,10 @@ Starting with a defined symbol is necessary, because the AXI-DMA core cannot tra
 <br>
 The data rate at the output of this core is 240 * 100 symbols/s * 240 SC/symbol * 2 byte/SC = 11.52 MB/s
 <br>
-The DMA implementation is similar to the [DmaBRAMWrite class](https://github.com/maia-sdr/maia-sdr/blob/main/maia-hdl/maia_hdl/dma.py) of [Maia SDR](https://github.com/maia-sdr).
-<br>
 A non-continuous mode will possibly be added in the future. In the non-continuous mode it can be configured which symbols and subcarriers should be forwarded. This feature would need to scatter-gather functionality in order two forward two different blocks that are close to each other on the time axis.
+
+# DMA ring writer
+The DMA implementation is similar to the [DmaBRAMWrite class](https://github.com/maia-sdr/maia-sdr/blob/main/maia-hdl/maia_hdl/dma.py) of [Maia SDR](https://github.com/maia-sdr).
 
 # Channel estimator
 The channel estimator currently only corrects the phase angles, this is enough for BPSK and QPSK demodulation. It also detects the PBCH DMRS (DeModulation Reference Sequence) by comparing the incoming pilots with the 8 possible ibar_SSB configurations. The 5G standard recommends to blind decode the received PBCH for all 8 possible ibar_SSBs. This has the advantage of knowing whether a valid PBCH was received. Detecting ibar_SSB by comparing PBCH DMRS's only can lead to wrong detected ibar_SSB.
