@@ -1,0 +1,91 @@
+read dma
+
+-- libiio --
+
+buffer.c
+	iio_device_create_buffer(dev, ...)
+		iio_device_open(dev, ...) -> [local.c]:local_open(dev, ...)
+		get_buffer(...) -> [local.c]:local_get_buffer(...)
+
+	iio_buffer_refill(buffer)
+		get_buffer(...) -> [local.c]:local_get_buffer(...)
+
+	iio_buffer_push(buffer)		
+		get_buffer(...) -> [local.c]:local_get_buffer(...)
+
+block.c
+	iio_buffer_create_block(buf, size)
+		[local-mmap.c]:local_create_mmap_block(...)
+			ioctl_nointr(pdata->fd, BLOCK_ALLOC_IOCTL, &req)
+
+	iio_block_dequeue(block, nonblock)
+		[local-mmap.c]:local_dequeue_mmap_block(pdata, nonblock)
+			ioctl_nointr(fd, BLOCK_DEQUEUE_IOCTL, &block)
+	
+	iio_block_enqueue(block, bytes_used, cyclic)
+		[local-mmap.c]:local_enqueue_mmap_block(pdata, bytes_used, cyclic)
+			ioctl_nointr(fd, BLOCK_ENQUEUE_IOCTL, &priv->block)
+
+
+usage:
+	to start transfers
+	1. app creates buffer with iio_device_create_buffer()
+	2. app creates blocks with iio_buffer_create_block()
+	3. app enqueues/dequeues blocks with iio_block_enqueue()/iio_block_dequeue()
+
+	to abort pending transfers:
+	[buffer.c]: iio_buffer_set_enabled(buf, enabled)
+		[local.c]: local_enable_buffer(...)
+			local_do_enable_buffer(...)
+				local_write_dev_attr(pdata->dev, pdata->idx, "enable", enable ? "1" : "0", 2, IIO_ATTR_TYPE_BUFFER);		
+					[industrialio-bufffer.c]: iio_buffer_disable(buffer, indio_dev)
+						[industrial-buffer-dma.c]: iio_dma_buffer_disable(buffer, indio_dev)
+							queue->ops->abort(queue)
+								[industrialio-buffer-dmaengine.c]: dmaengine_terminate_sync(dmaengine_buffer->chan)
+									-> calls dma_dev->device_terminate_all() in dma driver (ie axi_dmac_terminate_all())
+								[industrialio-buffer-dmaengine.c]: iio_dma_buffer_block_list_abort(queue, &dmaengine_buffer->active)
+
+-- iio --
+undustrialio-buffer.c
+	iio_buffer_ioctl(dev, ...)
+		case(cmd)
+			IIO_BLOCK_ALLOC_IOCTL:
+				iio_buffer_alloc_blocks(buffer, ...)
+			IIO_BLOCK_FREE_IOCTL:
+				iio_buffer_free_blocks(buffer)
+			IIO_BLOCK_QUERY_IOCTL:
+				iio_buffer_query_block(buffer, ...)
+			IIO_BLOCK_ENQUEUE_IOCTL:
+				iio_buffer_enqueue_block(buffer, ...)
+					[industrialio-buffer-dma.c]: iio_dma_buffer_dequeue_block()
+			IIO_BLOCK_DEQUEUE_IOCTL:
+				iio_buffer_dequeue_block(indio_dev, ...)
+					[industrialio-buffer-dma.c]: iio_dma_buffer_enqueue_block()
+
+	iio_disable_all_buffers(indio_dev)  // called from [undustrialio-core.c]: iio_device_unregister(indio_dev)
+		iio_disable_buffers(indio_dev)
+			iio_bufffer_disable(buffer, indio_dev)
+				[industrial-buffer-dma.c]: iio_dma_buffer_disable(buffer, indio_dev)
+								
+
+industrialio-buffer-dma.c
+
+	iio_dma_buffer_disable(buffer, indio_dev)
+		queue->ops->abort(queue)
+
+	iio_dma_buffer_alloc_blocks(bufffer, req)
+		iio_dma_buffer_alloc_block()
+
+	iio_dma_buffer_enable(buffer, indio_dev)
+
+	iio_dma_buffer_enqueue_block(buffer, block)
+		iio_dma_buffer_enqueue()
+			iio_dma_buffer_submit_block(queue, block)
+
+	iio_dma_buffer_query_block(buffer, block)
+
+	iio_dma_buffer_dequeue_block(buffer, block)
+		iio_dma_buffer_dequeue(queue)
+
+	iio_dma_buffer_mmap(buffer, vma)
+		dma_mmap_coherent(...)
