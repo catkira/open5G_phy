@@ -115,10 +115,10 @@ Frame sync outputs IQ samples in an AXI stream interface. The tuser field contai
 <b>Important: after detection of the first SSB, sfn strats at 0. After decoding the MIB from the PBCH on the CPU, this core needs to receive the sfn of the SSB in order to output correct frame information in tuser. </b>
 
 # Ressource Grid Subscriber (RGS)
-This core sends the ressource grid via DMA to a circular buffer on the CPU. The core can be configured to start with a certain {Frame, Subframe, Symbol)-number. The core also monitors possible overflows, this should not happen if the DMA configuration of the CPU is correct. In case of an overflow, this core will stop forwarding symbols and set an overflow flag. Forwarding can then be reenabled by setting the start {Frame, Subframe, Symbol)-number again.
-Starting with a defined symbol is necessary, because the AXI-DMA core cannot transfer any meta information with the payload.
+This core sends the ressource grid via DMA to the CPU. The core can be configured to start with a certain {Frame, Subframe, Symbol)-number. The core also monitors possible overflows, this should not happen if the DMA configuration of the CPU is correct. In case of an overflow, this core will stop forwarding symbols and set an overflow flag. Forwarding can then be reenabled by setting the start {Frame, Subframe, Symbol)-number again.
+Starting with a defined symbol is necessary, because the AXI-DMA core cannot transfer any meta information with the payload. (It is however considered to insert the {Frame, Subframe, Symbol)-number at the beginning of every transferred frame. This would only increase the data rate slightly but provide an extra level of robustness)
 <br>
-The data rate at the output of this core is 240 * 100 symbols/s * 240 SC/symbol * 2 byte/SC = 11.52 MB/s
+The data rate at the output of this core is 100 frames/s * 10 subframes/frame * 14 symbols/subframe * 240 SC/symbol * 2 byte/SC = 6.72 MB/s
 <br>
 A non-continuous mode will possibly be added in the future. In the non-continuous mode it can be configured which symbols and subcarriers should be forwarded. This feature would need to scatter-gather functionality in order two forward two different blocks that are close to each other on the time axis.
 
