@@ -23,7 +23,7 @@ Implemented so far:<br>
 
 <b>TODO:</b>
 * implement Ressource Grid Subscriber core
-* implement DMA ring writer core
+* add AXI-DMAC core
 * (optional) implement amplitude correction in channel_estimator
 * (optional) implement PDCCH DMRS in channel_estimator
 * (optional) implement QAM demod for PDSCH
