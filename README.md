@@ -15,7 +15,7 @@ Implemented so far:<br>
 * Frame sync (detailed description below)
 * Channel estimator (detailed description below)
 * Ressource grid subscriber  (detailed description below)
-* DMA ring writer (detailed description below)
+* AXI-DMAC (detailed description below)
 
 <b>Disclaimer: It is unlikely that this design which is optimized for mobility and low ressource usage will implement all possible 5G NR Phy features in hdl. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication. The 'Ressource Grid Subscriber' core can be used, which sends user selectable OFDM symbols via AXI-DMA to the A9 core. This can then be used to implement full 5G functionality on the CPU, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project).</b>
 
@@ -122,8 +122,12 @@ The data rate at the output of this core is 240 * 100 symbols/s * 240 SC/symbol 
 <br>
 A non-continuous mode will possibly be added in the future. In the non-continuous mode it can be configured which symbols and subcarriers should be forwarded. This feature would need to scatter-gather functionality in order two forward two different blocks that are close to each other on the time axis.
 
-# DMA ring writer
-The DMA implementation is similar to the [DmaBRAMWrite class](https://github.com/maia-sdr/maia-sdr/blob/main/maia-hdl/maia_hdl/dma.py) of [Maia SDR](https://github.com/maia-sdr).
+# AXI-DMAC
+This is a core from Analog Devices that can be found [here](https://github.com/analogdevicesinc/hdl/tree/master/library/axi_dmac). It is used with source AXI-stream interface, because this allows the RGS core to see when an overflow would happen (the source fifo interface of the axi-dmac core does not have a ready output). The advantage of using this core is that there is already a DMA kernel driver, a kernel iio driver and also client libraries (libiio). The kernel DMA driver, axi-dmac.c, provides an interface to the linux kernel DMA engine. The kernel iio driver, provides an interface to the user-space via ioctl() calls. Libiio is a user-space wrapper around the iio interface that provides a convenient API for creating DMA buffers, and enqueuing/dequeuing DMA transfers.
+<br>
+The CPU part of the phy allocates blocks that have the size of a single frame, this is 10 subframes/frame * 14 symbols/subframe * 240 SCs/symbol * 2 bytes/SC = 67.2 kB/frame. It is probably enough if the CPU app stores the last 20 frames, which would only need 1.344 MB RAM.
+<br>
+Tricky situation: When the FPGA loses synchronizations, it signals this via an IRQ from frame_sync to the CPU. The CPU then aborts all pending DMA transfers and after that initiated another sync procedure by writing via AXI-lite to the frame_sync core. Pending transfers can be aborted with iio_buffer_set_enabled(...) when using libiio, or by writing to the "enable" device attribute when using the iio sysfs interface directly. 
 
 # Channel estimator
 The channel estimator currently only corrects the phase angles, this is enough for BPSK and QPSK demodulation. It also detects the PBCH DMRS (DeModulation Reference Sequence) by comparing the incoming pilots with the 8 possible ibar_SSB configurations. The 5G standard recommends to blind decode the received PBCH for all 8 possible ibar_SSBs. This has the advantage of knowing whether a valid PBCH was received. Detecting ibar_SSB by comparing PBCH DMRS's only can lead to wrong detected ibar_SSB.
