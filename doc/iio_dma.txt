@@ -40,7 +40,7 @@ usage:
 				local_write_dev_attr(pdata->dev, pdata->idx, "enable", enable ? "1" : "0", 2, IIO_ATTR_TYPE_BUFFER);		
 					[industrialio-bufffer.c]: iio_buffer_disable(buffer, indio_dev)
 						[industrial-buffer-dma.c]: iio_dma_buffer_disable(buffer, indio_dev)
-							queue->ops->abort(queue)
+							queue->ops->abort(queue)  -> [industrialio-buffer-dmaengine.c]: iio_dmaengine_buffer_abort(queue)
 								[industrialio-buffer-dmaengine.c]: dmaengine_terminate_sync(dmaengine_buffer->chan)
 									-> calls dma_dev->device_terminate_all() in dma driver (ie axi_dmac_terminate_all())
 								[industrialio-buffer-dmaengine.c]: iio_dma_buffer_block_list_abort(queue, &dmaengine_buffer->active)
