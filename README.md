@@ -37,7 +37,8 @@ Implemented so far:<br>
 * FFT demodulator           :  ? DSP slices
 * SSS detector              :  ? DSP slices
 * Channel estimator         :  ? DSP slices
-* Ressource Grid Subscriber :  ? DSP slices
+* Ressource Grid Subscriber :  0 DSP slices
+* AXI-DMAC                  :  0 DSP slices
 
 # Tests
 Testbenches are written in Python using cocotb. For simulation both iverilog and Verilator are used. Iverilog is used for short tests whereas Verilator is used for tests with larger data throughput.
