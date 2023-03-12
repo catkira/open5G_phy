@@ -24,7 +24,11 @@ module receiver
     parameter TAP_FILE_2 = "",
     parameter LLR_DW = 8,
     parameter ADDRESS_WIDTH = 16,
-
+    parameter NFFT = 8,
+    
+    localparam FFT_LEN = 2 ** NFFT,
+    localparam MAX_CP_LEN = 20 * FFT_LEN / 256,
+    localparam CIC_RATE = FFT_LEN / 128,    
     localparam FFT_OUT_DW `VL_RD = 16,
     localparam N_id_1_MAX `VL_RD = 335,
     localparam DDS_PHASE_DW = 20,
@@ -197,7 +201,7 @@ complex_multiplier_i(
 cic_d #(
     .INP_DW(IN_DW/2),
     .OUT_DW(IN_DW/2),
-    .CIC_R(2),
+    .CIC_R(CIC_RATE),
     .CIC_N(3),
     .VAR_RATE(0)
 )
@@ -215,7 +219,7 @@ cic_real(
 cic_d #(
     .INP_DW(IN_DW / 2),
     .OUT_DW(IN_DW / 2),
-    .CIC_R(2),
+    .CIC_R(CIC_RATE),
     .CIC_N(3),
     .VAR_RATE(0)
 )
@@ -324,7 +328,6 @@ always @(posedge clk_i) begin
 end
 
 
-localparam MAX_CP_LEN = 20;
 localparam SFN_MAX = 1023;
 localparam SUBFRAMES_PER_FRAME = 20;
 localparam SYM_PER_SF = 14;
@@ -341,7 +344,8 @@ reg fs_out_symbol_start;
 wire fs_out_tlast;
 
 frame_sync #(
-    .IN_DW(IN_DW)
+    .IN_DW(IN_DW),
+    .NFFT(NFFT)
 )
 frame_sync_i
 (
@@ -374,7 +378,8 @@ assign m_axis_demod_out_tvalid = fft_demod_out_tvalid;
 FFT_demod #(
     .IN_DW(IN_DW),
     .OUT_DW(FFT_OUT_DW),
-    .HALF_CP_ADVANCE(HALF_CP_ADVANCE)
+    .HALF_CP_ADVANCE(HALF_CP_ADVANCE),
+    .NFFT(NFFT)
 )
 FFT_demod_i(
     .clk_i(clk_i),

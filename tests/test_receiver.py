@@ -37,6 +37,7 @@ class TB(object):
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
         self.HALF_CP_ADVANCE = int(dut.HALF_CP_ADVANCE.value)
         self.LLR_DW = int(dut.LLR_DW.value)
+        self.NFFT = int(dut.NFFT.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -46,7 +47,7 @@ class TB(object):
 
     async def cycle_reset(self):
         self.dut.s_axis_in_tvalid.value = 0
-        self.dut.reset_ni.setimmediatevalue(1)
+        self.dut.reset_ni.value = 1
         await RisingEdge(self.dut.clk_i)
         self.dut.reset_ni.value = 0
         await RisingEdge(self.dut.clk_i)
@@ -71,14 +72,17 @@ class TB(object):
 @cocotb.test()
 async def simple_test(dut):
     tb = TB(dut)
+    NFFT = tb.NFFT
+    FFT_LEN = 2 ** NFFT
     CFO = int(os.getenv('CFO'))
     handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
     waveform = handle.read_samples()
     fs = 30720000
     print(f'CFO = {CFO} Hz')
     waveform *= np.exp(np.arange(len(waveform)) * 1j * 2 * np.pi * CFO / fs)
-    waveform = scipy.signal.decimate(waveform, 8, ftype='fir')  # decimate to 3.840 MSPS
-    fs = 3.84e6
+    dec_factor = 2048 // FFT_LEN
+    waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')  # decimate to 3.840 MSPS
+    fs = fs // dec_factor
     waveform /= max(np.abs(waveform.real.max()), np.abs(waveform.imag.max()))
     MAX_AMPLITUDE = (2 ** (tb.IN_DW // 2 - 1) - 1)
     waveform *= MAX_AMPLITUDE * 0.8  # need this 0.8 because rounding errors caused overflows, nasty bug!
@@ -131,11 +135,10 @@ async def simple_test(dut):
     corrected_PBCH = []
     received_PBCH_LLR = []
     fft_started = False
-    CP2_LEN = 18
     HALF_CP_ADVANCE = tb.HALF_CP_ADVANCE
-    FFT_SIZE = 256
+    CP2_LEN = 18 * FFT_LEN // 256
     SSS_LEN = 127
-    SSS_START = 64
+    SSS_START = FFT_LEN // 2 - (SSS_LEN + 1) // 2
     DETECTOR_LATENCY = 27
     FFT_OUT_DW = 16
     SYMBOL_LEN = 240
@@ -224,9 +227,9 @@ async def simple_test(dut):
     assert np.array_equal(np.array(received_PBCH_LLR), np.array(fifo_data))
 
 
-    CP_ADVANCE = 9 if HALF_CP_ADVANCE else 18
-    ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
-    ideal_SSS_sym *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP2_LEN - CP_ADVANCE)))
+    CP_ADVANCE = CP2_LEN // 2 if HALF_CP_ADVANCE else CP2_LEN
+    ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_LEN + CP_ADVANCE:][:FFT_LEN]))
+    ideal_SSS_sym *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_LEN * np.arange(FFT_LEN) + np.pi * (CP2_LEN - CP_ADVANCE)))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         ax = plt.subplot(2, 4, 1)
@@ -264,8 +267,8 @@ async def simple_test(dut):
         # ax.plot(np.real(corrected_PBCH[180 + 72:]), np.imag(corrected_PBCH[180 + 72:]), 'b.')
         plt.show()
 
-    received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_SIZE]))
-    received_PBCH_ideal *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP2_LEN - CP_ADVANCE)))
+    received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_LEN]))
+    received_PBCH_ideal *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_LEN * np.arange(FFT_LEN) + np.pi * (CP2_LEN - CP_ADVANCE)))
     received_PBCH_ideal = received_PBCH_ideal[8:][:SYMBOL_LEN]
     received_PBCH_ideal = (received_PBCH_ideal.real.astype(int) + 1j * received_PBCH_ideal.imag.astype(int))
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
@@ -289,7 +292,6 @@ async def simple_test(dut):
     peak_pos = np.argmax(received)
     print(f'highest peak at {peak_pos}')
 
-    NFFT = 8
     scaling_factor = 2**(tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mode
     ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
 
@@ -343,7 +345,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
 @pytest.mark.parametrize("LLR_DW", [8])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW):
+@pytest.mark.parametrize("NFFT", [8])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -411,6 +414,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
     parameters['HALF_CP_ADVANCE'] = HALF_CP_ADVANCE
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
     parameters['LLR_DW'] = LLR_DW
+    parameters['NFFT'] = NFFT
     os.environ['CFO'] = str(CFO)
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
@@ -463,4 +467,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8, NFFT = 8)
