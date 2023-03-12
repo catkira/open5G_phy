@@ -95,7 +95,7 @@ async def simple_test(dut):
     NFFT = tb.NFFT
     FFT_LEN =  2 ** NFFT
     MAX_CLK_CNT = 100000 * FFT_LEN // 256
-    MAX_TX = 2000
+    MAX_TX = 2000 * FFT_LEN // 256
     if NFFT == 8:
         DETECTOR_LATENCY = 18
     elif NFFT == 9:
