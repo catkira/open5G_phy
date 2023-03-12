@@ -2,7 +2,8 @@ module FFT_demod #(
     parameter IN_DW = 32,           // input data width
     parameter HALF_CP_ADVANCE = 1,
     parameter OUT_DW = 16,
-    localparam NFFT = 8,
+    parameter NFFT = 8,
+    parameter BWP_LEN = 240,
     localparam FFT_LEN = 2 ** NFFT,
     localparam MAX_CP_LEN = 20,
     localparam SFN_MAX = 1023,
@@ -116,12 +117,17 @@ end
 
 
 // This process generates sync signals at the FFT output
+// BPW start and end for PDCCH and PDSCH symbols
+localparam SC_START = FFT_LEN / 2 - BWP_LEN / 2;
+localparam SC_END = SC_START + BWP_LEN;
 
-localparam SC_START = 8;
-localparam SC_USED = 240;
-localparam SC_END = SC_START + SC_USED;
-localparam SSS_START = 64;
+// BPW start and len for SSS and PBCH symbols
+localparam PBCH_LEN = 240;
+localparam PBCH_START = FFT_LEN / 2 - PBCH_LEN / 2;
+
 localparam SSS_LEN = 127;
+localparam SSS_START = FFT_LEN / 2 - (SSS_LEN + 1) / 2;
+
 reg [$clog2(SYMS_BTWN_SSB) - 1 : 0] current_out_symbol;
 reg PBCH_valid;
 reg SSS_valid;
@@ -130,6 +136,7 @@ reg last_SC;
 reg [$clog2(FFT_LEN) - 1 : 0] out_cnt;
 reg [USER_WIDTH_OUT - 1 : 0] meta_out;
 wire valid_SC = (out_cnt >= SC_START) && (out_cnt <= SC_END - 1);
+wire valid_PBCH_SC = (out_cnt >= PBCH_START) && (out_cnt <= PBCH_START + PBCH_LEN - 1);
 wire valid_SSS_SC = (out_cnt >= SSS_START) && (out_cnt <= SSS_START + SSS_LEN - 1);
 always @(posedge clk_i) begin
     if (!reset_ni) begin
