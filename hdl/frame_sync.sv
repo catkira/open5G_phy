@@ -2,9 +2,13 @@
 
 module frame_sync #(
     parameter IN_DW = 32,
+    parameter NFFT = 8,
 
+    localparam FFT_LEN = 2 ** NFFT,
+    localparam CP1_LEN = 20 * FFT_LEN / 256,
+    localparam CP2_LEN = 18 * FFT_LEN / 256,
     localparam OUT_DW = IN_DW,
-    localparam MAX_CP_LEN = 20,
+    localparam MAX_CP_LEN = CP1_LEN,
     localparam SFN_MAX = 1023,
     localparam SUBFRAMES_PER_FRAME = 20,
     localparam SYM_PER_SF = 14,
@@ -61,7 +65,7 @@ end
 localparam [1 : 0] PSS_DETECTOR_MODE_SEARCH = 0;
 localparam [1 : 0] PSS_DETECTOR_MODE_FIND   = 1;
 localparam [1 : 0] PSS_DETECTOR_MODE_PAUSE  = 1;
-localparam CLK_FREQ = 3840000;
+localparam CLK_FREQ = 3840000 * FFT_LEN / 256;
 localparam CLKS_20MS = $rtoi(CLK_FREQ * 0.02);
 localparam CLKS_PSS_EARLY_WAKEUP = $rtoi(CLK_FREQ * 0.0001); // start PSS detector 0.1 ms before expected SSB
 localparam CLKS_PSS_LATE_TOLERANCE = $rtoi(CLK_FREQ * 0.0001); // keep PSS detector running until 0.1ms after expected SSB
@@ -120,9 +124,6 @@ end
 //
 // TODO:  - add timeout to WAIT_FOR_IBAR state
 //        - make SYNCED and WAIT_FOR_IBAR substates of a single state and reduce duplicate code
-localparam FFT_LEN = 256;
-localparam CP1_LEN = 20;
-localparam CP2_LEN = 18;
 reg [SFN_WIDTH - 1 : 0] sfn;
 reg [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_number;
 reg [SYMBOL_NUMBER_WIDTH - 1 : 0] sym_cnt;

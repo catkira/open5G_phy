@@ -5,7 +5,9 @@ module FFT_demod #(
     parameter NFFT = 8,
     parameter BWP_LEN = 240,
     localparam FFT_LEN = 2 ** NFFT,
-    localparam MAX_CP_LEN = 20,
+    localparam CP1 = 20 * FFT_LEN / 256,
+    localparam CP2 = 18 * FFT_LEN / 256,
+    localparam MAX_CP_LEN = CP1,
     localparam SFN_MAX = 1023,
     localparam SUBFRAMES_PER_FRAME = 20,
     localparam SYM_PER_SF = 14,
@@ -72,8 +74,8 @@ always @(posedge clk_i) begin
     if (!reset_ni) begin
         state_in <= STATE_IN_SKIP_CP;
         in_cnt <= '0;
-        current_CP_len <= 18;
-        CP_cnt <= HALF_CP_ADVANCE ? 9 : 0;
+        current_CP_len <= CP2;
+        CP_cnt <= HALF_CP_ADVANCE ? CP2 / 2 : 0;
         meta_FIFO_valid_in <= '0;
         in_data_f <= '0;
         in_valid_f <= '0;
@@ -97,10 +99,10 @@ always @(posedge clk_i) begin
                     in_cnt <= in_cnt + 1;
                 end else if (s_axis_in_tlast) begin
                     state_in <= STATE_IN_SKIP_CP;
-                    CP_cnt <= HALF_CP_ADVANCE ? current_CP_len - 9 : 0;
+                    CP_cnt <= HALF_CP_ADVANCE ? current_CP_len >> 1 : 0;
                 end else begin
                     state_in <= STATE_IN_SKIP_END;
-                    CP_cnt <= HALF_CP_ADVANCE ? current_CP_len - 9 : 0;
+                    CP_cnt <= HALF_CP_ADVANCE ? current_CP_len >> 1 : 0;
                 end
             end
         end else if (state_in == STATE_IN_SKIP_END) begin // skip repetition at end of symbol
@@ -233,8 +235,8 @@ if (HALF_CP_ADVANCE) begin
 
     initial begin
         real PI = 3.1415926535;
-        integer CP_LEN = 18;
-        integer CP_ADVANCE = 9;
+        integer CP_LEN = CP2;
+        integer CP_ADVANCE = CP2 / 2;
         real angle_step = 2 * PI * $itor((CP_LEN - CP_ADVANCE)) / $itor((2**NFFT));
         real angle_acc = 0;
         // if real variables are declared inside the for loop, bugs appear, fking shit

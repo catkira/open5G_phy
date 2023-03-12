@@ -37,6 +37,7 @@ class TB(object):
         self.ALGO = int(dut.ALGO.value)
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
         self.HALF_CP_ADVANCE = int(dut.HALF_CP_ADVANCE.value)
+        self.NFFT = int(dut.NFFT.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -65,7 +66,8 @@ async def simple_test(dut):
     handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
     waveform = handle.read_samples()
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform = scipy.signal.decimate(waveform, 16//2, ftype='fir')  # decimate to 3.840 MSPS
+    dec_factor = 2048 // (2 ** tb.NFFT)
+    waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')  # decimate to 3.840 MSPS
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform *= (2 ** (tb.IN_DW // 2 - 1) - 1)
     waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
@@ -75,23 +77,28 @@ async def simple_test(dut):
     rx_counter = 0
     clk_cnt = 0
     received = []
-    received_fft = []
     received_fft_demod = []
     rx_ADC_data = []
     received_PBCH = []
     received_SSS = []
-    fft_started = False
 
-    MAX_CLK_CNT = 3000
-    CP_LEN = 18
+    NFFT = tb.NFFT
+    FFT_LEN = 2 ** NFFT
+    MAX_CLK_CNT = 3000 * FFT_LEN // 256
+    CP_LEN = 18 * FFT_LEN // 256
     HALF_CP_ADVANCE = tb.HALF_CP_ADVANCE
-    NFFT = 8
-    FFT_SIZE = 2 ** NFFT
-    DETECTOR_LATENCY = 18
+    if NFFT == 8:
+        DETECTOR_LATENCY = 18
+    elif NFFT == 9:
+        DETECTOR_LATENCY = 20
+    else:
+        assert False
     FFT_OUT_DW = 32
-    SSS_START = 64
+
     SSS_LEN = 127
-    ZERO_CARRIER = 16
+    SSS_START = FFT_LEN // 2 - (SSS_LEN + 1) // 2
+    PBCH_LEN = 240
+    PBCH_START = FFT_LEN // 2 - (PBCH_LEN + 1) // 2
 
     while (len(received_SSS) < SSS_LEN) and (clk_cnt < MAX_CLK_CNT):
         await RisingEdge(dut.clk_i)
@@ -136,26 +143,19 @@ async def simple_test(dut):
             received_fft_demod.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
-        if fft_started:
-            # print(f'{rx_counter}: fft_debug {dut.fft_result_debug_o.value}')
-            received_fft.append(_twos_comp(dut.fft_result_debug_o.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
-
     assert len(received_SSS) == SSS_LEN
-    # received_SSS_sym = np.fft.fftshift(received_fft_demod[256:][:256])
     received_SSS_sym = received_SSS
-    # received_SSS = received_SSS_sym[SSS_START_NO_ZEROS:][:SSS_LEN]
     received_SSS = received_SSS_sym
 
     for i in range(SSS_LEN):
         print(f'SSS[{i}] = {int(received_SSS[i].real > 0)}')
 
-    CP_ADVANCE = 9 if HALF_CP_ADVANCE else 18
-    ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_SIZE + CP_ADVANCE:][:FFT_SIZE]))
-    scaling_factor = 2**(tb.IN_DW / 2 + NFFT - FFT_OUT_DW / 2) # FFT core is in truncation mode
+    CP_ADVANCE = CP_LEN // 2 if HALF_CP_ADVANCE else CP_LEN
+    ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_LEN + CP_ADVANCE:][:FFT_LEN]))
+    scaling_factor = 2 ** (tb.IN_DW / 2 + NFFT - FFT_OUT_DW / 2) # FFT core is in truncation mode
     ideal_SSS_sym = ideal_SSS_sym.real / scaling_factor + 1j * ideal_SSS_sym.imag / scaling_factor
     ideal_SSS_sym = tb.fft_dbs(ideal_SSS_sym, FFT_OUT_DW / 2)
-    ideal_SSS_sym *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP_LEN - CP_ADVANCE)))
+    ideal_SSS_sym *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_LEN * np.arange(FFT_LEN) + np.pi * (CP_LEN - CP_ADVANCE)))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         ax = plt.subplot(4, 2, 1)
@@ -183,9 +183,9 @@ async def simple_test(dut):
         plt.show()
 
     #received_PBCH= received_PBCH[9:][:FFT_SIZE-8*2 - 1]
-    received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_SIZE]))
-    received_PBCH_ideal *= np.exp(1j * ( 2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_SIZE * np.arange(FFT_SIZE) + np.pi * (CP_LEN - CP_ADVANCE)))
-    received_PBCH_ideal = received_PBCH_ideal[ZERO_CARRIER // 2 : ][:FFT_SIZE - ZERO_CARRIER]
+    received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_LEN]))
+    received_PBCH_ideal *= np.exp(1j * ( 2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_LEN * np.arange(FFT_LEN) + np.pi * (CP_LEN - CP_ADVANCE)))
+    received_PBCH_ideal = received_PBCH_ideal[PBCH_START:][:PBCH_LEN]
     received_PBCH_ideal = (received_PBCH_ideal.real.astype(int) + 1j * received_PBCH_ideal.imag.astype(int))
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         _, axs = plt.subplots(3, 1, figsize=(5, 10))
@@ -201,22 +201,16 @@ async def simple_test(dut):
     peak_pos = np.argmax(received)
     print(f'highest peak at {peak_pos}')
 
-    # assert len(received_SSS) == 127
-    # for i in range(FFT_SIZE):
-    #     print(f'core : {received_fft[i]}')
-    #     print(f'demod: {received_fft_demod[i]}')
-    # for i in range(len(received_PBCH)):
-    #     print(f'{received_PBCH[i]} <-> {np.fft.fftshift(np.fft.fft(received_fft_ideal[:256]))}')
-    # print('--------------')
-    # for i in range(len(received_PBCH)):
-    #     print(received_PBCH_ideal[i])
-
+    assert len(received_SSS) == 127
 
     error_signal = received_SSS - ideal_SSS
     assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
 
     # assert np.array_equal(received_PBCH, received_PBCH_ideal)
-    assert peak_pos == 841
+    if NFFT == 8:
+        assert peak_pos == 841
+    elif NFFT == 9:
+        pass
 
     corr = np.zeros(335)
     for i in range(335):
@@ -233,7 +227,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE):
+@pytest.mark.parametrize("HALF_CP_ADVANCE", [8, 9])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT):
     dut = 'Decimator_Correlator_PeakDetector_FFT'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -287,6 +282,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE):
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['HALF_CP_ADVANCE'] = HALF_CP_ADVANCE
+    parameters['NFFT'] = NFFT
     parameters_no_taps = parameters.copy()
 
     for i in range(3):
@@ -320,4 +316,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 0)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 9)
