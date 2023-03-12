@@ -227,7 +227,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
-@pytest.mark.parametrize("HALF_CP_ADVANCE", [8, 9])
+@pytest.mark.parametrize("NFFT", [8, 9])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT):
     dut = 'Decimator_Correlator_PeakDetector_FFT'
     module = os.path.splitext(os.path.basename(__file__))[0]
