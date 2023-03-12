@@ -38,6 +38,7 @@ class TB(object):
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
         self.HALF_CP_ADVANCE = int(dut.HALF_CP_ADVANCE.value)
         self.USE_TAP_FILE = int(dut.USE_TAP_FILE.value)
+        self.NFFT = int(dut.NFFT.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -74,28 +75,33 @@ async def simple_test(dut):
     waveform = handle.read_samples()
     fs = 30720000
     print(f'CFO = {CFO} Hz')
-    waveform *= np.exp(np.arange(len(waveform))*1j*2*np.pi*CFO/fs)
+    waveform *= np.exp(np.arange(len(waveform)) * 1j * 2 * np.pi * CFO / fs)
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform = scipy.signal.decimate(waveform, 16//2, ftype='fir')  # decimate to 3.840 MSPS
+    dec_factor = 2048 // (2 ** tb.NFFT)
+    waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')  # decimate to 3.840 MSPS
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform *= (2 ** (tb.IN_DW // 2 - 1) - 1)
-    waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
+    waveform = waveform.real.astype(int) + 1j * waveform.imag.astype(int)
 
     await tb.cycle_reset()
 
     rx_counter = 0
     clk_cnt = 0
     received = []
-    received_fft = []
-    received_fft_demod = []
     rx_ADC_data = []
     received_PBCH = []
     received_SSS = []
-    fft_started = False
 
-    MAX_CLK_CNT = 60000
+    NFFT = tb.NFFT
+    FFT_LEN =  2 ** NFFT
+    MAX_CLK_CNT = 60000 * FFT_LEN // 256
     MAX_TX = 2000
-    DETECTOR_LATENCY = 18
+    if NFFT == 8:
+        DETECTOR_LATENCY = 18
+    elif NFFT == 9:
+        DETECTOR_LATENCY = 20
+    else:
+        assert False
     FFT_OUT_DW = 32
     SSS_LEN = 127
 
@@ -142,11 +148,6 @@ async def simple_test(dut):
             received_SSS.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
-        if dut.m_axis_out_tvalid.value.integer == 1:
-            # print(f'{rx_counter}: fft_demod {dut.m_axis_out_tdata.value}')
-            received_fft_demod.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
-
     assert len(received_SSS) == SSS_LEN
     
     print(f'detected N_id_1 = {detected_N_id_1}')
@@ -171,7 +172,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("CFO", [0, 100])
 @pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE):
+@pytest.mark.parametrize("NFFT", [8])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, NFFT):
     dut = 'Decimator_to_SSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -229,6 +231,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['HALF_CP_ADVANCE'] = HALF_CP_ADVANCE
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
+    parameters['NFFT'] = NFFT
     os.environ['CFO'] = str(CFO)
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
@@ -250,12 +253,12 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
                                         + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
             else:
                 PSS_taps[k] = ((int(np.imag(taps[k])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW // 2)) \
-                                        + (int(np.real(taps[k])) & (2 ** (TAP_DW // 2) - 1))                                 
+                                        + (int(np.real(taps[k])) & (2 ** (TAP_DW // 2) - 1))                     
         if USE_TAP_FILE:
             parameters[f'TAP_FILE_{i}'] = f'\"../{folder}_PSS_{i}_taps.txt\"'
             os.environ[f'TAP_FILE_{i}'] = f'../{folder}_PSS_{i}_taps.txt'
             os.makedirs("sim_build", exist_ok=True)
-            np.savetxt(sim_build + f'_PSS_{i}_taps.txt', PSS_taps, fmt = '%x', delimiter = ' ')  
+            np.savetxt(sim_build + f'_PSS_{i}_taps.txt', PSS_taps, fmt = '%x', delimiter = ' ')
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     
     compile_args = []
@@ -281,4 +284,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, NFFT = 8)

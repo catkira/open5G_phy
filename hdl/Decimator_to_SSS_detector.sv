@@ -16,7 +16,11 @@ module Decimator_to_SSS_detector
     parameter TAP_FILE_0 = "",
     parameter TAP_FILE_1 = "",
     parameter TAP_FILE_2 = "",
+    parameter NFFT = 8,
 
+    localparam FFT_LEN = 2 ** NFFT,
+    localparam CIC_RATE = FFT_LEN / 128,    
+    localparam MAX_CP_LEN = 20 * FFT_LEN / 256,
     localparam FFT_OUT_DW = 32,
     localparam N_id_1_MAX = 335,
     localparam N_id_MAX = 1007
@@ -52,7 +56,7 @@ assign m_axis_cic_debug_tvalid = m_axis_cic_tvalid;
 cic_d #(
     .INP_DW(IN_DW/2),
     .OUT_DW(IN_DW/2),
-    .CIC_R(2),
+    .CIC_R(CIC_RATE),
     .CIC_N(3),
     .VAR_RATE(0)
 )
@@ -68,7 +72,7 @@ cic_real(
 cic_d #(
     .INP_DW(IN_DW / 2),
     .OUT_DW(IN_DW / 2),
-    .CIC_R(2),
+    .CIC_R(CIC_RATE),
     .CIC_N(3),
     .VAR_RATE(0)
 )
@@ -111,7 +115,7 @@ assign peak_detected_debug_o = N_id_2_valid;
 
 // this delay line is needed because peak_detected goes high
 // at the end of SSS symbol plus some additional delay
-localparam DELAY_LINE_LEN = 14;
+localparam DELAY_LINE_LEN = FFT_LEN == 256 ? 14 : (FFT_LEN == 512 ? 16 : 0);  // only defined for FFT_LEN 256 and 512 !
 reg [IN_DW-1:0] delay_line_data  [0 : DELAY_LINE_LEN - 1];
 reg             delay_line_valid [0 : DELAY_LINE_LEN - 1];
 always @(posedge clk_i) begin
@@ -130,7 +134,6 @@ always @(posedge clk_i) begin
     end
 end
 
-localparam MAX_CP_LEN = 20;
 localparam SFN_MAX = 1023;
 localparam SUBFRAMES_PER_FRAME = 20;
 localparam SYM_PER_SF = 14;
@@ -147,7 +150,8 @@ reg fs_out_symbol_start;
 wire fs_out_tlast;
 
 frame_sync #(
-    .IN_DW(IN_DW)
+    .IN_DW(IN_DW),
+    .NFFT(NFFT)
 )
 frame_sync_i
 (
@@ -174,7 +178,8 @@ frame_sync_i
 FFT_demod #(
     .IN_DW(IN_DW),
     .OUT_DW(FFT_OUT_DW),
-    .HALF_CP_ADVANCE(HALF_CP_ADVANCE)
+    .HALF_CP_ADVANCE(HALF_CP_ADVANCE),
+    .NFFT(NFFT)
 )
 FFT_demod_i(
     .clk_i(clk_i),
