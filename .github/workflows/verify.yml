@@ -47,6 +47,7 @@ jobs:
     - name: Verify with verilator
       run: |
         SIM=verilator pytest -v tests/test_receiver.py
+        SIM=verilator pytest -v tests/test_Decimator_to_SSS_detector.py
 
     - name: Verify with cocotb & icarus
       run: |
@@ -55,8 +56,6 @@ jobs:
         pytest -v --workers=10 tests/test_PSS_correlator_with_peak_detector.py
         pytest -v --workers=10 tests/test_dot_product.py
         pytest -v tests/test_SSS_detector.py
-        pytest -v --workers=10 tests/test_Decimator_to_SSS_detector.py
-        pytest -v --workers=10 tests/test_Decimator_to_SSS_detector.py
         pytest -v --workers=10 tests/test_Decimator_Correlator_PeakDetector.py
         pytest -v tests/test_Decimator_Correlator_PeakDetector_FFT.py
         pytest -v --workers=10 tests/test_CFO_correction.py

@@ -94,7 +94,7 @@ async def simple_test(dut):
 
     NFFT = tb.NFFT
     FFT_LEN =  2 ** NFFT
-    MAX_CLK_CNT = 60000 * FFT_LEN // 256
+    MAX_CLK_CNT = 100000 * FFT_LEN // 256
     MAX_TX = 2000
     if NFFT == 8:
         DETECTOR_LATENCY = 18
@@ -253,7 +253,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
                                         + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
             else:
                 PSS_taps[k] = ((int(np.imag(taps[k])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW // 2)) \
-                                        + (int(np.real(taps[k])) & (2 ** (TAP_DW // 2) - 1))                     
+                                        + (int(np.real(taps[k])) & (2 ** (TAP_DW // 2) - 1))              
         if USE_TAP_FILE:
             parameters[f'TAP_FILE_{i}'] = f'\"../{folder}_PSS_{i}_taps.txt\"'
             os.environ[f'TAP_FILE_{i}'] = f'../{folder}_PSS_{i}_taps.txt'
@@ -283,5 +283,5 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
-    # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, NFFT = 8)
+    os.environ['SIM'] = 'verilator'
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, NFFT = 9)
