@@ -19,3 +19,6 @@
 [submodule "submodules/verilog-axi"]
 	path = submodules/verilog-axi
 	url = https://github.com/alexforencich/verilog-axi.git
+[submodule "submodules/adi-hdl"]
+	path = submodules/adi-hdl
+	url = https://github.com/analogdevicesinc/hdl.git
