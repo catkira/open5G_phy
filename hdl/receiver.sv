@@ -26,6 +26,7 @@ module receiver
     parameter ADDRESS_WIDTH = 16,
     parameter NFFT = 8,
     
+    localparam BLK_EXP_LEN = 8,
     localparam FFT_LEN = 2 ** NFFT,
     localparam MAX_CP_LEN = 20 * FFT_LEN / 256,
     localparam CIC_RATE = FFT_LEN / 128,    
@@ -369,17 +370,19 @@ frame_sync_i
     .SSB_start_o(fs_out_SSB_start)
 );
 
-localparam FFT_DEMOD_OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + 1;
+localparam FFT_DEMOD_OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1;
 wire [FFT_OUT_DW - 1 : 0]                   fft_demod_out_tdata;
 wire [FFT_DEMOD_OUT_USER_WIDTH - 1 : 0]     fft_demod_out_tuser;
 wire                                        fft_demod_out_tvalid;
+wire                                        fft_demod_out_tlast;
 assign m_axis_demod_out_tdata = fft_demod_out_tdata;
 assign m_axis_demod_out_tvalid = fft_demod_out_tvalid;
 FFT_demod #(
     .IN_DW(IN_DW),
     .OUT_DW(FFT_OUT_DW),
     .HALF_CP_ADVANCE(HALF_CP_ADVANCE),
-    .NFFT(NFFT)
+    .NFFT(NFFT),
+    .BLK_EXP_LEN(BLK_EXP_LEN)
 )
 FFT_demod_i(
     .clk_i(clk_i),
@@ -391,13 +394,30 @@ FFT_demod_i(
     .s_axis_in_tvalid(fs_out_tvalid),
     .m_axis_out_tdata(fft_demod_out_tdata),
     .m_axis_out_tuser(fft_demod_out_tuser),
-    .m_axis_out_tlast(),
+    .m_axis_out_tlast(fft_demod_out_tlast),
     .m_axis_out_tvalid(fft_demod_out_tvalid),
     .PBCH_valid_o(PBCH_valid_o),
     .SSS_valid_o(SSS_valid_o)
 );
 
-reg [10 : 0] PSS_cnt;
+wire rgs_overflow;
+ressource_grid_subscriber #(
+    .IQ_WIDTH(FFT_OUT_DW),
+    .BLK_EXP_LEN(BLK_EXP_LEN)
+)
+ressource_grid_subscriber_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+
+    .s_axis_iq_tdata(fft_demod_out_tdata),
+    .s_axis_iq_tuser(fft_demod_out_tuser),
+    .s_axis_iq_tvalid(fft_demod_out_tvalid),
+    .s_axis_iq_tlast(fft_demod_out_tlast),
+
+    .m_axis_fifo_tdata(),
+    .m_axis_fifo_tvalid(),
+    .overflow_o(rgs_overflow)
+);
 
 SSS_detector
 SSS_detector_i(

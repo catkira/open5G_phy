@@ -4,6 +4,7 @@ module FFT_demod #(
     parameter OUT_DW = 16,
     parameter NFFT = 8,
     parameter BWP_LEN = 240,
+    parameter BLK_EXP_LEN = 8,
     localparam FFT_LEN = 2 ** NFFT,
     localparam CP1 = 20 * FFT_LEN / 256,
     localparam CP2 = 18 * FFT_LEN / 256,
@@ -15,7 +16,7 @@ module FFT_demod #(
     localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1),
     localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1),
     localparam USER_WIDTH_IN = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + $clog2(MAX_CP_LEN),
-    localparam USER_WIDTH_OUT = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + 1
+    localparam USER_WIDTH_OUT = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1
 )
 (
     input                                       clk_i,
@@ -150,11 +151,11 @@ always @(posedge clk_i) begin
         last_SC <= '0;
     end else begin
         if (fft_val) begin
-            last_SC <= (out_cnt == (FFT_LEN - 1 - 2 * SC_START));
+            last_SC <= (out_cnt == (FFT_LEN - 1 - SC_START));
 
             PBCH_symbol <= (current_out_symbol == 0);
             meta_FIFO_out_ready <= out_cnt == 0;
-            if (meta_FIFO_valid_out)  meta_out <= {meta_FIFO_out_data, current_out_symbol == 0};
+            if (meta_FIFO_valid_out)  meta_out <= {meta_FIFO_out_data, blk_exp, current_out_symbol == 0};
             
             if (out_cnt == (FFT_LEN - 1)) begin
                 if (current_out_symbol == SYMS_BTWN_SSB - 1) begin
@@ -181,6 +182,7 @@ end
 wire [OUT_DW - 1 : 0] fft_result;
 wire [IN_DW / 2 - 1 : 0] fft_result_re_long, fft_result_im_long;
 wire [OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
+wire [BLK_EXP_LEN - 1 : 0] blk_exp;
 assign fft_result_re = fft_result_re_long[IN_DW / 2 - 1 -: OUT_DW / 2];
 assign fft_result_im = fft_result_im_long[IN_DW / 2 - 1 -: OUT_DW / 2];
 
@@ -209,6 +211,7 @@ fft(
 
     .do_re(fft_result_re_long),
     .do_im(fft_result_im_long),
+    .blk_exp_o(blk_exp),
     .do_vl(fft_val)
 );
 
@@ -232,6 +235,7 @@ if (HALF_CP_ADVANCE) begin
     assign PBCH_valid_o = PBCH_valid_f;
     assign SSS_valid_o = SSS_valid_f;
     assign m_axis_out_tuser = meta_delay_f;
+    assign m_axis_out_tlast = last_SC_f;
 
     initial begin
         real PI = 3.1415926535;
