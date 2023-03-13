@@ -24,7 +24,6 @@ Implemented so far:<br>
 ![Overview diagram](doc/overview.jpg)
 
 <b>TODO:</b>
-* implement Ressource Grid Subscriber core
 * add AXI-DMAC core
 * (optional) implement amplitude correction in channel_estimator
 * (optional) implement PDCCH DMRS in channel_estimator
@@ -119,16 +118,17 @@ Frame sync outputs IQ samples in an AXI stream interface. The tuser field contai
 
 # Ressource Grid Subscriber (RGS)
 This core sends the ressource grid via DMA to the CPU. The core can be configured to start with a certain {Frame, Subframe, Symbol)-number. The core also monitors possible overflows, this should not happen if the DMA configuration of the CPU is correct. In case of an overflow, this core will stop forwarding symbols and set an overflow flag. Forwarding can then be reenabled by setting the start {Frame, Subframe, Symbol)-number again.
-Starting with a defined symbol is necessary, because the AXI-DMA core cannot transfer any meta information with the payload. (It is however considered to insert the {Frame, Subframe, Symbol)-number and the block exponent at the beginning of every transferred frame. This would only increase the data rate slightly but provide an extra level of robustness. The block exponent could be used for AGC (automatic gain control))
+Starting with a defined symbol is necessary, because the AXI-DMA core cannot transfer any meta information with the payload. (It is however considered to insert the {Frame, Subframe, Symbol)-number, this would only increase the data rate slightly but provide an extra level of robustness.)
+Each symbol has the block exponent inserted at the beginning, which can be used for AGC (automatic gain control). The block exponent occupies the same space as one IQ sample.
 <br>
-The data rate at the output of this core is 100 frames/s * 10 subframes/frame * 14 symbols/subframe * 240 SC/symbol * 2 byte/SC = 6.72 MB/s when using a BWP (bandwidth part) of 20 RBs.
+The data rate at the output of this core is 100 frames/s * 10 subframes/frame * 14 symbols/subframe * (240 + 1) SC/symbol * 2 byte/SC = 6.72 MB/s when using a BWP (bandwidth part) of 20 RBs.
 <br>
 A non-continuous mode will possibly be added in the future. In the non-continuous mode it can be configured which symbols and subcarriers should be forwarded. This feature would need to scatter-gather functionality in order two forward two different blocks that are close to each other on the time axis.
 
 # AXI-DMAC
 This is a core from Analog Devices that can be found [here](https://github.com/analogdevicesinc/hdl/tree/master/library/axi_dmac). It is used with source AXI-stream interface, because this allows the RGS core to see when an overflow would happen (the source fifo interface of the axi-dmac core does not have a ready output). The advantage of using this core is that there is already a DMA kernel driver, a kernel iio driver and also client libraries (libiio). The kernel DMA driver, axi-dmac.c, provides an interface to the linux kernel DMA engine. The kernel iio driver, provides an interface to the user-space via ioctl() calls. Libiio is a user-space wrapper around the iio interface that provides a convenient API for creating DMA buffers, and enqueuing/dequeuing DMA transfers.
 <br>
-The CPU part of the phy allocates blocks that have the size of a single frame, this is 10 subframes/frame * 14 symbols/subframe * 240 SCs/symbol * 2 bytes/SC = 67.2 kB/frame. It is probably enough if the CPU app stores the last 20 frames, which would only need 1.344 MB RAM.
+The CPU part of the phy allocates blocks that have the size of a single frame, this is 10 subframes/frame * 14 symbols/subframe * (240 + 1) SCs/symbol * 2 bytes/SC = 67.2 kB/frame. It is probably enough if the CPU app stores the last 20 frames, which would only need 1.344 MB RAM.
 <br>
 Tricky situation: When the FPGA loses synchronizations, it signals this via an IRQ from frame_sync to the CPU. The CPU then aborts all pending DMA transfers and after that initiated another sync procedure by writing via AXI-lite to the frame_sync core. Pending transfers can be aborted with iio_buffer_set_enabled(...) when using libiio, or by writing to the "enable" device attribute when using the iio sysfs interface directly. 
 
