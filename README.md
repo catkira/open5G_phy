@@ -119,7 +119,7 @@ Frame sync outputs IQ samples in an AXI stream interface. The tuser field contai
 
 # Ressource Grid Subscriber (RGS)
 This core sends the ressource grid via DMA to the CPU. The core can be configured to start with a certain {Frame, Subframe, Symbol)-number. The core also monitors possible overflows, this should not happen if the DMA configuration of the CPU is correct. In case of an overflow, this core will stop forwarding symbols and set an overflow flag. Forwarding can then be reenabled by setting the start {Frame, Subframe, Symbol)-number again.
-Starting with a defined symbol is necessary, because the AXI-DMA core cannot transfer any meta information with the payload. (It is however considered to insert the {Frame, Subframe, Symbol)-number at the beginning of every transferred frame. This would only increase the data rate slightly but provide an extra level of robustness)
+Starting with a defined symbol is necessary, because the AXI-DMA core cannot transfer any meta information with the payload. (It is however considered to insert the {Frame, Subframe, Symbol)-number and the block exponent at the beginning of every transferred frame. This would only increase the data rate slightly but provide an extra level of robustness. The block exponent could be used for AGC (automatic gain control))
 <br>
 The data rate at the output of this core is 100 frames/s * 10 subframes/frame * 14 symbols/subframe * 240 SC/symbol * 2 byte/SC = 6.72 MB/s when using a BWP (bandwidth part) of 20 RBs.
 <br>
