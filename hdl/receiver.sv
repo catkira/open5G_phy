@@ -63,6 +63,10 @@ module receiver
     output          [$clog2(N_id_1_MAX) - 1 : 0]    m_axis_SSS_tdata,
     output                                          m_axis_SSS_tvalid,
 
+    // AXI stream interface to DMA core
+    output          [FFT_OUT_DW - 1 : 0]            m_axis_out_tdata,
+    output                                          m_axis_out_tvalid,
+
     // AXI lite interface
     // write address channel
     input           [ADDRESS_WIDTH - 1 : 0]     s_axi_if_awaddr,
@@ -414,8 +418,8 @@ ressource_grid_subscriber_i(
     .s_axis_iq_tvalid(fft_demod_out_tvalid),
     .s_axis_iq_tlast(fft_demod_out_tlast),
 
-    .m_axis_fifo_tdata(),
-    .m_axis_fifo_tvalid(),
+    .m_axis_fifo_tdata(m_axis_out_tdata),
+    .m_axis_fifo_tvalid(m_axis_out_tvalid),
     .overflow_o(rgs_overflow)
 );
 
