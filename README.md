@@ -24,7 +24,6 @@ Implemented so far:<br>
 ![Overview diagram](doc/overview.jpg)
 
 <b>TODO:</b>
-* add AXI-DMAC core
 * (optional) implement amplitude correction in channel_estimator
 * (optional) implement PDCCH DMRS in channel_estimator
 * (optional) implement QAM demod for PDSCH
