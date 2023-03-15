@@ -7,7 +7,7 @@ module FFT_demod #(
     parameter BLK_EXP_LEN = 8,
     parameter XSERIES = "OLD",    // use "OLD" for Zynq7, "NEW" for MPSoC
     parameter USE_TAP_FILE = 0,
-    parameter TAP_FILE = "../../FFT_demod_taps.txt",
+    parameter TAP_FILE = "",
 
     localparam FFT_LEN = 2 ** NFFT,
     localparam CP1 = 20 * FFT_LEN / 256,
@@ -243,9 +243,14 @@ if (HALF_CP_ADVANCE) begin
 
     if (USE_TAP_FILE) begin
         initial  begin
-            $display("load FFT_demod lut file from %s", TAP_FILE);
-            $readmemh(TAP_FILE, coeff);
-            // for (integer i = 0; i < 2**NFFT; i = i + 1) $display("%f %f", coeff[i][OUT_DW / 2 - 1 : 0], coeff[i][OUT_DW - 1 : OUT_DW / 2]);
+            if (TAP_FILE == "") begin
+                $display("load FFT_demod lut file from %s", $sformatf("FFT_demod_taps_%0d_%0d_%0d.hex", NFFT, CP2, CP2 / 2));
+                $readmemh($sformatf("FFT_demod_taps_%0d_%0d_%0d.hex", NFFT, CP2, CP2 / 2), coeff);
+                // for (integer i = 0; i < 2**NFFT; i = i + 1) $display("%f %f", coeff[i][OUT_DW / 2 - 1 : 0], coeff[i][OUT_DW - 1 : OUT_DW / 2]);
+            end else begin
+                $display("load FFT_demod lut file from %s", TAP_FILE);
+                $readmemh(TAP_FILE, coeff);
+            end
         end
     end else begin
         // this does not work in Vivado, because vivado cannot init bram from a variable

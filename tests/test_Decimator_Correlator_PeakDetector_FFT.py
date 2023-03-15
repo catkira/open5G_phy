@@ -59,7 +59,7 @@ class TB(object):
         shift_factor = width - np.ceil(np.log2(max_abs_val)) - 1
         return fft_signal * (2 ** shift_factor)
     
-def create_LUT_file(NFFT, CP_LEN, CP_ADVANCE, filename):
+def create_LUT_file(NFFT, CP_LEN, CP_ADVANCE, path):
     FFT_OUT_DW = 32
     FFT_demod_taps = np.empty(2 ** NFFT, int)
     angle_step = 2 * np.pi * (CP_LEN - CP_ADVANCE) / (2 ** NFFT)
@@ -68,7 +68,8 @@ def create_LUT_file(NFFT, CP_LEN, CP_ADVANCE, filename):
         tmp = int((np.sin(angle_step * i + np.pi * (CP_LEN - CP_ADVANCE)) * (2 ** (FFT_OUT_DW // 2 - 1) - 1))) & (2 ** (FFT_OUT_DW // 2) - 1)
         # print(f'{FFT_demod_taps[i]} = {np.cos(angle_step * i + np.pi * (CP_LEN - CP_ADVANCE))}')
         FFT_demod_taps[i] |= tmp << (FFT_OUT_DW // 2)
-    np.savetxt(filename, FFT_demod_taps.T, fmt = '%x', delimiter = ' ')
+    filename = f'FFT_demod_taps_{int(NFFT)}_{int(CP_LEN)}_{int(CP_ADVANCE)}.hex'
+    np.savetxt(os.path.join(path, filename), FFT_demod_taps.T, fmt = '%x', delimiter = ' ')
 
 @cocotb.test()
 async def simple_test(dut):
@@ -300,12 +301,12 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
     sim_build='sim_build/' + folder
 
     if USE_TAP_FILE:
-        filename = f'FFT_demod_taps_{NFFT}.hex'
-        parameters['TAP_FILE'] = f'\"{filename}\"'
+        FFT_LEN = 2 ** NFFT
+        CP_LEN = 18 * FFT_LEN / 256
+        CP_ADVANCE = CP_LEN // 2
         os.makedirs("sim_build", exist_ok=True)
         os.makedirs("sim_build/" + folder, exist_ok=True)
-        FFT_LEN = 2 ** NFFT
-        create_LUT_file(NFFT = NFFT, CP_LEN = 18 * FFT_LEN / 256, CP_ADVANCE = 9 * FFT_LEN / 256, filename = f"sim_build/{folder}/{filename}")
+        create_LUT_file(NFFT = NFFT, CP_LEN = CP_LEN, CP_ADVANCE = CP_ADVANCE, path = f"sim_build/{folder}")
 
     for i in range(3):
         # imaginary part is in upper 16 Bit
