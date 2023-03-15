@@ -388,7 +388,8 @@ FFT_demod #(
     .HALF_CP_ADVANCE(HALF_CP_ADVANCE),
     .NFFT(NFFT),
     .BLK_EXP_LEN(BLK_EXP_LEN),
-    .XSERIES(XSERIES)
+    .XSERIES(XSERIES),
+    .USE_TAP_FILE(0)
 )
 FFT_demod_i(
     .clk_i(clk_i),
