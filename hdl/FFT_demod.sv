@@ -242,12 +242,10 @@ if (HALF_CP_ADVANCE) begin
         integer CP_LEN = CP2;
         integer CP_ADVANCE = CP2 / 2;
         real angle_step = 2 * PI * $itor((CP_LEN - CP_ADVANCE)) / $itor((2**NFFT));
-        real angle_acc = 0;
         // if real variables are declared inside the for loop, bugs appear, fking shit
         for (integer i = 0; i < 2**NFFT; i = i + 1) begin
-            coeff[i][OUT_DW / 2 - 1 : 0]      = $cos(angle_acc + PI * (CP_LEN - CP_ADVANCE)) * (2 ** (OUT_DW / 2 - 1) - 1);
-            coeff[i][OUT_DW - 1 : OUT_DW / 2] = $sin(angle_acc + PI * (CP_LEN - CP_ADVANCE)) * (2 ** (OUT_DW / 2 - 1) - 1);
-            angle_acc = angle_acc + angle_step;
+            coeff[i][OUT_DW / 2 - 1 : 0]      = $cos(angle_step * i + PI * (CP_LEN - CP_ADVANCE)) * (2 ** (OUT_DW / 2 - 1) - 1);
+            coeff[i][OUT_DW - 1 : OUT_DW / 2] = $sin(angle_step * i + PI * (CP_LEN - CP_ADVANCE)) * (2 ** (OUT_DW / 2 - 1) - 1);
         end
     end
 
