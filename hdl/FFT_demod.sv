@@ -6,6 +6,8 @@ module FFT_demod #(
     parameter BWP_LEN = 240,
     parameter BLK_EXP_LEN = 8,
     parameter XSERIES = "OLD",    // use "OLD" for Zynq7, "NEW" for MPSoC
+    parameter USE_TAP_FILE = 0,
+    parameter TAP_FILE = "../../FFT_demod_taps.txt",
 
     localparam FFT_LEN = 2 ** NFFT,
     localparam CP1 = 20 * FFT_LEN / 256,
@@ -239,15 +241,25 @@ if (HALF_CP_ADVANCE) begin
     assign m_axis_out_tuser = meta_delay_f;
     assign m_axis_out_tlast = last_SC_f;
 
-    initial begin
-        real PI = 3.1415926535;
-        integer CP_LEN = CP2;
-        integer CP_ADVANCE = CP2 / 2;
-        real angle_step = 2 * PI * $itor((CP_LEN - CP_ADVANCE)) / $itor((2**NFFT));
-        // if real variables are declared inside the for loop, bugs appear, fking shit
-        for (integer i = 0; i < 2**NFFT; i = i + 1) begin
-            coeff[i][OUT_DW / 2 - 1 : 0]      = $cos(angle_step * i + PI * (CP_LEN - CP_ADVANCE)) * (2 ** (OUT_DW / 2 - 1) - 1);
-            coeff[i][OUT_DW - 1 : OUT_DW / 2] = $sin(angle_step * i + PI * (CP_LEN - CP_ADVANCE)) * (2 ** (OUT_DW / 2 - 1) - 1);
+    if (USE_TAP_FILE) begin
+        initial  begin
+            $display("load FFT_demod lut file from %s", TAP_FILE);
+            $readmemh(TAP_FILE, coeff);
+            // for (integer i = 0; i < 2**NFFT; i = i + 1) $display("%f %f", coeff[i][OUT_DW / 2 - 1 : 0], coeff[i][OUT_DW - 1 : OUT_DW / 2]);
+        end
+    end else begin
+        // this does not work in Vivado, because vivado cannot init bram from a variable
+        initial begin
+            real PI = 3.1415926535;
+            integer CP_LEN = CP2;
+            integer CP_ADVANCE = CP2 / 2;
+            real angle_step = 2 * PI * $itor((CP_LEN - CP_ADVANCE)) / $itor((2**NFFT));
+            // if real variables are declared inside the for loop, bugs appear, fking shit
+            for (integer i = 0; i < 2**NFFT; i = i + 1) begin
+                coeff[i][OUT_DW / 2 - 1 : 0]      = $cos(angle_step * i + PI * (CP_LEN - CP_ADVANCE)) * (2 ** (OUT_DW / 2 - 1) - 1);
+                coeff[i][OUT_DW - 1 : OUT_DW / 2] = $sin(angle_step * i + PI * (CP_LEN - CP_ADVANCE)) * (2 ** (OUT_DW / 2 - 1) - 1);
+            end
+            // for (integer i = 0; i < 2**NFFT; i = i + 1) $display("%f %f", coeff[i][OUT_DW / 2 - 1 : 0], coeff[i][OUT_DW - 1 : OUT_DW / 2]);            
         end
     end
 

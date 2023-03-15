@@ -3,7 +3,6 @@ import scipy
 import os
 import pytest
 import logging
-import importlib
 import matplotlib.pyplot as plt
 import os
 
@@ -59,6 +58,17 @@ class TB(object):
         max_abs_val = max(max_im, max_re)
         shift_factor = width - np.ceil(np.log2(max_abs_val)) - 1
         return fft_signal * (2 ** shift_factor)
+    
+def create_LUT_file(NFFT, CP_LEN, CP_ADVANCE, filename):
+    FFT_OUT_DW = 32
+    FFT_demod_taps = np.empty(2 ** NFFT, int)
+    angle_step = 2 * np.pi * (CP_LEN - CP_ADVANCE) / (2 ** NFFT)
+    for i in range(2 ** NFFT):
+        FFT_demod_taps[i] = int((np.cos(angle_step * i + np.pi * (CP_LEN - CP_ADVANCE)) * (2 ** (FFT_OUT_DW // 2 - 1) - 1))) & (2 ** (FFT_OUT_DW // 2) - 1)
+        tmp = int((np.sin(angle_step * i + np.pi * (CP_LEN - CP_ADVANCE)) * (2 ** (FFT_OUT_DW // 2 - 1) - 1))) & (2 ** (FFT_OUT_DW // 2) - 1)
+        # print(f'{FFT_demod_taps[i]} = {np.cos(angle_step * i + np.pi * (CP_LEN - CP_ADVANCE))}')
+        FFT_demod_taps[i] |= tmp << (FFT_OUT_DW // 2)
+    np.savetxt(filename, FFT_demod_taps.T, fmt = '%x', delimiter = ' ')
 
 @cocotb.test()
 async def simple_test(dut):
@@ -228,7 +238,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
 @pytest.mark.parametrize("NFFT", [8, 9])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT):
+@pytest.mark.parametrize("USE_TAP_FILE", [0, 1])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP_FILE):
     dut = 'Decimator_Correlator_PeakDetector_FFT'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -283,7 +294,18 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT):
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['HALF_CP_ADVANCE'] = HALF_CP_ADVANCE
     parameters['NFFT'] = NFFT
+    parameters['USE_TAP_FILE'] = USE_TAP_FILE
     parameters_no_taps = parameters.copy()
+    folder = 'Decimator_to_FFT_' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
+    sim_build='sim_build/' + folder
+
+    if USE_TAP_FILE:
+        filename = f'FFT_demod_taps_{NFFT}.hex'
+        parameters['TAP_FILE'] = f'\"{filename}\"'
+        os.makedirs("sim_build", exist_ok=True)
+        os.makedirs("sim_build/" + folder, exist_ok=True)
+        FFT_LEN = 2 ** NFFT
+        create_LUT_file(NFFT = NFFT, CP_LEN = 18 * FFT_LEN / 256, CP_ADVANCE = 9 * FFT_LEN / 256, filename = f"sim_build/{folder}/{filename}")
 
     for i in range(3):
         # imaginary part is in upper 16 Bit
@@ -298,7 +320,6 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT):
                                     + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
 
-    sim_build='sim_build/Decimator_to_FFT_' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
@@ -316,4 +337,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 9)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 9, USE_TAP_FILE = 1)
