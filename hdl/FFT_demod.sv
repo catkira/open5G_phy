@@ -5,6 +5,8 @@ module FFT_demod #(
     parameter NFFT = 8,
     parameter BWP_LEN = 240,
     parameter BLK_EXP_LEN = 8,
+    parameter XSERIES = "OLD",    // use "OLD" for Zynq7, "NEW" for MPSoC
+
     localparam FFT_LEN = 2 ** NFFT,
     localparam CP1 = 20 * FFT_LEN / 256,
     localparam CP2 = 18 * FFT_LEN / 256,
@@ -197,7 +199,7 @@ fft #(
     .FORMAT(0),
     .DATA_WIDTH(IN_DW / 2),
     .TWDL_WIDTH(IN_DW / 2),
-    .XSERIES("NEW"),   // use "OLD" for Zynq7, "NEW" for MPSoC
+    .XSERIES(XSERIES),
     .USE_MLT(0),
     .SHIFTED(1),
     .DBS(1)

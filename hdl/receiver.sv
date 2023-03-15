@@ -25,7 +25,8 @@ module receiver
     parameter LLR_DW = 8,
     parameter ADDRESS_WIDTH = 16,
     parameter NFFT = 8,
-    
+    parameter XSERIES = "OLD",        // use "OLD" for Zynq7, "NEW" for MPSoC    
+
     localparam BLK_EXP_LEN = 8,
     localparam FFT_LEN = 2 ** NFFT,
     localparam MAX_CP_LEN = 20 * FFT_LEN / 256,
@@ -386,7 +387,8 @@ FFT_demod #(
     .OUT_DW(FFT_OUT_DW),
     .HALF_CP_ADVANCE(HALF_CP_ADVANCE),
     .NFFT(NFFT),
-    .BLK_EXP_LEN(BLK_EXP_LEN)
+    .BLK_EXP_LEN(BLK_EXP_LEN),
+    .XSERIES(XSERIES)
 )
 FFT_demod_i(
     .clk_i(clk_i),
