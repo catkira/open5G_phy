@@ -12,8 +12,9 @@ def create_lut_file(NFFT, CP_LEN, CP_ADVANCE, OUT_DW, path):
         tmp = int((np.sin(angle_step * i + const_angle) * (2 ** (OUT_DW // 2 - 1) - 1))) & (2 ** (OUT_DW // 2) - 1)
         # print(f'{FFT_demod_taps[i]} = {np.cos(angle_step * i + np.pi * (CP_LEN - CP_ADVANCE))}')
         FFT_demod_taps[i] |= tmp << (OUT_DW // 2)
-    filename = f'FFT_demod_taps_{int(NFFT)}_{int(CP_LEN)}_{int(CP_ADVANCE)}.hex'
-    os.makedirs(path, exist_ok=True)
+    filename = f'FFT_demod_taps_{int(NFFT)}_{int(CP_LEN)}_{int(CP_ADVANCE)}_{int(OUT_DW)}.hex'
+    if not path == '':
+        os.makedirs(path, exist_ok=True)
     np.savetxt(os.path.join(path, filename), FFT_demod_taps.T, fmt = '%x', delimiter = ' ')
 
 def main(args):
