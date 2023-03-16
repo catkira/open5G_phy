@@ -179,7 +179,8 @@ FFT_demod #(
     .IN_DW(IN_DW),
     .OUT_DW(FFT_OUT_DW),
     .HALF_CP_ADVANCE(HALF_CP_ADVANCE),
-    .NFFT(NFFT)
+    .NFFT(NFFT),
+    .USE_TAP_FILE(USE_TAP_FILE)
 )
 FFT_demod_i(
     .clk_i(clk_i),

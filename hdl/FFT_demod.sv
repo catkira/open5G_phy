@@ -246,11 +246,11 @@ if (HALF_CP_ADVANCE) begin
             if (TAP_FILE == "") begin
                 $display("load FFT_demod lut file from %s", $sformatf("FFT_demod_taps_%0d_%0d_%0d.hex", NFFT, CP2, CP2 / 2));
                 $readmemh($sformatf("FFT_demod_taps_%0d_%0d_%0d.hex", NFFT, CP2, CP2 / 2), coeff);
-                // for (integer i = 0; i < 2**NFFT; i = i + 1) $display("%f %f", coeff[i][OUT_DW / 2 - 1 : 0], coeff[i][OUT_DW - 1 : OUT_DW / 2]);
             end else begin
                 $display("load FFT_demod lut file from %s", TAP_FILE);
                 $readmemh(TAP_FILE, coeff);
             end
+            // for (integer i = 0; i < 2**NFFT; i = i + 1) $display("%f %f", coeff[i][OUT_DW / 2 - 1 : 0], coeff[i][OUT_DW - 1 : OUT_DW / 2]);            
         end
     end else begin
         // this does not work in Vivado, because vivado cannot init bram from a variable

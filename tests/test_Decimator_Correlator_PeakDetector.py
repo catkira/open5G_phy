@@ -10,7 +10,6 @@ import os
 import cocotb
 import cocotb_test.simulator
 from cocotb.clock import Clock
-from cocotb.triggers import Timer
 from cocotb.triggers import RisingEdge
 
 import py3gpp
@@ -143,20 +142,21 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
 
-    # imaginary part is in upper 16 Bit
-    PSS = np.zeros(PSS_LEN, 'complex')
-    PSS[0:-1] = py3gpp.nrPSS(2)
-    taps = np.fft.ifft(np.fft.fftshift(PSS))
-    taps /= max(taps.real.max(), taps.imag.max())
-    taps *= 2 ** (TAP_DW // 2 - 1)
-    parameters['PSS_LOCAL'] = 0
-    for i in range(len(taps)):
-        parameters['PSS_LOCAL'] += ((int(np.round(np.imag(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i + TAP_DW // 2)) \
-                                 + ((int(np.round(np.real(taps[i]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     parameters_no_taps = parameters.copy()
-    del parameters_no_taps['PSS_LOCAL']
-    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
+    sim_build='sim_build/Decimator_to_PeakDetector_' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
+
+    N_id_2 = 2
+    # parameters['TAP_FILE'] = f'\"../../{sim_build}/PSS_taps_{N_id_2}.hex\"'
+    os.environ['TAP_FILE'] = f'{rtl_dir}/../{sim_build}/PSS_taps_{N_id_2}.hex'
+
+    os.makedirs(sim_build, exist_ok=True)
+    file_path = os.path.abspath(os.path.join(tests_dir, '../tools/generate_PSS_tap_file.py'))
+    spec = importlib.util.spec_from_file_location("generate_PSS_tap_file", file_path)
+    generate_PSS_tap_file = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generate_PSS_tap_file)
+    generate_PSS_tap_file.main(['--PSS_LEN', str(PSS_LEN),'--TAP_DW', str(TAP_DW), '--N_id_2', str(N_id_2), '--path', sim_build])
+
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,

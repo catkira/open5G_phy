@@ -5,6 +5,7 @@ import pytest
 import logging
 import matplotlib.pyplot as plt
 import os
+import importlib.util
 
 import cocotb
 import cocotb_test.simulator
@@ -91,7 +92,7 @@ async def simple_test(dut):
     waveform = waveform.real.astype(int) + 1j * waveform.imag.astype(int)
 
     await tb.cycle_reset()
-    USE_COCOTB_AXI = 1
+    USE_COCOTB_AXI = 0
 
     if USE_COCOTB_AXI:
         # cocotbext-axi hangs with Verilator -> https://github.com/verilator/verilator/issues/3919
@@ -222,7 +223,6 @@ async def simple_test(dut):
         for i in range(data):
             data = await tb.read_axil(addr * 4)
             fifo_data.append(_twos_comp(data & (2 ** (tb.LLR_DW) - 1), tb.LLR_DW))
-            print(data)
     assert not np.array_equal(np.array(fifo_data), np.zeros(len(fifo_data)))
     assert np.array_equal(np.array(received_PBCH_LLR), np.array(fifo_data))
 
@@ -420,28 +420,29 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
     folder = 'receiver_' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
-    sim_build='sim_build/' + folder
+    sim_build = os.path.join('sim_build/', folder)
 
-    for i in range(3):
-        # imaginary part is in upper 16 Bit
-        PSS = np.zeros(PSS_LEN, 'complex')
-        PSS[0:-1] = py3gpp.nrPSS(i)
-        taps = np.fft.ifft(np.fft.fftshift(PSS))
-        taps /= max(taps.real.max(), taps.imag.max())
-        taps *= 2 ** (TAP_DW // 2 - 1)
-        parameters[f'PSS_LOCAL_{i}'] = 0
-        PSS_taps = np.empty(PSS_LEN, int)
-        for k in range(len(taps)):
-            if not USE_TAP_FILE:
-                parameters[f'PSS_LOCAL_{i}'] += ((int(np.round(np.imag(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k + TAP_DW // 2)) \
-                                        + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
-            PSS_taps[k] = ((int(np.imag(taps[k])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW // 2)) \
-                                    + (int(np.real(taps[k])) & (2 ** (TAP_DW // 2) - 1))
-        if USE_TAP_FILE:
-            parameters[f'TAP_FILE_{i}'] = f'\"../{folder}_PSS_{i}_taps.txt\"'
-            os.environ[f'TAP_FILE_{i}'] = f'../{folder}_PSS_{i}_taps.txt'
-            os.makedirs("sim_build", exist_ok=True)
-            np.savetxt(sim_build + f'_PSS_{i}_taps.txt', PSS_taps, fmt = '%x', delimiter = ' ')
+    # prepare FFT_demod taps
+    FFT_LEN = 2 ** NFFT
+    CP_LEN = int(18 * FFT_LEN / 256)  # TODO: only CP2 supported so far! another lut for CP1 symbols is needed!
+    CP_ADVANCE = CP_LEN // 2
+    FFT_OUT_DW = 16
+    file_path = os.path.abspath(os.path.join(tests_dir, '../tools/generate_FFT_demod_tap_file.py'))
+    spec = importlib.util.spec_from_file_location("generate_FFT_demod_tap_file", file_path)
+    generate_FFT_demod_tap_file = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generate_FFT_demod_tap_file)
+    generate_FFT_demod_tap_file.main(['--NFFT', str(NFFT),'--CP_LEN', str(CP_LEN), '--CP_ADVANCE', str(CP_ADVANCE),
+                                      '--OUT_DW', str(FFT_OUT_DW), '--path', sim_build])
+    
+    # prepare PSS_correlator taps
+    for N_id_2 in range(3):
+        os.makedirs(sim_build, exist_ok=True)
+        file_path = os.path.abspath(os.path.join(tests_dir, '../tools/generate_PSS_tap_file.py'))
+        spec = importlib.util.spec_from_file_location("generate_PSS_tap_file", file_path)
+        generate_PSS_tap_file = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(generate_PSS_tap_file)
+        generate_PSS_tap_file.main(['--PSS_LEN', str(PSS_LEN),'--TAP_DW', str(TAP_DW), '--N_id_2', str(N_id_2), '--path', sim_build])
+
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     
     compile_args = []
@@ -461,7 +462,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
         testcase='simple_test',
         force_compile=True,
         waves=True,
-        defines = ['LUT_PATH=\"../../tests\"'],
+        defines = ['LUT_PATH=\"../../tests\"'],   # used by DDS core
         compile_args = compile_args
     )
 

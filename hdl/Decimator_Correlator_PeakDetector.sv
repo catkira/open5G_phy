@@ -72,7 +72,9 @@ PSS_correlator #(
     .TAP_DW(TAP_DW),
     .PSS_LEN(PSS_LEN),
     .PSS_LOCAL(PSS_LOCAL),
-    .ALGO(ALGO)
+    .ALGO(ALGO),
+    .USE_TAP_FILE(1),
+    .N_ID_2(2)
 )
 correlator(
     .clk_i(clk_i),

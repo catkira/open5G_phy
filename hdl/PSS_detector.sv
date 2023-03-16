@@ -93,7 +93,8 @@ PSS_correlator #(
     .PSS_LOCAL(PSS_LOCAL_0),
     .USE_TAP_FILE(USE_TAP_FILE),
     .TAP_FILE(TAP_FILE_0),
-    .ALGO(ALGO)
+    .ALGO(ALGO),
+    .N_ID_2(0)
 )
 correlator_0_i(
     .clk_i(clk_i),
@@ -114,7 +115,8 @@ PSS_correlator #(
     .PSS_LOCAL(PSS_LOCAL_1),
     .USE_TAP_FILE(USE_TAP_FILE),
     .TAP_FILE(TAP_FILE_1),
-    .ALGO(ALGO)
+    .ALGO(ALGO),
+    .N_ID_2(1)
 )
 correlator_1_i(
     .clk_i(clk_i),
@@ -135,7 +137,8 @@ PSS_correlator #(
     .PSS_LOCAL(PSS_LOCAL_2),
     .USE_TAP_FILE(USE_TAP_FILE),
     .TAP_FILE(TAP_FILE_2),
-    .ALGO(ALGO)
+    .ALGO(ALGO),
+    .N_ID_2(2)
 )
 correlator_2_i(
     .clk_i(clk_i),

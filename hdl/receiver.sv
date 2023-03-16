@@ -389,7 +389,8 @@ FFT_demod #(
     .NFFT(NFFT),
     .BLK_EXP_LEN(BLK_EXP_LEN),
     .XSERIES(XSERIES),
-    .USE_TAP_FILE(0)
+    .USE_TAP_FILE(USE_TAP_FILE),
+    .TAP_FILE("")
 )
 FFT_demod_i(
     .clk_i(clk_i),

@@ -6,6 +6,7 @@ import logging
 import importlib
 import matplotlib.pyplot as plt
 import os
+import importlib.util
 
 import cocotb
 import cocotb_test.simulator
@@ -238,27 +239,24 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
     folder = '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
     sim_build='sim_build/' + folder
 
-    for i in range(3):
-        # imaginary part is in upper 16 Bit
-        PSS = np.zeros(PSS_LEN, 'complex')
-        PSS[0:-1] = py3gpp.nrPSS(i)
-        taps = np.fft.ifft(np.fft.fftshift(PSS))
-        taps /= max(taps.real.max(), taps.imag.max())
-        taps *= 2 ** (TAP_DW // 2 - 1)
-        parameters[f'PSS_LOCAL_{i}'] = 0
-        PSS_taps = np.empty(PSS_LEN, int)
-        for k in range(len(taps)):
-            if not USE_TAP_FILE:
-                parameters[f'PSS_LOCAL_{i}'] += ((int(np.round(np.imag(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k + TAP_DW // 2)) \
-                                        + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
-            else:
-                PSS_taps[k] = ((int(np.imag(taps[k])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW // 2)) \
-                                        + (int(np.real(taps[k])) & (2 ** (TAP_DW // 2) - 1))              
-        if USE_TAP_FILE:
-            parameters[f'TAP_FILE_{i}'] = f'\"../{folder}_PSS_{i}_taps.txt\"'
-            os.environ[f'TAP_FILE_{i}'] = f'../{folder}_PSS_{i}_taps.txt'
-            os.makedirs("sim_build", exist_ok=True)
-            np.savetxt(sim_build + f'_PSS_{i}_taps.txt', PSS_taps, fmt = '%x', delimiter = ' ')
+    FFT_LEN = 2 ** NFFT
+    CP_LEN = 18 * FFT_LEN // 256
+    CP_ADVANCE = CP_LEN // 2
+    file_path = os.path.abspath(os.path.join(tests_dir, '../tools/generate_FFT_demod_tap_file.py'))
+    spec = importlib.util.spec_from_file_location("generate_FFT_demod_tap_file", file_path)
+    generate_FFT_demod_tap_file = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generate_FFT_demod_tap_file)
+    generate_FFT_demod_tap_file.main(['--NFFT', str(NFFT),'--CP_LEN', str(CP_LEN), '--CP_ADVANCE', str(CP_ADVANCE),
+                                      '--OUT_DW', str(OUT_DW), '--path', sim_build])
+
+    for N_id_2 in range(3):
+        os.makedirs(sim_build, exist_ok=True)
+        file_path = os.path.abspath(os.path.join(tests_dir, '../tools/generate_PSS_tap_file.py'))
+        spec = importlib.util.spec_from_file_location("generate_PSS_tap_file", file_path)
+        generate_PSS_tap_file = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(generate_PSS_tap_file)
+        generate_PSS_tap_file.main(['--PSS_LEN', str(PSS_LEN),'--TAP_DW', str(TAP_DW), '--N_id_2', str(N_id_2), '--path', sim_build])
+    
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     
     compile_args = []

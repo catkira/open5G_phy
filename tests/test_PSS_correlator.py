@@ -6,6 +6,7 @@ import logging
 import importlib
 import matplotlib.pyplot as plt
 import os
+import importlib.util
 
 import cocotb
 import cocotb_test.simulator
@@ -42,7 +43,7 @@ class TB(object):
         spec.loader.exec_module(foo)
 
         if self.USE_TAP_FILE:
-            self.TAP_FILE = os.environ["TAP_FILE"]
+            self.TAP_FILE = os.environ['TAP_FILE']
             self.PSS_LOCAL = 0
         else:
             self.TAP_FILE = ""
@@ -57,9 +58,6 @@ class TB(object):
         while True:
             self.model.tick()
             await timer
-
-    async def generate_input(self):
-        pass
 
     async def cycle_reset(self):
         self.dut.s_axis_in_tvalid.value = 0
@@ -165,36 +163,34 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, USE_TAP_FILE):
     parameters['ALGO'] = ALGO
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
 
-    # imaginary part is in upper 16 Bit
-    PSS = np.zeros(PSS_LEN, 'complex')
-    PSS[0:-1] = py3gpp.nrPSS(2)
-    taps = np.fft.ifft(np.fft.fftshift(PSS))
-    taps /= max(taps.real.max(), taps.imag.max())
-    taps *= 2 ** (TAP_DW // 2 - 1) - 1
-    # for i in range(10):
-    #     print(f'taps[{i}] = {taps[i]}')
-    parameters['PSS_LOCAL'] = 0
-    PSS_taps = np.empty(PSS_LEN, int)
-    for i in range(len(taps)):
-        if not USE_TAP_FILE:
-            parameters['PSS_LOCAL'] += ((int(np.imag(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i + TAP_DW // 2)) \
-                                    +  ((int(np.real(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
-        else:
-            PSS_taps[i] = ((int(np.imag(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW // 2)) \
-                                    + (int(np.real(taps[i])) & (2 ** (TAP_DW // 2) - 1))
-
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
     os.environ['CFO'] = str(CFO)
     parameters_no_taps = parameters.copy()
-    del parameters_no_taps['PSS_LOCAL']
     folder = '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     sim_build='sim_build/' + folder
-    if USE_TAP_FILE:
+    N_id_2 = 2
+
+    if not USE_TAP_FILE:
+        PSS = np.zeros(PSS_LEN, 'complex')
+        PSS[0:-1] = py3gpp.nrPSS(N_id_2)
+        taps = np.fft.ifft(np.fft.fftshift(PSS))
+        taps /= max(taps.real.max(), taps.imag.max())
+        taps *= 2 ** (TAP_DW // 2 - 1) - 1
+        parameters['PSS_LOCAL'] = 0
+        for i in range(len(taps)):
+            parameters['PSS_LOCAL'] += ((int(np.imag(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i + TAP_DW // 2)) \
+                                    +  ((int(np.real(taps[i])) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * i))
+    else:
         # every parameter combination needs to have its own TAP_FILE to allow parallel tests!
-        parameters['TAP_FILE'] = f'\"../{folder}_PSS_taps.txt\"'
-        os.environ["TAP_FILE"] = f'../{folder}_PSS_taps.txt'
-        os.makedirs("sim_build", exist_ok=True)
-        np.savetxt(sim_build + '_PSS_taps.txt', PSS_taps.T, fmt = '%x', delimiter = ' ')
+        parameters['TAP_FILE'] = f'\"../{folder}/PSS_taps_{N_id_2}.hex\"'
+        os.environ['TAP_FILE'] = f'{rtl_dir}/../{sim_build}/PSS_taps_{N_id_2}.hex'
+
+        os.makedirs(sim_build, exist_ok=True)
+        file_path = os.path.abspath(os.path.join(tests_dir, '../tools/generate_PSS_tap_file.py'))
+        spec = importlib.util.spec_from_file_location("generate_PSS_tap_file", file_path)
+        generate_PSS_tap_file = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(generate_PSS_tap_file)
+        generate_PSS_tap_file.main(['--PSS_LEN', str(PSS_LEN),'--TAP_DW', str(TAP_DW), '--N_id_2', str(N_id_2), '--path', sim_build])
 
     cocotb_test.simulator.run(
         python_search=[tests_dir],
@@ -211,4 +207,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, USE_TAP_FILE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 24, TAP_DW = 18, ALGO = 0, CFO = 10000, USE_TAP_FILE = 1)
+    test(IN_DW = 32, OUT_DW = 24, TAP_DW = 18, ALGO = 0, CFO = 10000, USE_TAP_FILE = 0)

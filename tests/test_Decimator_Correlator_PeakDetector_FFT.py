@@ -10,7 +10,6 @@ import importlib.util
 import cocotb
 import cocotb_test.simulator
 from cocotb.clock import Clock
-from cocotb.triggers import Timer
 from cocotb.triggers import RisingEdge
 
 import py3gpp
@@ -228,7 +227,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
 @pytest.mark.parametrize("NFFT", [8, 9])
-@pytest.mark.parametrize("USE_TAP_FILE", [0, 1])
+@pytest.mark.parametrize("USE_TAP_FILE", [1])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP_FILE):
     dut = 'Decimator_Correlator_PeakDetector_FFT'
     module = os.path.splitext(os.path.basename(__file__))[0]
@@ -266,9 +265,10 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
         os.path.join(rtl_dir, 'FFT/buffers/inbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/outbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v'),
-        os.path.join(rtl_dir, 'FFT/buffers/dynamic_block_scaling.v'),        
-        os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v')
+        os.path.join(rtl_dir, 'FFT/buffers/dynamic_block_scaling.v')
     ]
+    if os.environ.get('SIM') != 'verilator':
+        verilog_sources.append(os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v'))
     includes = [
         os.path.join(rtl_dir, 'CIC'),
         os.path.join(rtl_dir, 'fft-core')
@@ -299,21 +299,25 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
         spec = importlib.util.spec_from_file_location("generate_FFT_demod_tap_file", file_path)
         generate_FFT_demod_tap_file = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(generate_FFT_demod_tap_file)
-        generate_FFT_demod_tap_file.main(['--NFFT', str(NFFT),'--CP_LEN', str(CP_LEN), '--CP_ADVANCE', str(CP_ADVANCE), '--path', sim_build])
+        generate_FFT_demod_tap_file.main(['--NFFT', str(NFFT),'--CP_LEN', str(CP_LEN), '--CP_ADVANCE', str(CP_ADVANCE),
+                                            '--OUT_DW', str(OUT_DW), '--path', sim_build])
 
-    for i in range(3):
-        # imaginary part is in upper 16 Bit
-        PSS = np.zeros(PSS_LEN, 'complex')
-        PSS[0:-1] = py3gpp.nrPSS(i)
-        taps = np.fft.ifft(np.fft.fftshift(PSS))
-        taps /= max(taps.real.max(), taps.imag.max())
-        taps *= 2 ** (TAP_DW // 2 - 1)
-        parameters[f'PSS_LOCAL_{i}'] = 0
-        for k in range(len(taps)):
-            parameters[f'PSS_LOCAL_{i}'] += ((int(np.round(np.imag(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k + TAP_DW // 2)) \
-                                    + ((int(np.round(np.real(taps[k]))) & (2 ** (TAP_DW // 2) - 1)) << (TAP_DW * k))
+    
+    for N_id_2 in range(3):
+        os.makedirs(sim_build, exist_ok=True)
+        file_path = os.path.abspath(os.path.join(tests_dir, '../tools/generate_PSS_tap_file.py'))
+        spec = importlib.util.spec_from_file_location("generate_PSS_tap_file", file_path)
+        generate_PSS_tap_file = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(generate_PSS_tap_file)
+        generate_PSS_tap_file.main(['--PSS_LEN', str(PSS_LEN),'--TAP_DW', str(TAP_DW), '--N_id_2', str(N_id_2), '--path', sim_build])
+
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
 
+    compile_args = []
+    if os.environ.get('SIM') == 'verilator':
+        compile_args = ['--build-jobs', '16', '--no-timing', '-Wno-fatal', '-Wno-PINMISSING','-y', tests_dir + '/../submodules/verilator-unisims']
+    else:
+        compile_args = ['-sglbl', '-y' + unisim_dir]
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
@@ -325,10 +329,11 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
         extra_env=extra_env,
         testcase='simple_test',
         force_compile=True,
-        compile_args = ['-sglbl', '-y' + unisim_dir],
+        compile_args = compile_args,
         waves=True
     )
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 9, USE_TAP_FILE = 1)
+    # os.environ['SIM'] = 'verilator'
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1)
