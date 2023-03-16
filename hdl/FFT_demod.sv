@@ -8,6 +8,7 @@ module FFT_demod #(
     parameter XSERIES = "OLD",    // use "OLD" for Zynq7, "NEW" for MPSoC
     parameter USE_TAP_FILE = 0,
     parameter TAP_FILE = "",
+    parameter TAP_FILE_PATH = "",
 
     localparam FFT_LEN = 2 ** NFFT,
     localparam CP1 = 20 * FFT_LEN / 256,
@@ -244,8 +245,8 @@ if (HALF_CP_ADVANCE) begin
     if (USE_TAP_FILE) begin
         initial  begin
             if (TAP_FILE == "") begin
-                $display("load FFT_demod lut file from %s", $sformatf("FFT_demod_taps_%0d_%0d_%0d_%0d.hex", NFFT, CP2, CP2 / 2, OUT_DW));
-                $readmemh($sformatf("FFT_demod_taps_%0d_%0d_%0d_%0d.hex", NFFT, CP2, CP2 / 2, OUT_DW), coeff);
+                $display("load FFT_demod lut file from %s", $sformatf("%s/FFT_demod_taps_%0d_%0d_%0d_%0d.hex", TAP_FILE_PATH, NFFT, CP2, CP2 / 2, OUT_DW));
+                $readmemh($sformatf("%s/FFT_demod_taps_%0d_%0d_%0d_%0d.hex", TAP_FILE_PATH, NFFT, CP2, CP2 / 2, OUT_DW), coeff);
             end else begin
                 $display("load FFT_demod lut file from %s", TAP_FILE);
                 $readmemh(TAP_FILE, coeff);

@@ -22,6 +22,7 @@ module receiver
     parameter TAP_FILE_0 = "",
     parameter TAP_FILE_1 = "",
     parameter TAP_FILE_2 = "",
+    parameter TAP_FILE_PATH = "",
     parameter LLR_DW = 8,
     parameter ADDRESS_WIDTH = 16,
     parameter NFFT = 8,
@@ -390,7 +391,8 @@ FFT_demod #(
     .BLK_EXP_LEN(BLK_EXP_LEN),
     .XSERIES(XSERIES),
     .USE_TAP_FILE(USE_TAP_FILE),
-    .TAP_FILE("")
+    .TAP_FILE(""),
+    .TAP_FILE_PATH(TAP_FILE_PATH)
 )
 FFT_demod_i(
     .clk_i(clk_i),
