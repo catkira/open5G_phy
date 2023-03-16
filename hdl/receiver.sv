@@ -18,7 +18,7 @@ module receiver
     parameter ALGO `VL_RD = 1,
     parameter WINDOW_LEN `VL_RD = 8,
     parameter HALF_CP_ADVANCE `VL_RD = 9,
-    parameter USE_TAP_FILE = 0,
+    parameter USE_TAP_FILE = 1,
     parameter TAP_FILE_0 = "",
     parameter TAP_FILE_1 = "",
     parameter TAP_FILE_2 = "",
