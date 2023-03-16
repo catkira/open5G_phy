@@ -13,6 +13,7 @@ module PSS_correlator
     parameter ALGO = 1,
     parameter USE_TAP_FILE = 0,
     parameter TAP_FILE = "",
+    parameter TAP_FILE_PATH = "",
     parameter N_ID_2 = 0,
     localparam C_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN)
 )
@@ -52,8 +53,13 @@ assign taps_o = taps;
 initial begin
     if (USE_TAP_FILE) begin
         if (TAP_FILE == "") begin
-            $display("load PSS_correlator taps from %s", $sformatf("PSS_taps_%0d.hex", N_ID_2));
-            $readmemh($sformatf("PSS_taps_%0d.hex", N_ID_2), taps);
+            if (TAP_FILE_PATH == "") begin
+                $display("load PSS_correlator taps from %s", $sformatf("PSS_taps_%0d.hex", N_ID_2));
+                $readmemh($sformatf("PSS_taps_%0d.hex", N_ID_2), taps);
+            end else begin
+                $display("load PSS_correlator taps from %s", $sformatf("%s/PSS_taps_%0d.hex", TAP_FILE_PATH, N_ID_2));
+                $readmemh($sformatf("%s/PSS_taps_%0d.hex", TAP_FILE_PATH, N_ID_2), taps);
+            end
         end else begin
             $display("load PSS_correlator taps from %s", TAP_FILE);
             $readmemh(TAP_FILE, taps);

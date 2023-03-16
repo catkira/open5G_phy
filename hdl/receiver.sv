@@ -267,7 +267,8 @@ PSS_detector #(
     .USE_TAP_FILE(USE_TAP_FILE),
     .TAP_FILE_0(TAP_FILE_0),
     .TAP_FILE_1(TAP_FILE_1),
-    .TAP_FILE_2(TAP_FILE_2)
+    .TAP_FILE_2(TAP_FILE_2),
+    .TAP_FILE_PATH(TAP_FILE_PATH)
 )
 PSS_detector_i(
     .clk_i(clk_i),

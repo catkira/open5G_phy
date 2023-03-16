@@ -13,6 +13,7 @@ module PSS_detector
     parameter TAP_FILE_0 = "",
     parameter TAP_FILE_1 = "",
     parameter TAP_FILE_2 = "",
+    parameter TAP_FILE_PATH = "",
     parameter ALGO = 1,
     parameter WINDOW_LEN = 8,
     parameter USE_MODE = 0,
@@ -93,6 +94,7 @@ PSS_correlator #(
     .PSS_LOCAL(PSS_LOCAL_0),
     .USE_TAP_FILE(USE_TAP_FILE),
     .TAP_FILE(TAP_FILE_0),
+    .TAP_FILE_PATH(TAP_FILE_PATH),
     .ALGO(ALGO),
     .N_ID_2(0)
 )
@@ -115,6 +117,7 @@ PSS_correlator #(
     .PSS_LOCAL(PSS_LOCAL_1),
     .USE_TAP_FILE(USE_TAP_FILE),
     .TAP_FILE(TAP_FILE_1),
+    .TAP_FILE_PATH(TAP_FILE_PATH),
     .ALGO(ALGO),
     .N_ID_2(1)
 )
@@ -137,6 +140,7 @@ PSS_correlator #(
     .PSS_LOCAL(PSS_LOCAL_2),
     .USE_TAP_FILE(USE_TAP_FILE),
     .TAP_FILE(TAP_FILE_2),
+    .TAP_FILE_PATH(TAP_FILE_PATH),
     .ALGO(ALGO),
     .N_ID_2(2)
 )
