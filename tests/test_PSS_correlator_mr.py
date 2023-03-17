@@ -115,10 +115,10 @@ async def simple_test(dut):
         if dut.m_axis_out_tvalid == 1:
             # print(f'{rx_counter}: rx hdl {dut.m_axis_out_tdata.value}')
             received[rx_counter] = dut.m_axis_out_tdata.value.integer
-            C0.append(_twos_comp(dut.C0.value.integer & (2 ** (C_DW // 2) - 1),C_DW // 2) \
-                    + 1j * _twos_comp((dut.C0.value.integer >> (C_DW // 2)) & (2 ** (C_DW // 2) - 1), C_DW // 2))
-            C1.append(_twos_comp(dut.C1.value.integer & (2 ** (C_DW // 2) - 1), C_DW // 2) \
-                    + 1j * _twos_comp((dut.C1.value.integer >> (C_DW // 2)) & (2 ** (C_DW // 2) - 1), C_DW // 2))
+            C0.append(_twos_comp(dut.C0_o.value.integer & (2 ** (C_DW // 2) - 1),C_DW // 2) \
+                    + 1j * _twos_comp((dut.C0_o.value.integer >> (C_DW // 2)) & (2 ** (C_DW // 2) - 1), C_DW // 2))
+            C1.append(_twos_comp(dut.C1_o.value.integer & (2 ** (C_DW // 2) - 1), C_DW // 2) \
+                    + 1j * _twos_comp((dut.C1_o.value.integer >> (C_DW // 2)) & (2 ** (C_DW // 2) - 1), C_DW // 2))
             rx_counter  += 1
 
         if tb.model.data_valid() and rx_counter_model < num_items:
@@ -242,6 +242,5 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
     )
 
 if __name__ == '__main__':
-    # os.environ['PLOTS'] = "1"
-    # this setup does not require output truncation
+    os.environ['PLOTS'] = "1"
     test(IN_DW = 14, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 6500, MULT_REUSE = 16)

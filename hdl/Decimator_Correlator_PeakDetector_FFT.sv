@@ -15,6 +15,7 @@ module Decimator_Correlator_PeakDetector_FFT
     parameter NFFT = 8,
     parameter USE_TAP_FILE = 1,
     parameter TAP_FILE = "",
+    parameter MULT_REUSE = 0,
 
     localparam FFT_OUT_DW = 32,
     localparam FFT_LEN = 2 ** NFFT,
@@ -88,7 +89,8 @@ PSS_detector #(
     .PSS_LOCAL_1(PSS_LOCAL_1),
     .PSS_LOCAL_2(PSS_LOCAL_2),
     .ALGO(ALGO),
-    .USE_TAP_FILE(USE_TAP_FILE)
+    .USE_TAP_FILE(USE_TAP_FILE),
+    .MULT_REUSE(MULT_REUSE)
 )
 PSS_detector_i(
     .clk_i(clk_i),

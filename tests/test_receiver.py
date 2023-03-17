@@ -39,6 +39,7 @@ class TB(object):
         self.HALF_CP_ADVANCE = int(dut.HALF_CP_ADVANCE.value)
         self.LLR_DW = int(dut.LLR_DW.value)
         self.NFFT = int(dut.NFFT.value)
+        self.MULT_REUSE = int(dut.MULT_REUSE.value)        
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -126,7 +127,7 @@ async def simple_test(dut):
         assert data == 0x00040069
 
     rx_counter = 0
-    in_counter = 0
+    clk_cnt = 0
     received = []
     received_fft = []
     received_fft_demod = []
@@ -140,30 +141,36 @@ async def simple_test(dut):
     CP2_LEN = 18 * FFT_LEN // 256
     SSS_LEN = 127
     SSS_START = FFT_LEN // 2 - (SSS_LEN + 1) // 2
-    DETECTOR_LATENCY = 27
+    DETECTOR_LATENCY = 27 if tb.MULT_REUSE == 0 else 28
     FFT_OUT_DW = 16
     SYMBOL_LEN = 240
     max_tx = int(0.045 * fs) # simulate 45ms tx data
-    while in_counter < max_tx + 10000:
+    sample_clk_decimation = tb.MULT_REUSE if tb.MULT_REUSE != 0 else 1
+    clk_div = 0
+    tx_cnt = 0
+    while clk_cnt < max_tx + 10000:
         await RisingEdge(dut.clk_i)
-        if in_counter < max_tx:
-            data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
-                + ((int(waveform[in_counter].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
+        if tx_cnt < max_tx and clk_div == (sample_clk_decimation - 1):
+            clk_div = 0
+            data = (((int(waveform[tx_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
+                + ((int(waveform[tx_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
+            tx_cnt += 1
             dut.s_axis_in_tdata.value = data
             dut.s_axis_in_tvalid.value = 1
         else:
             dut.s_axis_in_tvalid.value = 0
+            clk_div += 1
 
-        in_counter += 1
+        clk_cnt += 1
 
         received.append(dut.peak_detected_debug_o.value.integer)
         rx_counter += 1
 
         if dut.peak_detected_debug_o.value.integer == 1:
-            print(f'peak pos = {in_counter}')
+            print(f'peak pos = {clk_cnt}')
 
         if dut.peak_detected_debug_o.value.integer == 1 or len(rx_ADC_data) > 0:
-            rx_ADC_data.append(waveform[in_counter - DETECTOR_LATENCY])
+            rx_ADC_data.append(waveform[clk_cnt - DETECTOR_LATENCY])
 
         # if dut.m_axis_SSS_tvalid.value.integer == 1:
         #     print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
@@ -295,7 +302,7 @@ async def simple_test(dut):
     scaling_factor = 2**(tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mode
     ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
 
-    assert peak_pos == 850
+    assert peak_pos == (850 if tb.MULT_REUSE == 0 else 851)
     corr = np.zeros(335)
     for i in range(335):
         sss = py3gpp.nrSSS(i)
@@ -346,7 +353,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
 @pytest.mark.parametrize("LLR_DW", [8])
 @pytest.mark.parametrize("NFFT", [8])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT):
+@pytest.mark.parametrize("MULT_REUSE", [0, 1])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT, MULT_REUSE):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -371,6 +379,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
         os.path.join(rtl_dir, 'CFO_calc.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
+        os.path.join(rtl_dir, 'PSS_correlator_mr.sv'),
         os.path.join(rtl_dir, 'SSS_detector.sv'),
         os.path.join(rtl_dir, 'LFSR/LFSR.sv'),
         os.path.join(rtl_dir, 'FFT_demod.sv'),
@@ -416,15 +425,16 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
     parameters['LLR_DW'] = LLR_DW
     parameters['NFFT'] = NFFT
+    parameters['MULT_REUSE'] = MULT_REUSE
     os.environ['CFO'] = str(CFO)
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
     folder = 'receiver_' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
-    sim_build = os.path.join('sim_build/', folder)
+    sim_build = os.path.join('sim_build/', folder) 
 
     # prepare FFT_demod taps
     FFT_LEN = 2 ** NFFT
-    CP_LEN = int(18 * FFT_LEN / 256)  # TODO: only CP2 supported so far! another lut for CP1 symbols is needed!
+    CP_LEN = int(18 * FFT_LEN / 256)  # TODO: only CP2 supported so far! another lut for CP1 symbols is needed or use same CP_ADVANCE for CP1.
     CP_ADVANCE = CP_LEN // 2
     FFT_OUT_DW = 16
     file_path = os.path.abspath(os.path.join(tests_dir, '../tools/generate_FFT_demod_tap_file.py'))
@@ -433,7 +443,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
     spec.loader.exec_module(generate_FFT_demod_tap_file)
     generate_FFT_demod_tap_file.main(['--NFFT', str(NFFT),'--CP_LEN', str(CP_LEN), '--CP_ADVANCE', str(CP_ADVANCE),
                                       '--OUT_DW', str(FFT_OUT_DW), '--path', sim_build])
-    
+
     # prepare PSS_correlator taps
     for N_id_2 in range(3):
         os.makedirs(sim_build, exist_ok=True)
@@ -444,7 +454,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
         generate_PSS_tap_file.main(['--PSS_LEN', str(PSS_LEN),'--TAP_DW', str(TAP_DW), '--N_id_2', str(N_id_2), '--path', sim_build])
 
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
-    
+
     compile_args = []
     if os.environ.get('SIM') == 'verilator':
         compile_args = ['--build-jobs', '16', '--no-timing', '-Wno-fatal', '-Wno-PINMISSING','-y', tests_dir + '/../submodules/verilator-unisims']
@@ -469,4 +479,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8, NFFT = 8)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8, NFFT = 8, MULT_REUSE = 1)

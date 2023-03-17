@@ -8,7 +8,13 @@ module PSS_correlator_mr
     parameter PSS_LEN = 128,
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
     parameter ALGO = 1,
-    parameter MULT_REUSE = 4
+    parameter USE_TAP_FILE = 0,
+    parameter TAP_FILE = "",
+    parameter TAP_FILE_PATH = "",
+    parameter N_ID_2 = 0,
+    parameter MULT_REUSE = 4,
+
+    localparam C_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN)
 )
 (
     input                                                       clk_i,
@@ -16,9 +22,12 @@ module PSS_correlator_mr
     input   wire           [IN_DW-1:0]                          s_axis_in_tdata,
     input                                                       s_axis_in_tvalid,
     output  reg            [OUT_DW-1:0]                         m_axis_out_tdata,
-    output  reg            [IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1 : 0]   C0,
-    output  reg            [IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN) - 1: 0]    C1,
-    output  reg                                                 m_axis_out_tvalid
+    output  reg            [C_DW - 1 : 0]                       C0_o,
+    output  reg            [C_DW - 1 : 0]                       C1_o,
+    output  reg                                                 m_axis_out_tvalid,
+
+    // debug outputs
+    output                 [TAP_DW - 1 : 0]                     taps_o [0 : PSS_LEN - 1]    
 );
 
 localparam IN_OP_DW  = IN_DW / 2;
@@ -59,6 +68,52 @@ begin
 end
 endfunction
 
+reg [TAP_DW - 1 : 0] taps [0 : PSS_LEN - 1];
+assign taps_o = taps;
+initial begin
+    if (USE_TAP_FILE) begin
+        if (TAP_FILE == "") begin
+            if (TAP_FILE_PATH == "") begin
+                $display("load PSS_correlator taps from %s", $sformatf("PSS_taps_%0d.hex", N_ID_2));
+                $readmemh($sformatf("PSS_taps_%0d.hex", N_ID_2), taps);
+            end else begin
+                $display("load PSS_correlator taps from %s", $sformatf("%s/PSS_taps_%0d.hex", TAP_FILE_PATH, N_ID_2));
+                $readmemh($sformatf("%s/PSS_taps_%0d.hex", TAP_FILE_PATH, N_ID_2), taps);
+            end
+        end else begin
+            $display("load PSS_correlator taps from %s", TAP_FILE);
+            $readmemh(TAP_FILE, taps);
+        end
+    end else begin
+        $display("loading PSS_correlator taps from PSS_LOCAL parameter");
+    end
+    // for (integer i = 0; i < PSS_LEN; i = i + 1) begin
+    //     if (N_ID_2 == 2) begin
+    //         tap_im = get_tap_im(i);
+    //         tap_re = get_tap_re(i);
+    //         $display("PSS_LOCAL[%d] = %d + j%d", i, tap_re, tap_im);
+    //     end
+    // end    
+end
+
+function [TAP_OP_DW - 1 : 0] get_tap_im;
+    input integer arg;
+begin
+    if (USE_TAP_FILE)  get_tap_im = taps[arg] >> TAP_OP_DW;
+    else               get_tap_im = PSS_LOCAL[arg * TAP_DW + TAP_DW - 1 -: TAP_OP_DW];
+end
+endfunction
+
+function [TAP_OP_DW - 1 : 0] get_tap_re;
+    input integer arg;
+begin
+    if (USE_TAP_FILE)  get_tap_re = taps[arg][TAP_OP_DW - 1 : 0];
+    else               get_tap_re = PSS_LOCAL[arg * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
+end
+endfunction
+
+localparam OUTPUT_PAD_BITS = REQUIRED_OUT_DW >= OUT_DW ? 0 : OUT_DW - REQUIRED_OUT_DW;
+
 for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
     localparam MULT_REUSE_CUR = PSS_LEN_USED - i_g * MULT_REUSE >= MULT_REUSE ? MULT_REUSE : PSS_LEN_USED % MULT_REUSE;
     reg [$clog2(MULT_REUSE) : 0] idx = '0;
@@ -83,8 +138,10 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
                 $display("Error: valid should not go high now!");
             end
             if (idx < MULT_REUSE_CUR) begin
-                tap_re = PSS_LOCAL[pos * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
-                tap_im = PSS_LOCAL[pos * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];      
+                // tap_re = PSS_LOCAL[pos * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
+                // tap_im = PSS_LOCAL[pos * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];
+                tap_re = get_tap_re(pos);
+                tap_im = get_tap_im(pos);
                 if (ALGO == 0) begin
                     if (idx == 0) begin
                         out_buf_re <= in_re[pos] * tap_re - in_im[pos] * tap_im;
@@ -120,31 +177,39 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
     end
 end
 
+genvar ii;
+for (ii = 0; ii < PSS_LEN; ii++) begin
+    always @(posedge clk_i) begin
+        if (!reset_ni) begin
+            in_re[ii] <= '0;
+            in_im[ii] <= '0;
+        end else if (s_axis_in_tvalid) begin
+            if (ii == 0) begin
+                in_re[0] <= axis_in_re;
+                in_im[0] <= axis_in_im;
+            end
+            if (ii < PSS_LEN - 1) begin
+                in_re[ii + 1] <= in_re[ii];
+                in_im[ii + 1] <= in_im[ii];
+            end
+        end
+    end
+end
+
 always @(posedge clk_i) begin // cannot use $display inside always_ff with iverilog
     if (!reset_ni) begin
         m_axis_out_tdata <= '0;
         m_axis_out_tvalid <= '0;
         valid <= '0;
-        for (integer i = 0; i < PSS_LEN; i++) begin
-            in_re[i] <= '0;
-            in_im[i] <= '0;
-        end
-        C0_im <= '0;
-        C1_im <= '0;
+        C0_im = '0;
+        C1_im = '0;
+        C0_re = '0;
+        C1_re = '0;
+        C0_o <= '0;
+        C1_o <= '0;
     end
     else begin
-        if (s_axis_in_tvalid) begin
-            in_re[0] <= axis_in_re;
-            in_im[0] <= axis_in_im;
-            for (integer i = 0; i < (PSS_LEN - 1); i++) begin
-                in_re[i + 1] <= in_re[i];
-                in_im[i + 1] <= in_im[i];
-            end
-            valid <= 1'b1;
-        end else begin
-            valid <= '0;
-        end
-
+        valid <= s_axis_in_tvalid;
         if (mult[0].ready) begin
             sum_re = '0;
             sum_im = '0;
@@ -163,8 +228,8 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                     C1_im = C1_im + mult_out_im[i];
                 end
             end
-            C0 <= {C0_im, C0_re};
-            C1 <= {C1_im, C1_re};
+            C0_o <= {C0_im, C0_re};
+            C1_o <= {C1_im, C1_re};
             
             // https://openofdm.readthedocs.io/en/latest/verilog.html
             if (abs(sum_im) > abs(sum_re))   filter_result = abs(sum_im) + (abs(sum_re) >> 2);
@@ -173,8 +238,9 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
             if (REQUIRED_OUT_DW >= OUT_DW) begin
                 m_axis_out_tdata <= filter_result[REQUIRED_OUT_DW - 1 -: OUT_DW];
             end else begin
-                m_axis_out_tdata <= {{(OUT_DW - REQUIRED_OUT_DW){1'b0}}, filter_result};   // do zero padding
-            end
+                // m_axis_out_tdata <= {{(OUT_DW - REQUIRED_OUT_DW){1'b0}}, filter_result};   // do zero padding
+                m_axis_out_tdata <= {{(OUTPUT_PAD_BITS){1'b0}}, filter_result};
+            end                        
             m_axis_out_tvalid <= '1;
         end else begin
             m_axis_out_tdata <= '0;
@@ -182,13 +248,5 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
         end
     end
 end
-
-// `ifdef COCOTB_SIM
-// initial begin
-//   $dumpfile ("PSS_correlator_mr.vcd");
-//   $dumpvars (0, PSS_correlator_mr);
-//   // #1;
-// end
-// `endif
 
 endmodule

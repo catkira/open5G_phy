@@ -64,18 +64,22 @@ initial begin
             $display("load PSS_correlator taps from %s", TAP_FILE);
             $readmemh(TAP_FILE, taps);
         end
+    end else begin
+        $display("loading PSS_correlator taps from PSS_LOCAL parameter");
     end
-    for (integer i = 0; i < PSS_LEN; i = i + 1) begin
-        // tap_im = get_tap_im(i);
-        // tap_re = get_tap_re(i);
-        // $display("PSS_LOCAL[%d] = %d + j%d", i, tap_re, tap_im);
-        // tap_re = PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
-        // tap_im = PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];
-        // $display("PSS_LOCAL[%d] = %d + j%d", i, tap_re, tap_im);
-        // tap_re = PSS_LOCAL[(PSS_LEN-i-1)*TAP_DW+TAP_DW/2-1-:TAP_OP_DW];
-        // tap_im = PSS_LOCAL[(PSS_LEN-i-1)*TAP_DW+TAP_DW-1-:TAP_OP_DW];
-        // $display("PSS_LOCAL[%d] = %d + j%d", PSS_LEN-i-1, tap_re, tap_im);
-    end
+    // for (integer i = 0; i < PSS_LEN; i = i + 1) begin
+    //     if (N_ID_2 == 2) begin
+    //         tap_im = get_tap_im(i);
+    //         tap_re = get_tap_re(i);
+    //         $display("PSS_LOCAL[%d] = %d + j%d", i, tap_re, tap_im);
+    //     end
+    //     // tap_re = PSS_LOCAL[i * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
+    //     // tap_im = PSS_LOCAL[i * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];
+    //     // $display("PSS_LOCAL[%d] = %d + j%d", i, tap_re, tap_im);
+    //     // tap_re = PSS_LOCAL[(PSS_LEN-i-1)*TAP_DW+TAP_DW/2-1-:TAP_OP_DW];
+    //     // tap_im = PSS_LOCAL[(PSS_LEN-i-1)*TAP_DW+TAP_DW-1-:TAP_OP_DW];
+    //     // $display("PSS_LOCAL[%d] = %d + j%d", PSS_LEN-i-1, tap_re, tap_im);
+    // end
 end
 
 function [TAP_OP_DW - 1 : 0] get_tap_im;

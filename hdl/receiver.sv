@@ -26,7 +26,8 @@ module receiver
     parameter LLR_DW = 8,
     parameter ADDRESS_WIDTH = 16,
     parameter NFFT = 8,
-    parameter XSERIES = "OLD",        // use "OLD" for Zynq7, "NEW" for MPSoC    
+    parameter XSERIES = "OLD",        // use "OLD" for Zynq7, "NEW" for MPSoC
+    parameter MULT_REUSE = 0,
 
     localparam BLK_EXP_LEN = 8,
     localparam FFT_LEN = 2 ** NFFT,
@@ -332,7 +333,8 @@ PSS_detector #(
     .TAP_FILE_0(TAP_FILE_0),
     .TAP_FILE_1(TAP_FILE_1),
     .TAP_FILE_2(TAP_FILE_2),
-    .TAP_FILE_PATH(TAP_FILE_PATH)
+    .TAP_FILE_PATH(TAP_FILE_PATH),
+    .MULT_REUSE(MULT_REUSE)
 )
 PSS_detector_i(
     .clk_i(clk_i),
@@ -377,7 +379,7 @@ wire fft_sync;
 
 // this delay line is needed because peak_detected goes high
 // at the end of SSS symbol plus some additional delay
-localparam DELAY_LINE_LEN = 14;
+localparam DELAY_LINE_LEN = MULT_REUSE == 0 ? 14 : 15;  // PSS_correlator_mr has 1 cycle more delay than PSS_correlator
 reg [IN_DW-1:0] delay_line_data  [0 : DELAY_LINE_LEN - 1];
 reg             delay_line_valid [0 : DELAY_LINE_LEN - 1];
 always @(posedge clk_i) begin

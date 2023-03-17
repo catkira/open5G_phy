@@ -37,6 +37,7 @@ class TB(object):
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
         self.HALF_CP_ADVANCE = int(dut.HALF_CP_ADVANCE.value)
         self.NFFT = int(dut.NFFT.value)
+        self.MULT_REUSE = int(dut.MULT_REUSE.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -228,7 +229,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
 @pytest.mark.parametrize("NFFT", [8, 9])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP_FILE):
+@pytest.mark.parametrize("MULT_REUSE", [0])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP_FILE, MULT_REUSE):
     dut = 'Decimator_Correlator_PeakDetector_FFT'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -244,6 +246,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
         os.path.join(rtl_dir, 'PSS_detector.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
+        os.path.join(rtl_dir, 'PSS_correlator_mr.sv'),
         os.path.join(rtl_dir, 'CFO_calc.sv'),
         os.path.join(rtl_dir, 'AXIS_FIFO.sv'),        
         os.path.join(rtl_dir, 'FFT_demod.sv'),
@@ -285,6 +288,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
     parameters['HALF_CP_ADVANCE'] = HALF_CP_ADVANCE
     parameters['NFFT'] = NFFT
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
+    parameters['MULT_REUSE'] = MULT_REUSE
     parameters_no_taps = parameters.copy()
     folder = 'Decimator_to_FFT_' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     sim_build= os.path.join('sim_build', folder)
@@ -336,4 +340,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0)
