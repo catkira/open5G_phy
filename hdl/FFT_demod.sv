@@ -261,10 +261,10 @@ if (HALF_CP_ADVANCE) begin
     end else begin
         // this does not work in Vivado, because vivado cannot init bram from a variable
         initial begin
-            static real PI = 3.1415926535;
-            static integer CP_LEN = CP2;
-            static integer CP_ADVANCE = CP2 / 2;
-            static real angle_step = 2 * PI * $itor((CP_LEN - CP_ADVANCE)) / $itor((2**NFFT));
+            real PI = 3.1415926535;   // Vivado wants these variables to be static, but Verilator does not support it
+            integer CP_LEN = CP2;
+            integer CP_ADVANCE = CP2 / 2;
+            real angle_step = 2 * PI * $itor((CP_LEN - CP_ADVANCE)) / $itor((2**NFFT));
             // if real variables are declared inside the for loop, bugs appear, fking shit
             for (integer i = 0; i < 2**NFFT; i = i + 1) begin
                 coeff[i][OUT_DW / 2 - 1 : 0]      = $cos(angle_step * i + PI * (CP_LEN - CP_ADVANCE)) * (2 ** (OUT_DW / 2 - 1) - 1);
