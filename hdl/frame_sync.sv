@@ -43,6 +43,7 @@ reg [$clog2(MAX_CP_LEN) - 1: 0] CP_len;
 reg [SFN_WIDTH - 1 : 0] sfn;
 reg [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_number;
 reg [SYMBOL_NUMBER_WIDTH - 1 : 0] sym_cnt;
+reg [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len;
 reg [IN_DW - 1 : 0] s_axis_in_tdata_f;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -127,7 +128,6 @@ end
 // TODO:  - add timeout to WAIT_FOR_IBAR state
 //        - make SYNCED and WAIT_FOR_IBAR substates of a single state and reduce duplicate code
 reg [$clog2(FFT_LEN + MAX_CP_LEN) - 1 : 0] sample_cnt;
-reg [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len;
 reg find_SSB;
 
 localparam SYMS_BTWN_SSB = SUBFRAMES_PER_FRAME * SYM_PER_SF;

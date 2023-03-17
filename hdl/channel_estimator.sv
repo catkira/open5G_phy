@@ -79,7 +79,8 @@ for (ii = 0; ii < 8; ii = ii + 1) begin : LFSR_1
         .load_config_i(LFSR_load_config),
         .taps_i('b1111),
         .start_value_i(c_init),
-        .data_o(out)
+        .data_o(out),
+        .valid_o()
     );
 
     always @(posedge clk_i) begin
@@ -397,9 +398,10 @@ reg         [1 : 0]            symbol_type;
 reg         [2 : 0]            remaining_syms;
 localparam                     SYMS_PER_PBCH = 3;
 localparam                     SYMS_PER_OTHER = 3;
-reg [IN_DW - 1 : 0] corr_data_fifo_in_data;
-reg                 corr_data_fifo_in_valid;
-reg [1 : 0]         corr_data_fifo_in_tuser;
+reg [IN_DW - 1 : 0]            corr_data_fifo_in_data;
+reg                            corr_data_fifo_in_valid;
+reg [1 : 0]                    corr_data_fifo_in_tuser;
+reg                            corr_data_fifo_in_last;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -626,7 +628,6 @@ reg corr_data_fifo_out_valid;
 reg corr_data_fifo_out_empty;
 reg corr_data_fifo_out_ready;
 reg corr_data_fifo_out_last;
-reg corr_data_fifo_in_last;
 reg [$clog2(FFT_LEN) - 1 : 0] corr_data_fifo_out_level;
 reg [1 : 0] corr_data_fifo_out_symbol_type;
 AXIS_FIFO #(

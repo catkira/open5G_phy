@@ -106,6 +106,8 @@ module receiver
     output  wire    [15:0]                          sync_wait_counter_debug_o
 );
 
+localparam OFFSET_ADDR_WIDTH = ADDRESS_WIDTH - 2;
+
 // --------------   wires for axis_axil_fifo_i  ---------------------
 wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_fifo_awaddr;
 wire                                        s_axi_fifo_awvalid;
@@ -179,11 +181,18 @@ AXIS_FIFO_i(
 
     .s_axis_in_tdata(s_axis_in_tdata),
     .s_axis_in_tvalid(s_axis_in_tvalid),
+    .s_axis_in_tuser(),
+    .s_axis_in_tlast(),
+    .s_axis_in_tfull(),
 
     .out_clk_i(clk_i),
     .m_axis_out_tready(1'b1),
     .m_axis_out_tdata(FIFO_out_tdata),
-    .m_axis_out_tvalid(FIFO_out_tvalid)
+    .m_axis_out_tvalid(FIFO_out_tvalid),
+    .m_axis_out_tuser(),
+    .m_axis_out_tlast(),
+    .m_axis_out_tlevel(),
+    .m_axis_out_tempty()
 );
 
 
@@ -230,7 +239,12 @@ dds_i(
     .s_axis_phase_tvalid(DDS_phase_valid),
 
     .m_axis_out_tdata(DDS_out),
-    .m_axis_out_tvalid(DDS_out_valid)
+    .m_axis_out_tvalid(DDS_out_valid),
+
+    .m_axis_out_sin_tdata(),
+    .m_axis_out_sin_tvalid(),
+    .m_axis_out_cos_tdata(),
+    .m_axis_out_cos_tvalid()
 );
 
 complex_multiplier #(
@@ -361,9 +375,6 @@ wire [FFT_OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
 wire fft_result_demod_valid;
 wire fft_sync;
 
-assign fft_result_debug_o = fft_result;
-assign fft_sync_debug_o = fft_sync;
-
 // this delay line is needed because peak_detected goes high
 // at the end of SSS symbol plus some additional delay
 localparam DELAY_LINE_LEN = 14;
@@ -400,6 +411,11 @@ reg fs_out_tvalid;
 reg fs_out_SSB_start;
 reg fs_out_symbol_start;
 wire fs_out_tlast;
+reg [2 : 0] ce_ibar_SSB;
+reg ce_ibar_SSB_valid;
+localparam N_ID_MAX = 1007;
+reg [$clog2(N_ID_MAX) - 1 : 0] N_id;
+reg N_id_valid;
 
 frame_sync #(
     .IN_DW(IN_DW),
@@ -494,13 +510,6 @@ SSS_detector_i(
     .N_id_valid_o(N_id_valid)
 );
 
-reg [2 : 0] ce_ibar_SSB;
-reg ce_ibar_SSB_valid;
-
-localparam N_ID_MAX = 1007;
-reg [$clog2(N_ID_MAX) - 1 : 0] N_id;
-reg N_id_valid;
-
 channel_estimator #(
     .IN_DW(FFT_OUT_DW)
 )
@@ -540,8 +549,6 @@ demap_i(
     .m_axis_out_tlast(m_axis_llr_out_tlast),
     .m_axis_out_tvalid(m_axis_llr_out_tvalid)
 );
-
-localparam OFFSET_ADDR_WIDTH = ADDRESS_WIDTH - 2;
 
 axis_axil_fifo #(
     .DATA_WIDTH(LLR_DW),
