@@ -146,6 +146,9 @@ reg [USER_WIDTH_OUT - 1 : 0] meta_out;
 wire valid_SC = (out_cnt >= SC_START) && (out_cnt <= SC_END - 1);
 wire valid_PBCH_SC = (out_cnt >= PBCH_START) && (out_cnt <= PBCH_START + PBCH_LEN - 1);
 wire valid_SSS_SC = (out_cnt >= SSS_START) && (out_cnt <= SSS_START + SSS_LEN - 1);
+wire fft_val;
+reg fft_val_f;
+wire [BLK_EXP_LEN - 1 : 0] blk_exp;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         out_cnt <= '0;
@@ -187,13 +190,10 @@ end
 wire [OUT_DW - 1 : 0] fft_result;
 wire [IN_DW / 2 - 1 : 0] fft_result_re_long, fft_result_im_long;
 wire [OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
-wire [BLK_EXP_LEN - 1 : 0] blk_exp;
 assign fft_result_re = fft_result_re_long[IN_DW / 2 - 1 -: OUT_DW / 2];
 assign fft_result_im = fft_result_im_long[IN_DW / 2 - 1 -: OUT_DW / 2];
 
 wire fft_sync = fft_val && (out_cnt == 0);
-wire fft_val;
-reg fft_val_f;
 
 wire fft_in_en = in_valid_f && (state_in == STATE_IN_PROCESS_SYMBOL);
 
@@ -261,10 +261,10 @@ if (HALF_CP_ADVANCE) begin
     end else begin
         // this does not work in Vivado, because vivado cannot init bram from a variable
         initial begin
-            real PI = 3.1415926535;
-            integer CP_LEN = CP2;
-            integer CP_ADVANCE = CP2 / 2;
-            real angle_step = 2 * PI * $itor((CP_LEN - CP_ADVANCE)) / $itor((2**NFFT));
+            static real PI = 3.1415926535;
+            static integer CP_LEN = CP2;
+            static integer CP_ADVANCE = CP2 / 2;
+            static real angle_step = 2 * PI * $itor((CP_LEN - CP_ADVANCE)) / $itor((2**NFFT));
             // if real variables are declared inside the for loop, bugs appear, fking shit
             for (integer i = 0; i < 2**NFFT; i = i + 1) begin
                 coeff[i][OUT_DW / 2 - 1 : 0]      = $cos(angle_step * i + PI * (CP_LEN - CP_ADVANCE)) * (2 ** (OUT_DW / 2 - 1) - 1);

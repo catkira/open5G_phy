@@ -37,6 +37,7 @@ reg atan_valid_in;
 reg atan2_valid_out;
 reg signed [CFO_DW - 1 : 0] atan2_out;
 reg signed [CFO_DW - 1 : 0] atan;
+reg signed [ATAN_IN_DW - 1 : 0] prod_im, prod_re;
 atan2 #(
     .INPUT_WIDTH(ATAN_IN_DW),
     .LUT_DW(ATAN_IN_DW),
@@ -75,7 +76,6 @@ complex_multiplier_i(
     .m_axis_dout_tdata(C0_times_conjC1),
     .m_axis_dout_tvalid(mult_valid_out)
 );
-reg signed [ATAN_IN_DW - 1 : 0] prod_im, prod_re;
 
 function is_bit_used;
     input [C_DW / 2 - 1 : 0] data;
