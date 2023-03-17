@@ -185,6 +185,7 @@ wire signed [IN_DW / 2 - 1 : 0] in_re, in_im;
 assign in_re = s_axis_in_tdata[IN_DW / 2 - 1 : 0];
 assign in_im = s_axis_in_tdata[IN_DW - 1 : IN_DW / 2];
 reg [$clog2(8) - 1 : 0] ibar_SSB_detected;
+reg          pilots_ready;
 
 function [$clog2(60*2) : 0] abs_DMRS_corr;
 input signed [$clog2(60*2) + 1 : 0] arg;
@@ -195,9 +196,9 @@ endfunction
 
 // hard BPSK demodulation of incoming signal
 // this is used for PBCH DMRS detection
+reg [IN_DW - 1 : 0] data_in;
 wire [1 : 0] in_demod = {data_in[IN_DW / 2 - 1], data_in[IN_DW - 1]};
 wire [1 : 0] in_demod_rot = {~data_in[IN_DW - 1], data_in[IN_DW / 2 - 1]};  // also test with 90 deg rotated input signal to handle phase offsets
-reg [IN_DW - 1 : 0] data_in;
 always @(posedge clk_i) data_in <= s_axis_in_tdata;
 reg valid_in;
 always @(posedge clk_i) valid_in <= s_axis_in_tvalid;
@@ -370,7 +371,6 @@ reg [2 : 0]  state_corrector;
 localparam [2 : 0]  WAIT_FOR_INPUTS = 0;
 localparam [2 : 0]  CALC_CORRECTION = 1;
 localparam [2 : 0]  PASS_THROUGH = 2;
-reg          pilots_ready;
 reg          in_data_ready;
 reg          angles_ready;
 reg [$clog2(FFT_LEN) - 1 : 0]         SC_cnt;
@@ -397,6 +397,9 @@ reg         [1 : 0]            symbol_type;
 reg         [2 : 0]            remaining_syms;
 localparam                     SYMS_PER_PBCH = 3;
 localparam                     SYMS_PER_OTHER = 3;
+reg [IN_DW - 1 : 0] corr_data_fifo_in_data;
+reg                 corr_data_fifo_in_valid;
+reg [1 : 0]         corr_data_fifo_in_tuser;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -618,15 +621,12 @@ corr_angle_fifo_i(
 );
 
 // This fifo stores uncorrected IQ samples
-reg [IN_DW - 1 : 0] corr_data_fifo_in_data;
-reg corr_data_fifo_in_valid;
 reg [IN_DW - 1 : 0] corr_data_fifo_out_data;
 reg corr_data_fifo_out_valid;
 reg corr_data_fifo_out_empty;
 reg corr_data_fifo_out_ready;
 reg corr_data_fifo_out_last;
 reg corr_data_fifo_in_last;
-reg [1 : 0] corr_data_fifo_in_tuser;
 reg [$clog2(FFT_LEN) - 1 : 0] corr_data_fifo_out_level;
 reg [1 : 0] corr_data_fifo_out_symbol_type;
 AXIS_FIFO #(

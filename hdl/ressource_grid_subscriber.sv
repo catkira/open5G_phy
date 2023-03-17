@@ -54,6 +54,7 @@ reg out_fifo_ready;
 wire [IQ_WIDTH - 1 : 0] out_fifo_data;
 wire out_fifo_last;
 wire out_fifo_valid;
+wire [BLK_EXP_LEN - 1 : 0] blk_exp;
 AXIS_FIFO #(
     .DATA_WIDTH(IQ_WIDTH),
     .FIFO_LEN(1024),
@@ -86,7 +87,6 @@ reg [2 : 0] state;
 wire [SYMBOL_NUMBER_WIDTH - 1 : 0] symbol_id = s_axis_iq_tuser[SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1 - 1 -: SYMBOL_NUMBER_WIDTH];
 wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_id = s_axis_iq_tuser[SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1 - 1 -: SUBFRAME_NUMBER_WIDTH];
 wire [SFN_WIDTH - 1 : 0] sfn = s_axis_iq_tuser[USER_WIDTH - 1 -: SFN_WIDTH];
-wire [BLK_EXP_LEN - 1 : 0] blk_exp;
 reg [IQ_WIDTH - 1 : 0] sample_buffer;
 always @(posedge clk_i) begin
     if (!reset_ni) begin

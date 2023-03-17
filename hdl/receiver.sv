@@ -106,6 +106,56 @@ module receiver
     output  wire    [15:0]                          sync_wait_counter_debug_o
 );
 
+// --------------   wires for axis_axil_fifo_i  ---------------------
+wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_fifo_awaddr;
+wire                                        s_axi_fifo_awvalid;
+wire                                        s_axi_fifo_awready;
+// write data channel
+wire            [31 : 0]                    s_axi_fifo_wdata;
+wire            [ 3 : 0]                    s_axi_fifo_wstrb;     // not used
+wire                                        s_axi_fifo_wvalid;
+wire                                        s_axi_fifo_wready;
+// write response channel
+wire            [ 1 : 0]                    s_axi_fifo_bresp;
+wire                                        s_axi_fifo_bvalid;
+wire                                        s_axi_fifo_bready;
+// read address channel
+wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_fifo_araddr;
+wire                                        s_axi_fifo_arvalid;
+wire                                        s_axi_fifo_arready;
+// read data channel
+wire            [31 : 0]                    s_axi_fifo_rdata;
+wire            [ 1 : 0]                    s_axi_fifo_rresp;
+wire                                        s_axi_fifo_rvalid;
+wire                                        s_axi_fifo_rready;
+// ------------------------------------------------------------------
+
+// ------------------------------------------------------------------
+// --------------   wires for PSS_detector_i  -----------------------
+wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_pss_awaddr;
+wire                                            s_axi_pss_awvalid;
+wire                                            s_axi_pss_awready;
+// write data channel
+wire            [31 : 0]                        s_axi_pss_wdata;
+wire            [ 3 : 0]                        s_axi_pss_wstrb;     // not used
+wire                                            s_axi_pss_wvalid;
+wire                                            s_axi_pss_wready;
+// write response channel
+wire            [ 1 : 0]                        s_axi_pss_bresp;
+wire                                            s_axi_pss_bvalid;
+wire                                            s_axi_pss_bready;
+// read address channel
+wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_pss_araddr;
+wire                                            s_axi_pss_arvalid;
+wire                                            s_axi_pss_arready;
+// read data channel
+wire            [31 : 0]                        s_axi_pss_rdata;
+wire            [ 1 : 0]                        s_axi_pss_rresp;
+wire                                            s_axi_pss_rvalid;
+wire                                            s_axi_pss_rready;
+// ------------------------------------------------------------------
+
+
 wire [IN_DW - 1 : 0] m_axis_cic_tdata;
 wire                 m_axis_cic_tvalid;
 assign m_axis_cic_debug_tdata = m_axis_cic_tdata;
@@ -530,55 +580,6 @@ axis_axil_fifo_i(
 );
 
 // ------------------------------------------------------------------
-// --------------   wires for axis_axil_fifo_i  ---------------------
-wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_fifo_awaddr;
-wire                                        s_axi_fifo_awvalid;
-wire                                        s_axi_fifo_awready;
-// write data channel
-wire            [31 : 0]                    s_axi_fifo_wdata;
-wire            [ 3 : 0]                    s_axi_fifo_wstrb;     // not used
-wire                                        s_axi_fifo_wvalid;
-wire                                        s_axi_fifo_wready;
-// write response channel
-wire            [ 1 : 0]                    s_axi_fifo_bresp;
-wire                                        s_axi_fifo_bvalid;
-wire                                        s_axi_fifo_bready;
-// read address channel
-wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_fifo_araddr;
-wire                                        s_axi_fifo_arvalid;
-wire                                        s_axi_fifo_arready;
-// read data channel
-wire            [31 : 0]                    s_axi_fifo_rdata;
-wire            [ 1 : 0]                    s_axi_fifo_rresp;
-wire                                        s_axi_fifo_rvalid;
-wire                                        s_axi_fifo_rready;
-// ------------------------------------------------------------------
-
-// ------------------------------------------------------------------
-// --------------   wires for PSS_detector_i  -----------------------
-wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_pss_awaddr;
-wire                                            s_axi_pss_awvalid;
-wire                                            s_axi_pss_awready;
-// write data channel
-wire            [31 : 0]                        s_axi_pss_wdata;
-wire            [ 3 : 0]                        s_axi_pss_wstrb;     // not used
-wire                                            s_axi_pss_wvalid;
-wire                                            s_axi_pss_wready;
-// write response channel
-wire            [ 1 : 0]                        s_axi_pss_bresp;
-wire                                            s_axi_pss_bvalid;
-wire                                            s_axi_pss_bready;
-// read address channel
-wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_pss_araddr;
-wire                                            s_axi_pss_arvalid;
-wire                                            s_axi_pss_arready;
-// read data channel
-wire            [31 : 0]                        s_axi_pss_rdata;
-wire            [ 1 : 0]                        s_axi_pss_rresp;
-wire                                            s_axi_pss_rvalid;
-wire                                            s_axi_pss_rready;
-// ------------------------------------------------------------------
-
 
 axil_interconnect_wrap_1x4 #(
     .DATA_WIDTH(32),

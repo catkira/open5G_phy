@@ -40,6 +40,10 @@ initial begin
     end
 end
 
+reg out_fifo_valid_in;
+reg [2 * 2 - 1 : 0] out_fifo_user_in;
+reg out_fifo_last_in;
+reg [LLR_DW * 2 - 1 : 0] out_fifo_data_in;
 wire [LLR_DW - 1 : 0] llr_I;
 wire [LLR_DW - 1 : 0] llr_Q;
 if (LLR_DW > IQ_DW) begin
@@ -63,10 +67,6 @@ always @(posedge clk_i) begin
     end
 end
 
-reg out_fifo_valid_in;
-reg [LLR_DW * 2 - 1 : 0] out_fifo_data_in;
-reg [2 * 2 - 1 : 0] out_fifo_user_in;
-reg out_fifo_last_in;
 AXIS_FIFO #(
     .DATA_WIDTH(LLR_DW),
     .FIFO_LEN(1024),
