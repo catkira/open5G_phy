@@ -167,8 +167,8 @@ if (PSS_CORRELATOR_MR) begin
         .s_axis_in_tvalid(m_axis_cic_tvalid),
         .m_axis_out_tdata(correlator_tdata),
         .m_axis_out_tvalid(correlator_tvalid),
-        .C0(C0),
-        .C1(C1)
+        .C0_o(C0),
+        .C1_o(C1)
     );
 end else begin
     PSS_correlator #(
