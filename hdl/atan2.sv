@@ -54,6 +54,7 @@ reg div_valid_out;
 reg [LUT_DW - 1 : 0] div_result;
 reg [2 : 0] div_user_out;
 reg [2 : 0] div_user_in;
+reg [LUT_DW + INPUT_WIDTH - 1 : 0] numerator_wide, denominator_wide;
 div #(
     .INPUT_WIDTH(INPUT_WIDTH + LUT_DW),
     .RESULT_WIDTH(LUT_DW),
@@ -93,7 +94,6 @@ wire [OUTPUT_WIDTH - 1 : 0] atan_angle_ext = {{(3){1'b0}}, atan_angle};
 reg [1 : 0] state;
 reg signed  [INPUT_WIDTH - 1 : 0]  numerator;
 reg signed  [INPUT_WIDTH - 1 : 0]  denominator;
-reg [LUT_DW + INPUT_WIDTH - 1 : 0] numerator_wide, denominator_wide;
 reg inv_div_result;
 reg [2 : 0] user_out_N;
 reg signed [OUTPUT_WIDTH - 1 : 0] atan2_out, atan2_out_buf;

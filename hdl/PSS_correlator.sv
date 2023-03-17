@@ -161,7 +161,7 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                 // simplification by taking into account that PSS is 
                 // complex conjugate centrally symetric in time-domain
                 
-                integer i = 0;
+                static integer i = 0;
                 if (0) begin
                     // tap[0] and tap[64] symmetric pair, so it has to be calculated as before
                     // another source for error is that the taps are not perfectly symmetric,

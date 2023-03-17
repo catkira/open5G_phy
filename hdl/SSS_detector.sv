@@ -72,12 +72,11 @@ reg [SSS_LEN - 1 : 0] m_seq_0, m_seq_1;
 wire [$clog2(SSS_LEN - 1) - 1 : 0] m_seq_0_pos, m_seq_1_pos;
 //  if SSS_LEN would be 128, roll operation would be very easy by just using overflows
 //  however since SSS_LEN is 127 it is a bit more complicated
+reg [$clog2(SSS_LEN - 1) - 1 : 0] m_0, m_1, m_0_start;
+reg [3 : 0] div_112; // is (N_id_1 / 112)
 reg m_seq_0_wrap, m_seq_1_wrap;
 assign m_seq_0_pos = m_0 + compare_counter + m_seq_0_wrap;
 assign m_seq_1_pos = m_1 + compare_counter + m_seq_1_wrap;
-
-reg [$clog2(SSS_LEN - 1) - 1 : 0] m_0, m_1, m_0_start;
-reg [3 : 0] div_112; // is (N_id_1 / 112)
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
