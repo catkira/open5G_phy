@@ -103,7 +103,7 @@ async def simple_test(dut):
         ax2.plot(received)
         plt.show()
     print(f'highest peak at {peak_pos}')
-    assert peak_pos == 840
+    assert peak_pos == (840 if tb.MULT_REUSE == 0 else 841)
 
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
