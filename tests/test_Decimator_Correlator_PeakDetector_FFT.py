@@ -88,9 +88,9 @@ async def simple_test(dut):
     CP_LEN = 18 * FFT_LEN // 256
     HALF_CP_ADVANCE = tb.HALF_CP_ADVANCE
     if NFFT == 8:
-        DETECTOR_LATENCY = 18
+        DETECTOR_LATENCY = 18 if tb.MULT_REUSE == 0 else 19
     elif NFFT == 9:
-        DETECTOR_LATENCY = 20
+        DETECTOR_LATENCY = 20 if tb.MULT_REUSE == 0 else 21
     else:
         assert False
     FFT_OUT_DW = 32
@@ -229,7 +229,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
 @pytest.mark.parametrize("NFFT", [8, 9])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
-@pytest.mark.parametrize("MULT_REUSE", [0])
+@pytest.mark.parametrize("MULT_REUSE", [0, 1])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP_FILE, MULT_REUSE):
     dut = 'Decimator_Correlator_PeakDetector_FFT'
     module = os.path.splitext(os.path.basename(__file__))[0]
@@ -340,4 +340,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 1)
