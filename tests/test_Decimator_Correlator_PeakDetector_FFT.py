@@ -237,14 +237,6 @@ async def simple_test(dut):
     # assert np.array_equal(received_PBCH, received_PBCH_ideal)
     if NFFT == 8:
         assert peak_pos == DETECTOR_LATENCY + 823
-        # if tb.MULT_REUSE == 0:
-        #     assert peak_pos == 841
-        # elif tb.MULT_REUSE == 1:
-        #     assert peak_pos == 842
-        # elif tb.MULT_REUSE == 2:
-        #     assert peak_pos == 843
-        # elif tb.MULT_REUSE == 4:
-        #     assert peak_pos == 1670
     elif NFFT == 9:
         assert peak_pos == DETECTOR_LATENCY + 1647
 

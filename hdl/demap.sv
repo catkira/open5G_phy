@@ -57,7 +57,7 @@ always @(posedge clk_i) begin
     if (!reset_ni) begin
         out_fifo_valid_in <= '0;
         out_fifo_data_in <= '0;
-    end else if (s_axis_in_tvalid) begin
+    end else if (s_axis_in_tvalid && (s_axis_in_tuser == 1)) begin  // only demap PBCH symbols
         out_fifo_data_in <= {llr_Q, llr_I};
         out_fifo_valid_in <= 1;
         out_fifo_user_in <= {s_axis_in_tuser, s_axis_in_tuser};

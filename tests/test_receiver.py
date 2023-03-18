@@ -129,14 +129,12 @@ async def simple_test(dut):
     rx_counter = 0
     clk_cnt = 0
     received = []
-    received_fft = []
     received_fft_demod = []
     rx_ADC_data = []
     received_PBCH = []
     received_SSS = []
     corrected_PBCH = []
     received_PBCH_LLR = []
-    fft_started = False
     HALF_CP_ADVANCE = tb.HALF_CP_ADVANCE
     CP2_LEN = 18 * FFT_LEN // 256
     SSS_LEN = 127
@@ -144,13 +142,14 @@ async def simple_test(dut):
     DETECTOR_LATENCY = 27 if tb.MULT_REUSE == 0 else 28
     FFT_OUT_DW = 16
     SYMBOL_LEN = 240
-    max_tx = int(0.045 * fs) # simulate 45ms tx data
-    sample_clk_decimation = tb.MULT_REUSE if tb.MULT_REUSE != 0 else 1
+    MAX_TX = int(0.045 * fs) # simulate 45ms tx data
+    MAX_CLK_CNT = MAX_TX + 10000
+    SAMPLE_CLK_DECIMATION = tb.MULT_REUSE if tb.MULT_REUSE != 0 else 1
     clk_div = 0
     tx_cnt = 0
-    while clk_cnt < max_tx + 10000:
+    while clk_cnt < MAX_CLK_CNT:
         await RisingEdge(dut.clk_i)
-        if tx_cnt < max_tx and clk_div == (sample_clk_decimation - 1):
+        if (tx_cnt < MAX_TX) and (clk_div == (SAMPLE_CLK_DECIMATION - 1)):
             clk_div = 0
             data = (((int(waveform[tx_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
                 + ((int(waveform[tx_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
@@ -196,11 +195,6 @@ async def simple_test(dut):
             # print(f'{rx_counter}: fft_demod {dut.m_axis_out_tdata.value}')
             received_fft_demod.append(_twos_comp(dut.m_axis_demod_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
-
-        if fft_started:
-            # print(f'{rx_counter}: fft_debug {dut.fft_result_debug_o.value}')
-            received_fft.append(_twos_comp(dut.fft_result_debug_o.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.fft_result_debug_o.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
     print(f'received {len(corrected_PBCH)} PBCH IQ samples')
     print(f'received {len(received_PBCH_LLR)} PBCH LLRs samples')
