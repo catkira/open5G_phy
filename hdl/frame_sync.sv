@@ -157,7 +157,7 @@ always @(posedge clk_i) begin
             WAIT_FOR_SSB: begin
                 if (N_id_2_valid_i) begin
                     sample_cnt <= 1;
-                    m_axis_out_tvalid <= 1;
+                    m_axis_out_tvalid <= s_axis_in_tvalid;
                     // SSB_pattern for case A is [2, 8, 16, 22]
                     // whether we are on symbol 3 or symbol 9 depends on ibar_SSB
                     // assume for now that we are at symbol 3
@@ -169,6 +169,7 @@ always @(posedge clk_i) begin
                     SSB_start_o <= 1;
                 end else begin
                     SSB_start_o <= '0;
+                    m_axis_out_tvalid <= '0;
                 end
             end
             WAIT_FOR_IBAR: begin
@@ -206,6 +207,8 @@ always @(posedge clk_i) begin
                     end
                     state <= SYNCED;
                 end
+
+                m_axis_out_tvalid <= s_axis_in_tvalid;
 
                 if (s_axis_in_tvalid) begin
                     if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
@@ -318,9 +321,12 @@ always @(posedge clk_i) begin
                         find_SSB <= 1;
                         m_axis_out_tvalid <= '0;
                         $display("find SSB ...");
+                    end else begin
+                        m_axis_out_tvalid <= s_axis_in_tvalid;
                     end
                 end else if (N_id_2_valid_i) begin
-                    syms_since_last_SSB <= '0;                    
+                    syms_since_last_SSB <= '0;
+                    m_axis_out_tvalid <= '0;            
                 end
             end
         endcase

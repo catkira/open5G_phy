@@ -88,9 +88,23 @@ async def simple_test(dut):
     CP_LEN = 18 * FFT_LEN // 256
     HALF_CP_ADVANCE = tb.HALF_CP_ADVANCE
     if NFFT == 8:
-        DETECTOR_LATENCY = 18 if tb.MULT_REUSE == 0 else 19
+        if tb.MULT_REUSE == 0:
+            DETECTOR_LATENCY = 18
+        elif tb.MULT_REUSE == 1:
+            DETECTOR_LATENCY = 19
+        elif tb.MULT_REUSE == 2:
+            DETECTOR_LATENCY = 20
+        elif tb.MULT_REUSE == 4:
+            DETECTOR_LATENCY = 21 + 826
     elif NFFT == 9:
-        DETECTOR_LATENCY = 20 if tb.MULT_REUSE == 0 else 21
+        if tb.MULT_REUSE == 0:
+            DETECTOR_LATENCY = 20
+        elif tb.MULT_REUSE == 1:
+            DETECTOR_LATENCY = 21
+        elif tb.MULT_REUSE == 2:
+            DETECTOR_LATENCY = 22
+        elif tb.MULT_REUSE == 4:
+            DETECTOR_LATENCY = 23 + 826 * 2
     else:
         assert False
     FFT_OUT_DW = 32
@@ -99,13 +113,26 @@ async def simple_test(dut):
     SSS_START = FFT_LEN // 2 - (SSS_LEN + 1) // 2
     PBCH_LEN = 240
     PBCH_START = FFT_LEN // 2 - (PBCH_LEN + 1) // 2
+    sample_clk_decimation = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
+    clk_div = 0    
+    MAX_CLK_CNT = 3000 * FFT_LEN // 256 * sample_clk_decimation
 
+    tx_cnt = 0
     while (len(received_SSS) < SSS_LEN) and (clk_cnt < MAX_CLK_CNT):
         await RisingEdge(dut.clk_i)
-        data = (((int(waveform[clk_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
-              + ((int(waveform[clk_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
-        dut.s_axis_in_tdata.value = data
-        dut.s_axis_in_tvalid.value = 1
+        if (clk_div == 0 or sample_clk_decimation == 1):
+            data = (((int(waveform[tx_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
+                + ((int(waveform[tx_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
+            dut.s_axis_in_tdata.value = data
+            dut.s_axis_in_tvalid.value = 1
+            clk_div += 1
+            tx_cnt += 1
+        else:
+            dut.s_axis_in_tvalid.value = 0
+            if clk_div == sample_clk_decimation - 1:
+                clk_div = 0
+            else:
+                clk_div += 1
 
         #print(f"data[{in_counter}] = {(int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x} {(int(waveform[in_counter].real)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x}")
         clk_cnt += 1
@@ -191,11 +218,12 @@ async def simple_test(dut):
         _, axs = plt.subplots(3, 1, figsize=(5, 10))
         for i in range(len(received_SSS)):
             axs[0].plot(np.real(received_SSS), np.imag(received_SSS), '.')
+        axs[0].set_title('hdl')
         for i in range(len(received_PBCH)):
             axs[1].plot(np.real(received_PBCH), np.imag(received_PBCH), '.')
-            axs[1].set_title('hdl')
             axs[2].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), '.')
-            axs[2].set_title('model')
+        axs[1].set_title('hdl')
+        axs[2].set_title('model')
         plt.show()
 
     peak_pos = np.argmax(received)
@@ -208,9 +236,17 @@ async def simple_test(dut):
 
     # assert np.array_equal(received_PBCH, received_PBCH_ideal)
     if NFFT == 8:
-        assert peak_pos == 841
+        assert peak_pos == DETECTOR_LATENCY + 823
+        # if tb.MULT_REUSE == 0:
+        #     assert peak_pos == 841
+        # elif tb.MULT_REUSE == 1:
+        #     assert peak_pos == 842
+        # elif tb.MULT_REUSE == 2:
+        #     assert peak_pos == 843
+        # elif tb.MULT_REUSE == 4:
+        #     assert peak_pos == 1670
     elif NFFT == 9:
-        pass
+        assert peak_pos == DETECTOR_LATENCY + 1647
 
     corr = np.zeros(335)
     for i in range(335):

@@ -136,6 +136,7 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
         end else if (idx < MULT_REUSE) begin
             if (valid && (idx != 0)) begin
                 $display("Error: valid should not go high now!");
+                $finish();
             end
             if (idx < MULT_REUSE_CUR) begin
                 // tap_re = PSS_LOCAL[pos * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];

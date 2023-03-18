@@ -118,11 +118,16 @@ begin
     if (FFT_LEN == 256) begin
         if (MULT_REUSE == 0)        calc_delay = 14;
         else if (MULT_REUSE == 1)   calc_delay = 15;
+        else if (MULT_REUSE == 2)   calc_delay = 16;
+        else if (MULT_REUSE == 4)   calc_delay = 17;
     end else if (FFT_LEN == 512) begin
         if (MULT_REUSE == 0)        calc_delay = 16;
         else if (MULT_REUSE == 1)   calc_delay = 17;
+        else if (MULT_REUSE == 2)   calc_delay = 18;
+        else if (MULT_REUSE == 4)   calc_delay = 21;
     end else begin
         $display("Error: FFT_LEN = %d is not supported!", FFT_LEN);
+        $finish();
     end
 end
 endfunction

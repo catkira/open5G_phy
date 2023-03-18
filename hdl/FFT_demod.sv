@@ -118,8 +118,9 @@ always @(posedge clk_i) begin
         if (s_axis_in_tvalid) begin
             current_CP_len <= s_axis_in_tuser[$clog2(MAX_CP_LEN) - 1 : 0];
             in_data_f <= s_axis_in_tdata;
-            in_valid_f <= s_axis_in_tvalid;
+            // in_valid_f <= s_axis_in_tvalid;
         end
+        in_valid_f <= s_axis_in_tvalid;
     end
 end
 
