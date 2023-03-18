@@ -221,15 +221,17 @@ async def simple_test(dut):
     received_PBCH_ideal = received_PBCH_ideal[PBCH_START:][:PBCH_LEN]
     received_PBCH_ideal = (received_PBCH_ideal.real.astype(int) + 1j * received_PBCH_ideal.imag.astype(int))
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
-        _, axs = plt.subplots(3, 1, figsize=(5, 10))
+        _, axs = plt.subplots(2, 2, figsize=(10, 10))
         for i in range(len(received_SSS)):
-            axs[0].plot(np.real(received_SSS), np.imag(received_SSS), '.')
-        axs[0].set_title('hdl')
+            axs[0, 0].plot(np.real(received_SSS), np.imag(received_SSS), '.')
+            axs[0, 1].plot(np.real(ideal_SSS), np.imag(ideal_SSS), '.')
+        axs[0, 0].set_title('hdl SSS')
+        axs[0, 1].set_title('model SSS')
         for i in range(len(received_PBCH)):
-            axs[1].plot(np.real(received_PBCH), np.imag(received_PBCH), '.')
-            axs[2].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), '.')
-        axs[1].set_title('hdl')
-        axs[2].set_title('model')
+            axs[1, 0].plot(np.real(received_PBCH), np.imag(received_PBCH), '.')
+            axs[1, 1].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), '.')
+        axs[1, 1].set_title('hdl PBCH')
+        axs[1, 1].set_title('model PBCH')
         plt.show()
 
     peak_pos = np.argmax(received)
