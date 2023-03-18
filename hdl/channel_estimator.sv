@@ -368,19 +368,19 @@ angle_FIFO_i(
 // by calculating angle(pilot_i) - angle(received_i)
 // 
 // TODO: for now it supports only phase correction for PBCH symbols
-reg [2 : 0]  state_corrector;
-localparam [2 : 0]  WAIT_FOR_INPUTS = 0;
-localparam [2 : 0]  CALC_CORRECTION = 1;
-localparam [2 : 0]  PASS_THROUGH = 2;
-reg          in_data_ready;
-reg          angles_ready;
-reg [$clog2(FFT_LEN) - 1 : 0]         SC_cnt;
+reg [2 : 0]                     state_corrector;
+localparam [2 : 0]              WAIT_FOR_INPUTS = 0;
+localparam [2 : 0]              CALC_CORRECTION = 1;
+localparam [2 : 0]              PASS_THROUGH = 2;
+reg                             in_data_ready;
+reg                             angles_ready;
+reg [$clog2(FFT_LEN) - 1 : 0]   SC_cnt;
 
-localparam MAX_PHASE = (2**(PHASE_DW - 1) - 1);
-localparam signed [PHASE_DW - 1 : 0] DEG45 = MAX_PHASE / 4;
-localparam signed [PHASE_DW - 1 : 0] DEG135 = 3 * DEG45;
-reg signed [PHASE_DW - 1 : 0] pilot_angle;
-reg [2 : 0] ibar_SSB_buf;
+localparam                              MAX_PHASE = (2**(PHASE_DW - 1) - 1);
+localparam signed [PHASE_DW - 1 : 0]    DEG45 = MAX_PHASE / 4;
+localparam signed [PHASE_DW - 1 : 0]    DEG135 = 3 * DEG45;
+reg signed [PHASE_DW - 1 : 0]           pilot_angle;
+reg [2 : 0]                             ibar_SSB_buf;
 
 localparam MAX_SYM_PER_BURST = 3;
 localparam MIN_PILOT_SPACING = 4;

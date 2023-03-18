@@ -113,28 +113,31 @@ assign fft_result_debug_o = fft_result;
 assign fft_sync_debug_o = fft_sync;
 
 function integer calc_delay;
-input dummy;
-begin
-    if (FFT_LEN == 256) begin
-        if (MULT_REUSE == 0)        calc_delay = 14;
-        else if (MULT_REUSE == 1)   calc_delay = 15;
-        else if (MULT_REUSE == 2)   calc_delay = 16;
-        else if (MULT_REUSE == 4)   calc_delay = 17;
-    end else if (FFT_LEN == 512) begin
-        if (MULT_REUSE == 0)        calc_delay = 16;
-        else if (MULT_REUSE == 1)   calc_delay = 17;
-        else if (MULT_REUSE == 2)   calc_delay = 18;
-        else if (MULT_REUSE == 4)   calc_delay = 21;
-    end else begin
-        $display("Error: FFT_LEN = %d is not supported!", FFT_LEN);
-        $finish();
+    input dummy;  // Vivado wants that a function has at least one argument
+    begin
+        // that's a bunch of magic numbers
+        // TODO: make this nicer / more systematic
+        if (FFT_LEN == 256) begin
+            if (MULT_REUSE == 0)        calc_delay = 14;
+            else if (MULT_REUSE == 1)   calc_delay = 15;
+            else if (MULT_REUSE == 2)   calc_delay = 16;
+            else if (MULT_REUSE == 4)   calc_delay = 17;
+            else if (MULT_REUSE == 8)   calc_delay = 19;
+        end else if (FFT_LEN == 512) begin
+            if (MULT_REUSE == 0)        calc_delay = 16;
+            else if (MULT_REUSE == 1)   calc_delay = 17;
+            else if (MULT_REUSE == 2)   calc_delay = 18;
+            else if (MULT_REUSE == 4)   calc_delay = 21;
+            else if (MULT_REUSE == 8)   calc_delay = 27;
+        end else begin
+            $display("Error: FFT_LEN = %d is not supported!", FFT_LEN);
+            $finish();
+        end
     end
-end
 endfunction
 
 // this delay line is needed because peak_detected goes high
 // at the end of SSS symbol plus some additional delay
-// localparam DELAY_LINE_LEN = FFT_LEN == 256 ? 14 : (FFT_LEN == 512 ? 16 : 0);  // only defined for FFT_LEN 256 and 512 !
 localparam DELAY_LINE_LEN = calc_delay(0);
 reg [IN_DW-1:0] delay_line_data  [0 : DELAY_LINE_LEN - 1];
 reg             delay_line_valid [0 : DELAY_LINE_LEN - 1];
