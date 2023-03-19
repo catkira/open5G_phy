@@ -104,13 +104,13 @@ async def simple_test(dut):
         if tb.MULT_REUSE == 0:
             DETECTOR_LATENCY = 20
         elif tb.MULT_REUSE == 1:
-            DETECTOR_LATENCY = 21
+            DETECTOR_LATENCY = 29  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 2:
-            DETECTOR_LATENCY = 22
+            DETECTOR_LATENCY = 30  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 23 + 826 * 2
+            DETECTOR_LATENCY = 31 + 826 * 2  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 37 + 826 * 2
+            DETECTOR_LATENCY = 333 + 826 * 2  # ok with new PSS_correlator_mr
     else:
         assert False
     FFT_OUT_DW = 32
@@ -252,10 +252,10 @@ async def simple_test(dut):
         elif tb.MULT_REUSE == 8:
             assert peak_pos == 3324  # TODO: why is this a different formula?
     elif NFFT == 9:
-        if tb.MULT_REUSE < 8:        
+        if tb.MULT_REUSE < 8:
             assert peak_pos == DETECTOR_LATENCY + 1647
         elif tb.MULT_REUSE == 8:
-            assert peak_pos == 6628  # TODO: why is this a different formula?
+            assert peak_pos == 6924  # TODO: why is this a different formula?
 
     corr = np.zeros(335)
     for i in range(335):
@@ -385,4 +385,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 8)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 9, USE_TAP_FILE = 1, MULT_REUSE = 8)

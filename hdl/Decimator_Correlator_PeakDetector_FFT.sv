@@ -124,11 +124,11 @@ function integer calc_delay;
             else if (MULT_REUSE == 4)   calc_delay = 25;  // ok with new PSS_correlator_mr
             else if (MULT_REUSE == 8)   calc_delay = 27;  // ok with new PSS_correlator_mr
         end else if (FFT_LEN == 512) begin
-            if (MULT_REUSE == 0)        calc_delay = 16;
-            else if (MULT_REUSE == 1)   calc_delay = 17;
-            else if (MULT_REUSE == 2)   calc_delay = 18;
-            else if (MULT_REUSE == 4)   calc_delay = 21;
-            else if (MULT_REUSE == 8)   calc_delay = 27;
+            if (MULT_REUSE == 0)        calc_delay = 16;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 1)   calc_delay = 25;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 2)   calc_delay = 26;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 4)   calc_delay = 29;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 8)   calc_delay = 323; // ok with new PSS_correlator_mr
         end else begin
             $display("Error: FFT_LEN = %d is not supported!", FFT_LEN);
             $finish();

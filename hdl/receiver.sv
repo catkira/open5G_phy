@@ -377,9 +377,33 @@ wire [FFT_OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
 wire fft_result_demod_valid;
 wire fft_sync;
 
+function integer calc_delay;
+    input dummy;  // Vivado wants that a function has at least one argument
+    begin
+        // that's a bunch of magic numbers
+        // TODO: make this nicer / more systematic
+        if (FFT_LEN == 256) begin
+            if (MULT_REUSE == 0)        calc_delay = 14;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 1)   calc_delay = 23;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 2)   calc_delay = 24;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 4)   calc_delay = 25;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 8)   calc_delay = 27;  // ok with new PSS_correlator_mr
+        end else if (FFT_LEN == 512) begin
+            if (MULT_REUSE == 0)        calc_delay = 16;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 1)   calc_delay = 25;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 2)   calc_delay = 26;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 4)   calc_delay = 29;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 8)   calc_delay = 323; // ok with new PSS_correlator_mr
+        end else begin
+            $display("Error: FFT_LEN = %d is not supported!", FFT_LEN);
+            $finish();
+        end
+    end
+endfunction
+
 // this delay line is needed because peak_detected goes high
 // at the end of SSS symbol plus some additional delay
-localparam DELAY_LINE_LEN = MULT_REUSE == 0 ? 14 : 15;  // PSS_correlator_mr has 1 cycle more delay than PSS_correlator
+localparam DELAY_LINE_LEN = calc_delay(0);
 reg [IN_DW-1:0] delay_line_data  [0 : DELAY_LINE_LEN - 1];
 reg             delay_line_valid [0 : DELAY_LINE_LEN - 1];
 always @(posedge clk_i) begin

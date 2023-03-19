@@ -139,7 +139,7 @@ async def simple_test(dut):
     CP2_LEN = 18 * FFT_LEN // 256
     SSS_LEN = 127
     SSS_START = FFT_LEN // 2 - (SSS_LEN + 1) // 2
-    DETECTOR_LATENCY = 27 if tb.MULT_REUSE == 0 else 28
+    DETECTOR_LATENCY = 27 if tb.MULT_REUSE == 0 else 37
     FFT_OUT_DW = 16
     SYMBOL_LEN = 240
     MAX_TX = int(0.045 * fs) # simulate 45ms tx data
