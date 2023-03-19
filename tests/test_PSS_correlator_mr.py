@@ -88,9 +88,9 @@ async def simple_test(dut):
     await tb.cycle_reset()
 
     num_items = 500
-    rx_counter = 0
-    rx_counter_model = 0
-    in_counter = 0
+    rx_cnt = 0
+    rx_cnt_model = 0
+    tx_cnt = 0
     received = np.empty(num_items, int)
     received_model = np.empty(num_items, int)
     clk_div = 0
@@ -98,33 +98,33 @@ async def simple_test(dut):
     C0 = []
     C1 = []
     C_DW = int(tb.IN_DW + tb.TAP_DW + 2 + 2*np.ceil(np.log2(tb.PSS_LEN)))
-    while rx_counter < num_items:
+    while rx_cnt < num_items:
         await RisingEdge(dut.clk_i)
         if clk_div < (clk_decimation - 1):
             dut.s_axis_in_tvalid.value = 0
             clk_div += 1
         else:
             clk_div = 0
-            data = (((int(waveform[in_counter].imag)  & (2 ** (tb.IN_DW // 2) - 1)) << (tb.IN_DW // 2)) \
-                  + ((int(waveform[in_counter].real)) & (2 ** (tb.IN_DW // 2) - 1))) & (2 ** tb.IN_DW - 1)
+            data = (((int(waveform[tx_cnt].imag)  & (2 ** (tb.IN_DW // 2) - 1)) << (tb.IN_DW // 2)) \
+                  + ((int(waveform[tx_cnt].real)) & (2 ** (tb.IN_DW // 2) - 1))) & (2 ** tb.IN_DW - 1)
             dut.s_axis_in_tdata.value = data
             dut.s_axis_in_tvalid.value = 1
             tb.model.set_data(data)
-            in_counter += 1
+            tx_cnt += 1
 
         if dut.m_axis_out_tvalid == 1:
             # print(f'{rx_counter}: rx hdl {dut.m_axis_out_tdata.value}')
-            received[rx_counter] = dut.m_axis_out_tdata.value.integer
+            received[rx_cnt] = dut.m_axis_out_tdata.value.integer
             C0.append(_twos_comp(dut.C0_o.value.integer & (2 ** (C_DW // 2) - 1),C_DW // 2) \
                     + 1j * _twos_comp((dut.C0_o.value.integer >> (C_DW // 2)) & (2 ** (C_DW // 2) - 1), C_DW // 2))
             C1.append(_twos_comp(dut.C1_o.value.integer & (2 ** (C_DW // 2) - 1), C_DW // 2) \
                     + 1j * _twos_comp((dut.C1_o.value.integer >> (C_DW // 2)) & (2 ** (C_DW // 2) - 1), C_DW // 2))
-            rx_counter  += 1
+            rx_cnt  += 1
 
-        if tb.model.data_valid() and rx_counter_model < num_items:
-            received_model[rx_counter_model] = tb.model.get_data()
+        if tb.model.data_valid() and rx_cnt_model < num_items:
+            received_model[rx_cnt_model] = tb.model.get_data()
             # print(f'{rx_counter_model}: rx mod {received_model[rx_counter_model]}')
-            rx_counter_model += 1
+            rx_cnt_model += 1
 
     ssb_start = np.argmax(received) - 128
     received = np.array(received)[128:]
@@ -134,7 +134,9 @@ async def simple_test(dut):
         _, (ax, ax2) = plt.subplots(2, 1)
         print(f'{type(received.dtype)} {type(received_model.dtype)}')
         ax.plot(np.sqrt(received))
+        ax.set_title('hdl')
         ax2.plot(np.sqrt(received_model), 'r-')
+        ax2.set_title('model')
         ax.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
         plt.show()
     print(f'max correlation is {received[ssb_start]} at {ssb_start}')
@@ -154,7 +156,7 @@ async def simple_test(dut):
         print(f'detected CFO = {detectedCFO_Hz} Hz')
     else:
         print('CFO estimation is not possible with ALGO=1')
-    
+
     PSS = np.zeros(128, 'complex')
     PSS[:-1] = py3gpp.nrPSS(2)
     taps = np.fft.ifft(np.fft.fftshift(PSS))
@@ -197,7 +199,8 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
     toplevel = dut
 
     verilog_sources = [
-        os.path.join(rtl_dir, f'{dut}.sv')
+        os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'complex_multiplier', 'complex_multiplier.v')
     ]
     includes = []
 
@@ -238,9 +241,10 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
         sim_build=sim_build,
         extra_env=extra_env,
         testcase='simple_test',
-        force_compile=True
+        force_compile=True,
+        waves=True
     )
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 14, OUT_DW = 48, TAP_DW = 18, ALGO = 0, CFO = 6500, MULT_REUSE = 16)
+    test(IN_DW = 16, OUT_DW = 32, TAP_DW = 18, ALGO = 0, CFO = 0, MULT_REUSE = 16)

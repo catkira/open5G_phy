@@ -7,11 +7,11 @@ module PSS_correlator_mr
     parameter TAP_DW = 32,
     parameter PSS_LEN = 128,
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
-    parameter ALGO = 0,  // not used anymore
+    parameter ALGO = 1,
     parameter USE_TAP_FILE = 0,
     parameter TAP_FILE = "",
     parameter TAP_FILE_PATH = "",
-    parameter N_ID_2 = 0, // not used when PSS_LOCAL is used !
+    parameter N_ID_2 = 0,
     parameter MULT_REUSE = 4,
 
     localparam C_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN)
@@ -19,9 +19,9 @@ module PSS_correlator_mr
 (
     input                                                       clk_i,
     input                                                       reset_ni,
-    input   wire           [IN_DW - 1 : 0]                      s_axis_in_tdata,
+    input   wire           [IN_DW-1:0]                          s_axis_in_tdata,
     input                                                       s_axis_in_tvalid,
-    output  reg            [OUT_DW - 1 : 0]                     m_axis_out_tdata,
+    output  reg            [OUT_DW-1:0]                         m_axis_out_tdata,
     output  reg            [C_DW - 1 : 0]                       C0_o,
     output  reg            [C_DW - 1 : 0]                       C1_o,
     output  reg                                                 m_axis_out_tvalid,
@@ -122,45 +122,16 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
     reg ready;
     assign mult_out_re[i_g] = out_buf_re;
     assign mult_out_im[i_g] = out_buf_im;
-    reg [IN_DW - 1 : 0] mult_in_data;
-    reg [TAP_DW - 1 : 0] mult_in_tap;
-    reg mult_in_valid;
-    wire mult_out_valid;
-    localparam MULT_OUT_OP_DW = (IN_DW + TAP_DW) / 2 - 1;
-    wire [MULT_OUT_OP_DW * 2 - 1 : 0] mult_out_data;
-    wire signed [MULT_OUT_OP_DW - 1 : 0] mult_out_data_im, mult_out_data_re;
-    assign mult_out_data_im = mult_out_data[MULT_OUT_OP_DW * 2 - 1 -: MULT_OUT_OP_DW];
-    assign mult_out_data_re = mult_out_data[MULT_OUT_OP_DW - 1 : 0];
-    complex_multiplier #(
-        .OPERAND_WIDTH_A(IN_DW / 2),
-        .OPERAND_WIDTH_B(TAP_DW / 2),
-        .OPERAND_WIDTH_OUT(MULT_OUT_OP_DW),
-        .BYTE_ALIGNED(0)
-    )
-    complex_multiplier_i(
-        .aclk(clk_i),
-        .aresetn(reset_ni),
-        .s_axis_a_tdata(mult_in_data),
-        .s_axis_a_tvalid(mult_in_valid),
-        .s_axis_b_tdata(mult_in_tap),
-        .s_axis_b_tvalid(1'b1),
-
-        .m_axis_dout_tdata(mult_out_data),
-        .m_axis_dout_tvalid(mult_out_valid)
-    );
 
     // initial begin
     //     $display("%d MULT_REUSE_CUR = %d",i_g, MULT_REUSE_CUR);
     // end
-
-    // complex_multiplier input process
     always @(posedge clk_i) begin
-        if ((!valid && (idx == 0)) || !reset_ni) begin
+        if ((!valid && (idx == 0))|| !reset_ni) begin
             idx <= '0;
             out_buf_re <= '0;
             out_buf_im <= '0;
             ready <= '0;
-            mult_in_valid <= '0;
             pos <= ALGO ? i_g * MULT_REUSE + 1 : i_g * MULT_REUSE;
         end else if (idx < MULT_REUSE) begin
             if (valid && (idx != 0)) begin
@@ -168,53 +139,45 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
                 $finish();
             end
             if (idx < MULT_REUSE_CUR) begin
+                // tap_re = PSS_LOCAL[pos * TAP_DW + TAP_DW / 2 - 1 -: TAP_OP_DW];
+                // tap_im = PSS_LOCAL[pos * TAP_DW + TAP_DW     - 1 -: TAP_OP_DW];
                 tap_re = get_tap_re(pos);
                 tap_im = get_tap_im(pos);
-                mult_in_data <= {in_im[pos], in_re[pos]};
-                mult_in_tap <= {tap_im, tap_re};
-                mult_in_valid <= 1;
-            end else begin
-                mult_in_valid <= '0;
+                if (ALGO == 0) begin
+                    if (idx == 0) begin
+                        out_buf_re <= in_re[pos] * tap_re - in_im[pos] * tap_im;
+                        out_buf_im <= in_re[pos] * tap_im + in_im[pos] * tap_re;
+                    end else begin
+                        out_buf_re <= out_buf_re + in_re[pos] * tap_re - in_im[pos] * tap_im;
+                        out_buf_im <= out_buf_im + in_re[pos] * tap_im + in_im[pos] * tap_re;
+                    end
+                end else begin
+                    if (idx == 0) begin
+                        out_buf_re <= (in_re[PSS_LEN - pos] + in_re[pos]) * tap_re
+                                                + (in_im[PSS_LEN - pos] - in_im[pos]) * tap_im;
+                        out_buf_im <= (in_im[PSS_LEN - pos] + in_im[pos]) * tap_re
+                                                - (in_re[PSS_LEN - pos] - in_re[pos]) * tap_im;
+                    end else begin
+                        out_buf_re <= out_buf_re + (in_re[PSS_LEN - pos] + in_re[pos]) * tap_re
+                                                + (in_im[PSS_LEN - pos] - in_im[pos]) * tap_im;
+                        out_buf_im <= out_buf_im + (in_im[PSS_LEN - pos] + in_im[pos]) * tap_re
+                                                - (in_re[PSS_LEN - pos] - in_re[pos]) * tap_im;
+                    end
+                end
             end
-
             if (idx == MULT_REUSE - 1) begin
                 idx <= '0;
                 pos <= ALGO ? i_g * MULT_REUSE + 1 : i_g * MULT_REUSE;
+                ready <= '1;
             end else begin
                 pos <= pos + 1;
                 idx <= idx + 1;
-            end
-        end
-    end
-
-    // complex_multiplier output process
-    reg [$clog2(MULT_REUSE) : 0] idx_out;
-    always @(posedge clk_i) begin
-        if (!reset_ni) begin
-            idx_out <= '0;
-        end else begin
-            if (mult_out_valid) begin
-                if (idx_out == 0) begin
-                    out_buf_re <= mult_out_data_re;
-                    out_buf_im <= mult_out_data_im;
-                end else begin
-                    out_buf_re <= mult_out_data_re + out_buf_re;
-                    out_buf_im <= mult_out_data_im + out_buf_im;
-                end
-
-                if (idx_out == MULT_REUSE - 1) begin
-                    idx_out <= '0;
-                    ready <= '1;
-                end else begin
-                    idx_out <= idx_out + 1;
-                    ready <= '0;
-                end
+                ready <= '0;
             end
         end
     end
 end
 
-// delay line buffer for incoming samples
 genvar ii;
 for (ii = 0; ii < PSS_LEN; ii++) begin
     always @(posedge clk_i) begin
@@ -234,7 +197,6 @@ for (ii = 0; ii < PSS_LEN; ii++) begin
     end
 end
 
-// global output process
 always @(posedge clk_i) begin // cannot use $display inside always_ff with iverilog
     if (!reset_ni) begin
         m_axis_out_tdata <= '0;

@@ -118,11 +118,11 @@ function integer calc_delay;
         // that's a bunch of magic numbers
         // TODO: make this nicer / more systematic
         if (FFT_LEN == 256) begin
-            if (MULT_REUSE == 0)        calc_delay = 14;
-            else if (MULT_REUSE == 1)   calc_delay = 15;
-            else if (MULT_REUSE == 2)   calc_delay = 16;
-            else if (MULT_REUSE == 4)   calc_delay = 17;
-            else if (MULT_REUSE == 8)   calc_delay = 19;
+            if (MULT_REUSE == 0)        calc_delay = 14;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 1)   calc_delay = 23;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 2)   calc_delay = 24;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 4)   calc_delay = 25;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 8)   calc_delay = 27;  // ok with new PSS_correlator_mr
         end else if (FFT_LEN == 512) begin
             if (MULT_REUSE == 0)        calc_delay = 16;
             else if (MULT_REUSE == 1)   calc_delay = 17;
