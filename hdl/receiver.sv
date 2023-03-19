@@ -393,7 +393,7 @@ function integer calc_delay;
             else if (MULT_REUSE == 1)   calc_delay = 25;  // ok with new PSS_correlator_mr
             else if (MULT_REUSE == 2)   calc_delay = 26;  // ok with new PSS_correlator_mr
             else if (MULT_REUSE == 4)   calc_delay = 29;  // ok with new PSS_correlator_mr
-            else if (MULT_REUSE == 8)   calc_delay = 323; // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 8)   calc_delay = 35;  // ok with new PSS_correlator_mr
         end else begin
             $display("Error: FFT_LEN = %d is not supported!", FFT_LEN);
             $finish();

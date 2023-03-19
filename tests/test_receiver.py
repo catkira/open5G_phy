@@ -144,13 +144,13 @@ async def simple_test(dut):
     SYMBOL_LEN = 240
     MAX_TX = int(0.045 * fs) # simulate 45ms tx data
     MAX_CLK_CNT = MAX_TX + 10000
-    SAMPLE_CLK_DECIMATION = tb.MULT_REUSE if tb.MULT_REUSE != 0 else 1
+    SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
     clk_div = 0
     tx_cnt = 0
     while clk_cnt < MAX_CLK_CNT:
         await RisingEdge(dut.clk_i)
-        if (tx_cnt < MAX_TX) and (clk_div == (SAMPLE_CLK_DECIMATION - 1)):
-            clk_div = 0
+        if (tx_cnt < MAX_TX) and (clk_div == 0 or SAMPLE_CLK_DECIMATION == 1):
+            clk_div += 1
             data = (((int(waveform[tx_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
                 + ((int(waveform[tx_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
             tx_cnt += 1
@@ -158,7 +158,10 @@ async def simple_test(dut):
             dut.s_axis_in_tvalid.value = 1
         else:
             dut.s_axis_in_tvalid.value = 0
-            clk_div += 1
+            if clk_div == SAMPLE_CLK_DECIMATION - 1:
+                clk_div = 0
+            else:
+                clk_div += 1
 
         clk_cnt += 1
 
@@ -296,7 +299,7 @@ async def simple_test(dut):
     scaling_factor = 2**(tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mode
     ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
 
-    assert peak_pos == (850 if tb.MULT_REUSE == 0 else 851)
+    assert peak_pos == 823 + DETECTOR_LATENCY
     corr = np.zeros(335)
     for i in range(335):
         sss = py3gpp.nrSSS(i)
@@ -472,4 +475,4 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO=2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8, NFFT = 8, MULT_REUSE = 1)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8, NFFT = 8, MULT_REUSE = 1)
