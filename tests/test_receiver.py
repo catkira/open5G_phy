@@ -337,7 +337,6 @@ async def simple_test(dut):
             print("nrPolarDecode: PBCH CRC failed")
         assert crc_result == 0
 
-@pytest.mark.parametrize("ALGO", [0])
 @pytest.mark.parametrize("IN_DW", [32])
 @pytest.mark.parametrize("OUT_DW", [32])
 @pytest.mark.parametrize("TAP_DW", [32])
@@ -348,7 +347,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("LLR_DW", [8])
 @pytest.mark.parametrize("NFFT", [8])
 @pytest.mark.parametrize("MULT_REUSE", [0, 1])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT, MULT_REUSE):
+def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT, MULT_REUSE):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -413,7 +412,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
     parameters['OUT_DW'] = OUT_DW
     parameters['TAP_DW'] = TAP_DW
     parameters['PSS_LEN'] = PSS_LEN
-    parameters['ALGO'] = ALGO
+    parameters['ALGO'] = 0 # has to be ALGO=0, because ALGO=1 cannot be used for CFO estimation !
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['HALF_CP_ADVANCE'] = HALF_CP_ADVANCE
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
@@ -424,7 +423,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
     folder = 'receiver_' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
-    sim_build = os.path.join('sim_build/', folder) 
+    sim_build = os.path.join('sim_build/', folder)
 
     # prepare FFT_demod taps
     FFT_LEN = 2 ** NFFT
@@ -473,4 +472,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8, NFFT = 8, MULT_REUSE = 1)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO=2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8, NFFT = 8, MULT_REUSE = 1)
