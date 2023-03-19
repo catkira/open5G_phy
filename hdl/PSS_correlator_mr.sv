@@ -126,7 +126,7 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
     reg [TAP_DW - 1 : 0] mult_in_tap;
     reg mult_in_valid;
     wire mult_out_valid;
-    localparam MULT_OUT_OP_DW = (IN_DW + TAP_DW) / 2 - 1;
+    localparam MULT_OUT_OP_DW = (IN_DW + TAP_DW) / 2 + 1; // full bit growth
     wire [MULT_OUT_OP_DW * 2 - 1 : 0] mult_out_data;
     wire signed [MULT_OUT_OP_DW - 1 : 0] mult_out_data_im, mult_out_data_re;
     assign mult_out_data_im = mult_out_data[MULT_OUT_OP_DW * 2 - 1 -: MULT_OUT_OP_DW];
@@ -157,9 +157,6 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
     always @(posedge clk_i) begin
         if ((!valid && (idx == 0)) || !reset_ni) begin
             idx <= '0;
-            out_buf_re <= '0;
-            out_buf_im <= '0;
-            ready <= '0;
             mult_in_valid <= '0;
             pos <= ALGO ? i_g * MULT_REUSE + 1 : i_g * MULT_REUSE;
         end else if (idx < MULT_REUSE) begin
@@ -192,6 +189,9 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
     always @(posedge clk_i) begin
         if (!reset_ni) begin
             idx_out <= '0;
+            out_buf_re <= '0;
+            out_buf_im <= '0;
+            ready <= '0;
         end else begin
             if (mult_out_valid) begin
                 if (idx_out == 0) begin
@@ -209,6 +209,8 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
                     idx_out <= idx_out + 1;
                     ready <= '0;
                 end
+            end else begin
+                ready <= '0;
             end
         end
     end

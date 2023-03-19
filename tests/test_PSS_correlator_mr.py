@@ -247,4 +247,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 16, OUT_DW = 32, TAP_DW = 18, ALGO = 0, CFO = 0, MULT_REUSE = 16)
+    test(IN_DW = 16, OUT_DW = 32, TAP_DW = 18, ALGO = 0, CFO = 2000, MULT_REUSE = 16)
