@@ -135,16 +135,20 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
         .OPERAND_WIDTH_A(IN_DW / 2),
         .OPERAND_WIDTH_B(TAP_DW / 2),
         .OPERAND_WIDTH_OUT(MULT_OUT_OP_DW),
-        .BYTE_ALIGNED(0)
+        .BYTE_ALIGNED(0),
+        .BLOCKING(0)
     )
     complex_multiplier_i(
         .aclk(clk_i),
         .aresetn(reset_ni),
         .s_axis_a_tdata(mult_in_data),
+        .s_axis_a_tready(),
         .s_axis_a_tvalid(mult_in_valid),
         .s_axis_b_tdata(mult_in_tap),
+        .s_axis_b_tready(),
         .s_axis_b_tvalid(1'b1),
 
+        .m_axis_dout_tready(1'b1),
         .m_axis_dout_tdata(mult_out_data),
         .m_axis_dout_tvalid(mult_out_valid)
     );
