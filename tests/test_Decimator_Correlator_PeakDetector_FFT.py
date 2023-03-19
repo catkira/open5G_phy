@@ -110,7 +110,7 @@ async def simple_test(dut):
         elif tb.MULT_REUSE == 4:
             DETECTOR_LATENCY = 31 + 826 * 2  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 333 + 826 * 2  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 45 + 826 * 2  # ok with new PSS_correlator_mr
     else:
         assert False
     FFT_OUT_DW = 32
@@ -385,4 +385,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 9, USE_TAP_FILE = 1, MULT_REUSE = 8)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 9, USE_TAP_FILE = 1, MULT_REUSE = 2)
