@@ -110,6 +110,8 @@ always @(posedge clk_i) begin
         // $display("reset");
     end else begin
         if (state == 0) begin   
+            m_axis_out_tvalid <= '0;
+            N_id_valid_o <= '0;
             // copy SSS into internal buffer and create m_seq_0 and m_seq_1
             // m_0 = 15 * int((N_id_1 / 112)) + 5 * N_id_2
             // m_1 = N_id_1 % 112
@@ -136,8 +138,9 @@ always @(posedge clk_i) begin
                 if (copy_counter == SSS_LEN - 1) begin
                     state <= 1;
                     // $display("enter state 1");
+                    copy_counter <= '0;
                 end
-                copy_counter <= copy_counter + 1;
+                else copy_counter <= copy_counter + 1;
             end
         end else if (state == 1) begin // compare input to single SSS sequence
             if (compare_counter == 0) begin
@@ -173,6 +176,8 @@ always @(posedge clk_i) begin
                     shift_cur <= '0;
                     div_112 <= '0;
                     acc_max <= '0;
+                    N_id_1 <= '0;
+                    $display("detected N_id = %d", N_id_o);
                     state <= 0; // back to init state
                 end else begin
                     if (shift_cur == SHIFT_MAX - 1) begin
