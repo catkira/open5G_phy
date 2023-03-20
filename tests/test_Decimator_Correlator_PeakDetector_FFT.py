@@ -113,7 +113,7 @@ async def simple_test(dut):
         elif tb.MULT_REUSE == 8:
             DETECTOR_LATENCY = 45 + 826 * 2  # ok with new PSS_correlator_mr
     else:
-        assert False
+        assert False, print("Error: only NFFT 8 and 9 are supported for now!")
     FFT_OUT_DW = 32
 
     SSS_LEN = 127
@@ -121,8 +121,9 @@ async def simple_test(dut):
     PBCH_LEN = 240
     PBCH_START = FFT_LEN // 2 - (PBCH_LEN + 1) // 2
     SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
-    clk_div = 0    
+    clk_div = 0
     MAX_CLK_CNT = 3000 * FFT_LEN // 256 * SAMPLE_CLK_DECIMATION
+    rx_start_pos = 0
 
     tx_cnt = 0
     while (len(received_SSS) < SSS_LEN) and (clk_cnt < MAX_CLK_CNT):
@@ -156,10 +157,8 @@ async def simple_test(dut):
 
         if dut.peak_detected_debug_o.value.integer == 1:
             print(f'peak pos = {clk_cnt}')
-
-        if dut.peak_detected_debug_o.value.integer == 1 or len(rx_ADC_data) > 0:
-            rx_ADC_data.append(waveform[clk_cnt - DETECTOR_LATENCY])
-            # print(f'pos = {in_counter - DETECTOR_LATENCY - CFO_CALC_LATENCY}     ---------------------------- ')
+            if rx_start_pos == 0:
+                rx_start_pos = clk_cnt - DETECTOR_LATENCY
 
         if dut.PBCH_valid_o.value.integer == 1:
             # print(f"rx PBCH[{len(received_PBCH):3d}] re = {dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1):4x} " \
@@ -184,6 +183,7 @@ async def simple_test(dut):
     # for i in range(SSS_LEN):
     #     print(f'SSS[{i}] = {int(received_SSS[i].real > 0)}')
 
+    rx_ADC_data = waveform[rx_start_pos:]
     CP_ADVANCE = CP_LEN // 2 if HALF_CP_ADVANCE else CP_LEN
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_LEN + CP_ADVANCE:][:FFT_LEN]))
     scaling_factor = 2 ** (tb.IN_DW / 2 + NFFT - FFT_OUT_DW / 2) # FFT core is in truncation mode
@@ -386,4 +386,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 8)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 4)

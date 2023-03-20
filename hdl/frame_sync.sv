@@ -3,6 +3,7 @@
 module frame_sync #(
     parameter IN_DW = 32,
     parameter NFFT = 8,
+    parameter CLK_FREQ = 3840000,
 
     localparam FFT_LEN = 2 ** NFFT,
     localparam CP1_LEN = 20 * FFT_LEN / 256,
@@ -68,7 +69,6 @@ end
 localparam [1 : 0] PSS_DETECTOR_MODE_SEARCH = 0;
 localparam [1 : 0] PSS_DETECTOR_MODE_FIND   = 1;
 localparam [1 : 0] PSS_DETECTOR_MODE_PAUSE  = 1;
-localparam CLK_FREQ = 3840000 * FFT_LEN / 256;
 localparam CLKS_20MS = $rtoi(CLK_FREQ * 0.02);
 localparam CLKS_PSS_EARLY_WAKEUP = $rtoi(CLK_FREQ * 0.0001); // start PSS detector 0.1 ms before expected SSB
 localparam CLKS_PSS_LATE_TOLERANCE = $rtoi(CLK_FREQ * 0.0001); // keep PSS detector running until 0.1ms after expected SSB

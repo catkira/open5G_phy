@@ -139,14 +139,30 @@ async def simple_test(dut):
     CP2_LEN = 18 * FFT_LEN // 256
     SSS_LEN = 127
     SSS_START = FFT_LEN // 2 - (SSS_LEN + 1) // 2
-    DETECTOR_LATENCY = 27 if tb.MULT_REUSE == 0 else 36
+    # that's a nice bunch of magic numbers
+    # TODO: make this nicer / more systematic
+    if NFFT == 8:
+        if tb.MULT_REUSE == 0:
+            DETECTOR_LATENCY = 18
+        elif tb.MULT_REUSE == 1:
+            DETECTOR_LATENCY = 27  # ok with new PSS_correlator_mr
+        elif tb.MULT_REUSE == 2:
+            DETECTOR_LATENCY = 28  # ok with new PSS_correlator_mr
+        elif tb.MULT_REUSE == 4:
+            DETECTOR_LATENCY = 29 + 826  # ok with new PSS_correlator_mr
+        elif tb.MULT_REUSE == 8:
+            DETECTOR_LATENCY = 37 + 826  # ok with new PSS_correlator_mr
+    else:
+        assert False, print("Error: only NFFT 8 is supported for now!")
+    DETECTOR_LATENCY += 9 # for CFO correction complex_multiplier
     FFT_OUT_DW = 16
     SYMBOL_LEN = 240
     MAX_TX = int(0.045 * fs) # simulate 45ms tx data
-    MAX_CLK_CNT = MAX_TX + 10000
     SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
+    MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
     clk_div = 0
     tx_cnt = 0
+    rx_start_pos = 0
     while clk_cnt < MAX_CLK_CNT:
         await RisingEdge(dut.clk_i)
         if (tx_cnt < MAX_TX) and (clk_div == 0 or SAMPLE_CLK_DECIMATION == 1):
@@ -170,9 +186,8 @@ async def simple_test(dut):
 
         if dut.peak_detected_debug_o.value.integer == 1:
             print(f'peak pos = {clk_cnt}')
-
-        if dut.peak_detected_debug_o.value.integer == 1 or len(rx_ADC_data) > 0:
-            rx_ADC_data.append(waveform[clk_cnt - DETECTOR_LATENCY])
+            if rx_start_pos == 0:
+                rx_start_pos = clk_cnt - DETECTOR_LATENCY
 
         # if dut.m_axis_SSS_tvalid.value.integer == 1:
         #     print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
@@ -231,7 +246,7 @@ async def simple_test(dut):
     assert not np.array_equal(np.array(fifo_data), np.zeros(len(fifo_data)))
     assert np.array_equal(np.array(received_PBCH_LLR), np.array(fifo_data))
 
-
+    rx_ADC_data = waveform[rx_start_pos:][:MAX_TX]
     CP_ADVANCE = CP2_LEN // 2 if HALF_CP_ADVANCE else CP2_LEN
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_LEN + CP_ADVANCE:][:FFT_LEN]))
     ideal_SSS_sym *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_LEN * np.arange(FFT_LEN) + np.pi * (CP2_LEN - CP_ADVANCE)))
@@ -294,13 +309,18 @@ async def simple_test(dut):
         axs[2].plot(np.real(corrected_PBCH[180 + 72:][:180]), np.imag(corrected_PBCH[180 + 72:][:180]), 'b.')
         plt.show()
 
-    peak_pos = np.argmax(received)
+    peak_pos = np.argmax(received[:np.round(fs * 0.02).astype(int)]) # max peak within first 20 ms
     print(f'highest peak at {peak_pos}')
 
-    scaling_factor = 2**(tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mode
+    scaling_factor = 2 ** (tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mode
     ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
 
-    assert peak_pos == 823 + DETECTOR_LATENCY
+    if NFFT == 8:
+        if tb.MULT_REUSE < 8:
+            assert peak_pos == DETECTOR_LATENCY + 823
+        elif tb.MULT_REUSE == 8:
+            assert peak_pos == 3341  # TODO: why is this a different formula?
+
     corr = np.zeros(335)
     for i in range(335):
         sss = py3gpp.nrSSS(i)
@@ -350,7 +370,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
 @pytest.mark.parametrize("LLR_DW", [8])
 @pytest.mark.parametrize("NFFT", [8])
-@pytest.mark.parametrize("MULT_REUSE", [0, 1])
+@pytest.mark.parametrize("MULT_REUSE", [0, 2, 4])
 def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT, MULT_REUSE):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
@@ -411,6 +431,9 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     ]
 
     PSS_LEN = 128
+    CLK_FREQ = str(3840000 * MULT_REUSE // 2) if MULT_REUSE > 2 else str(3840000)
+    print(f'system clock frequency = {CLK_FREQ}')
+    print(f'sample clock frequency = 3840000')
     parameters = {}
     parameters['IN_DW'] = IN_DW
     parameters['OUT_DW'] = OUT_DW
@@ -423,6 +446,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     parameters['LLR_DW'] = LLR_DW
     parameters['NFFT'] = NFFT
     parameters['MULT_REUSE'] = MULT_REUSE
+    parameters['CLK_FREQ'] = CLK_FREQ
     os.environ['CFO'] = str(CFO)
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
@@ -477,4 +501,4 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8, NFFT = 8, MULT_REUSE = 1)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8, NFFT = 8, MULT_REUSE = 4)

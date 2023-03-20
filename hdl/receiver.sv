@@ -28,6 +28,7 @@ module receiver
     parameter NFFT = 8,
     parameter XSERIES = "OLD",        // use "OLD" for Zynq7, "NEW" for MPSoC
     parameter MULT_REUSE = 0,
+    parameter CLK_FREQ = 3840000,
 
     localparam BLK_EXP_LEN = 8,
     localparam FFT_LEN = 2 ** NFFT,
@@ -445,7 +446,8 @@ reg N_id_valid;
 
 frame_sync #(
     .IN_DW(IN_DW),
-    .NFFT(NFFT)
+    .NFFT(NFFT),
+    .CLK_FREQ(CLK_FREQ)
 )
 frame_sync_i
 (
