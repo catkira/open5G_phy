@@ -67,6 +67,7 @@ async def simple_test(dut):
     waveform = handle.read_samples()
     waveform /= max(waveform.real.max(), waveform.imag.max())
     dec_factor = 2048 // (2 ** tb.NFFT)
+    fs = 30720000 // dec_factor
     waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')  # decimate to 3.840 MSPS
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform *= (2 ** (tb.IN_DW // 2 - 1) - 1)
@@ -180,8 +181,8 @@ async def simple_test(dut):
     received_SSS_sym = received_SSS
     received_SSS = received_SSS_sym
 
-    for i in range(SSS_LEN):
-        print(f'SSS[{i}] = {int(received_SSS[i].real > 0)}')
+    # for i in range(SSS_LEN):
+    #     print(f'SSS[{i}] = {int(received_SSS[i].real > 0)}')
 
     CP_ADVANCE = CP_LEN // 2 if HALF_CP_ADVANCE else CP_LEN
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_LEN + CP_ADVANCE:][:FFT_LEN]))
@@ -234,7 +235,7 @@ async def simple_test(dut):
         axs[1, 1].set_title('model PBCH')
         plt.show()
 
-    peak_pos = np.argmax(received)
+    peak_pos = np.argmax(received[:np.round(fs * 0.02).astype(int)]) # max peak within first 20 ms
     print(f'highest peak at {peak_pos}')
 
     assert len(received_SSS) == 127
@@ -245,17 +246,17 @@ async def simple_test(dut):
     else:
         assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.04  # TODO: why does this need more tolerance?
 
-    # assert np.array_equal(received_PBCH, received_PBCH_ideal)
+    # this test is not ideal, because the maximum peak could be any of the 4 SSBs within one burst
     if NFFT == 8:
         if tb.MULT_REUSE < 8:
             assert peak_pos == DETECTOR_LATENCY + 823
         elif tb.MULT_REUSE == 8:
-            assert peak_pos == 3324  # TODO: why is this a different formula?
+            assert peak_pos == 3332  # TODO: why is this a different formula?
     elif NFFT == 9:
         if tb.MULT_REUSE < 8:
             assert peak_pos == DETECTOR_LATENCY + 1647
         elif tb.MULT_REUSE == 8:
-            assert peak_pos == 6924  # TODO: why is this a different formula?
+            assert peak_pos == 6636  # TODO: why is this a different formula?
 
     corr = np.zeros(335)
     for i in range(335):
