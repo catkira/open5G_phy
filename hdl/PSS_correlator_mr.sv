@@ -146,7 +146,7 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
         .s_axis_a_tvalid(mult_in_valid),
         .s_axis_b_tdata(mult_in_tap),
         .s_axis_b_tready(),
-        .s_axis_b_tvalid(1'b1),
+        .s_axis_b_tvalid(mult_in_valid),
 
         .m_axis_dout_tready(1'b1),
         .m_axis_dout_tdata(mult_out_data),

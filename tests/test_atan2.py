@@ -133,7 +133,7 @@ def test(INPUT_WIDTH, OUTPUT_WIDTH, PIPELINED):
     os.environ['PIPELINED'] = str(PIPELINED)
 
     parameters_dir = parameters.copy()
-    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_dir.items()))
+    sim_build='sim_build/_atan2_' + '_'.join(('{}={}'.format(*i) for i in parameters_dir.items()))
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,

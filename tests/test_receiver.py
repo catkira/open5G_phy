@@ -195,6 +195,7 @@ async def simple_test(dut):
                 + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
         if dut.m_axis_demod_out_tvalid.value.integer == 1:
+            # this is not used anymore, can be deleted in the future
             # print(f'{rx_counter}: fft_demod {dut.m_axis_out_tdata.value}')
             received_fft_demod.append(_twos_comp(dut.m_axis_demod_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
@@ -453,7 +454,8 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 
     compile_args = []
     if os.environ.get('SIM') == 'verilator':
-        compile_args = ['--build-jobs', '16', '--no-timing', '-Wno-fatal', '-Wno-PINMISSING','-y', tests_dir + '/../submodules/verilator-unisims']
+        # using --j16 here might not be optimal if pytest is also parallelized with --workers=16
+        compile_args = ['--j', '16', '--no-timing', '-Wno-fatal', '-Wno-PINMISSING', '-y', tests_dir + '/../submodules/verilator-unisims']
     else:
         compile_args = ['-sglbl', '-y' + unisim_dir]
     cocotb_test.simulator.run(

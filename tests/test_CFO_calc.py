@@ -102,7 +102,7 @@ def test(C_DW, CFO_DW, DDS_DW, ANGLE):
     parameters_dir = parameters.copy()
     parameters_dir['ANGLE'] = ANGLE
     
-    sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters_dir.items()))
+    sim_build='sim_build/_CFO_calc_' + '_'.join(('{}={}'.format(*i) for i in parameters_dir.items()))
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
