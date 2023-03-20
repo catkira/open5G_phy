@@ -114,6 +114,13 @@ endfunction
 
 localparam OUTPUT_PAD_BITS = REQUIRED_OUT_DW >= OUT_DW ? 0 : OUT_DW - REQUIRED_OUT_DW;
 
+initial begin
+    if ((MULT_REUSE % 2) != 0 && (MULT_REUSE > 1)) begin
+        $display("Error: MULT_REUSE has to be a power of 2!");
+        $finish();
+    end
+end
+
 for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
     localparam MULT_REUSE_CUR = PSS_LEN_USED - i_g * MULT_REUSE >= MULT_REUSE ? MULT_REUSE : PSS_LEN_USED % MULT_REUSE;
     reg [$clog2(MULT_REUSE) : 0] idx = '0;
@@ -189,6 +196,7 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
     end
 
     // complex_multiplier output process
+    // TODO: this needs to be modified if non power of 2 MULT_REUSE should be supported!
     reg [$clog2(MULT_REUSE) : 0] idx_out;
     always @(posedge clk_i) begin
         if (!reset_ni) begin
@@ -206,7 +214,7 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
                     out_buf_im <= mult_out_data_im + out_buf_im;
                 end
 
-                if (idx_out == MULT_REUSE - 1) begin
+                if (idx_out == MULT_REUSE - 1) begin // never reached if MULT_REUSE is not power of 2!
                     idx_out <= '0;
                     ready <= '1;
                 end else begin
