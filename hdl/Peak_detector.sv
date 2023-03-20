@@ -33,13 +33,19 @@ for (ii = 0; ii < WINDOW_LEN; ii++) begin
     end
 end
 
+reg                 in_valid_f;
+reg [IN_DW - 1 : 0] in_data_f;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         peak_detected_o <= '0;
         init_counter <= '0;
         score_o <= '0;
         average <= '0;
+        in_valid_f <= '0;
+        in_data_f <= '0;
     end else begin
+        in_valid_f <= s_axis_in_tvalid;
+
         if (s_axis_in_tvalid) begin
             if (init_counter < WINDOW_LEN)  init_counter <= init_counter + 1;
 
@@ -59,6 +65,8 @@ always @(posedge clk_i) begin
                 peak_detected_o <= '0;
                 score_o <= '0;
             end
+        end else begin
+            peak_detected_o <= '0;
         end
     end
 end

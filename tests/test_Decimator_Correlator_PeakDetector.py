@@ -100,7 +100,9 @@ async def simple_test(dut):
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         _, (ax1, ax2) = plt.subplots(2,1)
         ax1.plot(received_correlator)
+        ax1.set_title('correlation')
         ax2.plot(received)
+        ax2.set_title('peak detected')
         plt.show()
     print(f'highest peak at {peak_pos}')
     assert peak_pos == 840

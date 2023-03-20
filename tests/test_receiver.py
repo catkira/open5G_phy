@@ -476,8 +476,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 
     compile_args = []
     if os.environ.get('SIM') == 'verilator':
-        # using --j16 here might not be optimal if pytest is also parallelized with --workers=16
-        compile_args = ['--j', '16', '--no-timing', '-Wno-fatal', '-Wno-PINMISSING', '-y', tests_dir + '/../submodules/verilator-unisims']
+        compile_args = ['--no-timing', '-Wno-fatal', '-Wno-PINMISSING', '-y', tests_dir + '/../submodules/verilator-unisims']
     else:
         compile_args = ['-sglbl', '-y' + unisim_dir]
     cocotb_test.simulator.run(
