@@ -34,12 +34,11 @@ class TB(object):
         self.OUT_DW = int(dut.OUT_DW.value)
         self.TAP_DW = int(dut.TAP_DW.value)
         self.PSS_LEN = int(dut.PSS_LEN.value)
-        self.ALGO = int(dut.ALGO.value)
         self.WINDOW_LEN = int(dut.WINDOW_LEN.value)
         self.HALF_CP_ADVANCE = int(dut.HALF_CP_ADVANCE.value)
         self.LLR_DW = int(dut.LLR_DW.value)
         self.NFFT = int(dut.NFFT.value)
-        self.MULT_REUSE = int(dut.MULT_REUSE.value)        
+        self.MULT_REUSE = int(dut.MULT_REUSE.value)
 
         self.log = logging.getLogger('cocotb.tb')
         self.log.setLevel(logging.DEBUG)
@@ -433,13 +432,12 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     PSS_LEN = 128
     CLK_FREQ = str(3840000 * MULT_REUSE // 2) if MULT_REUSE > 2 else str(3840000)
     print(f'system clock frequency = {CLK_FREQ}')
-    print(f'sample clock frequency = 3840000')
+    print('sample clock frequency = 3840000')
     parameters = {}
     parameters['IN_DW'] = IN_DW
     parameters['OUT_DW'] = OUT_DW
     parameters['TAP_DW'] = TAP_DW
     parameters['PSS_LEN'] = PSS_LEN
-    parameters['ALGO'] = 0 # has to be ALGO=0, because ALGO=1 cannot be used for CFO estimation !
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['HALF_CP_ADVANCE'] = HALF_CP_ADVANCE
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
@@ -501,4 +499,4 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8, NFFT = 8, MULT_REUSE = 4)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8, NFFT = 8, MULT_REUSE = 8)

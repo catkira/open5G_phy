@@ -256,7 +256,6 @@ always @(posedge clk_i) begin
 
                 if (find_SSB) begin
                     if (N_id_2_valid_i) begin
-                        m_axis_out_tvalid <= 1;
                         // expected sample_cnt is 0, if actual sample_cnt deviates +-1, perform realignment
                         if (sample_cnt == 0) begin
                             // SSB arrives as expected, no STO correction needed
@@ -289,6 +288,23 @@ always @(posedge clk_i) begin
                 if (N_id_2_valid_i && find_SSB) SSB_start_o <= '1;
                 else                            SSB_start_o <= '0;
 
+                // set m_axis_out_tvalid
+                if (find_SSB) begin
+                    if (N_id_2_valid_i)                                     m_axis_out_tvalid <= s_axis_in_tvalid;
+                    else if (sample_cnt > (FFT_LEN + current_CP_len - 2))   m_axis_out_tvalid <= s_axis_in_tvalid;
+                    else                                                    m_axis_out_tvalid <= '0;
+                end else begin
+                    if (s_axis_in_tvalid) begin
+                        if ((sample_cnt == FFT_LEN + current_CP_len - 2) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
+                            find_SSB <= 1;  // go into find state one SC before the symbol ends
+                            $display("find SSB ...");
+                        end
+                    end
+                    m_axis_out_tvalid <= s_axis_in_tvalid;
+                end
+
+                // set sfn, subfram_number, sym_cnt, sample_cnt
+                // set m_axis_out_tlast
                 if (s_axis_in_tvalid) begin
                     if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
                         m_axis_out_tlast <= 1;
@@ -316,17 +332,8 @@ always @(posedge clk_i) begin
                         sample_cnt <= sample_cnt + 1;
                         m_axis_out_tlast <= '0;
                     end
-
-                    if ((sample_cnt == FFT_LEN + current_CP_len - 2) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
-                        find_SSB <= 1;
-                        m_axis_out_tvalid <= '0;
-                        $display("find SSB ...");
-                    end else begin
-                        m_axis_out_tvalid <= s_axis_in_tvalid;
-                    end
                 end else if (N_id_2_valid_i) begin
                     syms_since_last_SSB <= '0;
-                    m_axis_out_tvalid <= '0;            
                 end
             end
         endcase
