@@ -271,6 +271,26 @@ peak_detector_2_i(
     .score_o(score[2])    
 );
 
+reg [C_DW - 1 : 0] C0_f [0 : 2];
+reg [C_DW - 1 : 0] C1_f [0 : 2];
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        C0_f[0] <= '0;
+        C0_f[1] <= '0;
+        C0_f[2] <= '0;
+        C1_f[0] <= '0;
+        C1_f[1] <= '0;
+        C1_f[2] <= '0;
+    end else begin
+        C0_f[0] <= C0[0];
+        C0_f[1] <= C0[1];
+        C0_f[2] <= C0[2];
+        C1_f[0] <= C1[0];
+        C1_f[1] <= C1[1];
+        C1_f[2] <= C1[2];
+    end
+end
+
 
 reg [C_DW - 1 : 0] C0_in, C1_in;
 reg CFO_calc_valid_in;
@@ -326,8 +346,8 @@ always @(posedge clk_i) begin
             WAIT_FOR_PEAK : begin
                 CFO_valid_o <= '0;
                 if (peak_valid) begin
-                    C0_in <= C0[N_id_2_o];
-                    C1_in <= C1[N_id_2_o];
+                    C0_in <= C0_f[N_id_2_o];
+                    C1_in <= C1_f[N_id_2_o];
                     CFO_calc_valid_in <= 1;
                     CFO_state <= DISABLE_CFO_IN;
                 end

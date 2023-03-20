@@ -446,6 +446,8 @@ always @(posedge clk_i) begin
                         symbol_type <= SYMBOL_TYPE_OTHER;
                         state_corrector <= PASS_THROUGH;
                     end
+                end else begin
+                    symbol_type <= SYMBOL_TYPE_OTHER;
                 end
             end
             CALC_CORRECTION : begin

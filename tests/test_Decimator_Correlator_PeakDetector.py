@@ -107,8 +107,6 @@ async def simple_test(dut):
     print(f'highest peak at {peak_pos}')
     assert peak_pos == 840
 
-
-# bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
 @pytest.mark.parametrize("ALGO", [0, 1])
 @pytest.mark.parametrize("IN_DW", [32])
 @pytest.mark.parametrize("OUT_DW", [32])
