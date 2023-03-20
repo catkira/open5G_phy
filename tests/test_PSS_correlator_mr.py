@@ -192,7 +192,7 @@ def test_CFO(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
 @pytest.mark.parametrize("OUT_DW", [45])
 @pytest.mark.parametrize("TAP_DW", [18, 32])
 @pytest.mark.parametrize("CFO", [1000])
-@pytest.mark.parametrize("MULT_REUSE", [1, 16])
+@pytest.mark.parametrize("MULT_REUSE", [1, 15, 16])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
     dut = 'PSS_correlator_mr'
     module = os.path.splitext(os.path.basename(__file__))[0]
