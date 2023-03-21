@@ -53,6 +53,14 @@ async def simple_test(dut):
     np.random.seed(1)
     numerator = np.random.randint(-MAX_VAL, MAX_VAL, max_rx_cnt)
     denominator = np.random.randint(-MAX_VAL, MAX_VAL, max_rx_cnt)
+
+    # manually add interesting test cases
+    # these corner cases caused a nasty bug because they were not covered in tests !
+    numerator[0] = 0
+    denominator[0] = MAX_VAL
+    numerator[1] = 0
+    denominator[1] = -MAX_VAL
+
     tx_cnt = 0
     expected_results = []
     dut.numerator_i.value = int(numerator[tx_cnt])
