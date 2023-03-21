@@ -119,16 +119,20 @@ function integer calc_delay;
         // TODO: make this nicer / more systematic
         if (FFT_LEN == 256) begin
             if (MULT_REUSE == 0)        calc_delay = 14;  // ok with new PSS_correlator_mr
-            else if (MULT_REUSE == 1)   calc_delay = 23;  // ok with new PSS_correlator_mr
-            else if (MULT_REUSE == 2)   calc_delay = 24;  // ok with new PSS_correlator_mr
-            else if (MULT_REUSE == 4)   calc_delay = 25;  // ok with new PSS_correlator_mr
-            else if (MULT_REUSE == 8)   calc_delay = 27;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 1)   calc_delay = 23;  // ok with new PSS_correlator_mr, 23
+            else if (MULT_REUSE == 2)   calc_delay = 24;  // ok with new PSS_correlator_mr, 23 + 1
+            else if (MULT_REUSE == 4)   calc_delay = 25;  // ok with new PSS_correlator_mr, 23 + 2
+            else if (MULT_REUSE == 8)   calc_delay = 27;  // ok with new PSS_correlator_mr, 23 + 4
+            else if (MULT_REUSE == 16)  calc_delay = 31;  // ok with new PSS_correlator_mr, 23 + 8
+            else if (MULT_REUSE == 32)  calc_delay = 39;  // ok with new PSS_correlator_mr, 23 + 16
         end else if (FFT_LEN == 512) begin
             if (MULT_REUSE == 0)        calc_delay = 16;  // ok with new PSS_correlator_mr
-            else if (MULT_REUSE == 1)   calc_delay = 25;  // ok with new PSS_correlator_mr
-            else if (MULT_REUSE == 2)   calc_delay = 26;  // ok with new PSS_correlator_mr
-            else if (MULT_REUSE == 4)   calc_delay = 29;  // ok with new PSS_correlator_mr
-            else if (MULT_REUSE == 8)   calc_delay = 35;  // ok with new PSS_correlator_mr
+            else if (MULT_REUSE == 1)   calc_delay = 25;  // ok with new PSS_correlator_mr, 25
+            else if (MULT_REUSE == 2)   calc_delay = 26;  // ok with new PSS_correlator_mr, 25 + 1
+            else if (MULT_REUSE == 4)   calc_delay = 29;  // ok with new PSS_correlator_mr, 25 + 4
+            else if (MULT_REUSE == 8)   calc_delay = 35;  // ok with new PSS_correlator_mr, 25 + 10
+            else if (MULT_REUSE == 16)  calc_delay = 47;  // ok with new PSS_correlator_mr, 25 + 22
+            else if (MULT_REUSE == 32)  calc_delay = 71;  // ok with new PSS_correlator_mr, 25 + 46
         end else begin
             $display("Error: FFT_LEN = %d is not supported!", FFT_LEN);
             $finish();

@@ -101,6 +101,10 @@ async def simple_test(dut):
             DETECTOR_LATENCY = 29 + 826  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 8:
             DETECTOR_LATENCY = 37 + 826  # ok with new PSS_correlator_mr
+        elif tb.MULT_REUSE == 16:
+            DETECTOR_LATENCY = 41 + 826 * 5  # ok with new PSS_correlator_mr
+        elif tb.MULT_REUSE == 32:
+            DETECTOR_LATENCY = 49 + 826 * 13  # ok with new PSS_correlator_mr
     elif NFFT == 9:
         if tb.MULT_REUSE == 0:
             DETECTOR_LATENCY = 20
@@ -112,6 +116,10 @@ async def simple_test(dut):
             DETECTOR_LATENCY = 31 + 826 * 2  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 8:
             DETECTOR_LATENCY = 45 + 826 * 2  # ok with new PSS_correlator_mr
+        elif tb.MULT_REUSE == 16:
+            DETECTOR_LATENCY = 49 + 826 * 10  # ok with new PSS_correlator_mr, 13249
+        elif tb.MULT_REUSE == 32:
+            DETECTOR_LATENCY = 57 + 826 * 26  # ok with new PSS_correlator_mr
     else:
         assert False, print("Error: only NFFT 8 and 9 are supported for now!")
     FFT_OUT_DW = 32
@@ -275,7 +283,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
 @pytest.mark.parametrize("NFFT", [8, 9])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
-@pytest.mark.parametrize("MULT_REUSE", [0, 1, 4, 8])
+@pytest.mark.parametrize("MULT_REUSE", [0, 1, 4, 8, 16, 32])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP_FILE, MULT_REUSE):
     dut = 'Decimator_Correlator_PeakDetector_FFT'
     module = os.path.splitext(os.path.basename(__file__))[0]
@@ -386,4 +394,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 8)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 9, USE_TAP_FILE = 1, MULT_REUSE = 32)
