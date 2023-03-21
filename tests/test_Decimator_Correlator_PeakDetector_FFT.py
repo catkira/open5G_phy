@@ -98,13 +98,13 @@ async def simple_test(dut):
         elif tb.MULT_REUSE == 2:
             DETECTOR_LATENCY = 28  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 29 + 826  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 28 + 827  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 37 + 826  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 36 + 827  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 16:
-            DETECTOR_LATENCY = 41 + 826 * 5  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 36 + 827 * 5  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 32:
-            DETECTOR_LATENCY = 49 + 826 * 13  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 36 + 827 * 13  # ok with new PSS_correlator_mr
     elif NFFT == 9:
         if tb.MULT_REUSE == 0:
             DETECTOR_LATENCY = 20
@@ -117,7 +117,7 @@ async def simple_test(dut):
         elif tb.MULT_REUSE == 8:
             DETECTOR_LATENCY = 45 + 826 * 2  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 16:
-            DETECTOR_LATENCY = 49 + 826 * 10  # ok with new PSS_correlator_mr, 13249
+            DETECTOR_LATENCY = 49 + 826 * 10  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 32:
             DETECTOR_LATENCY = 57 + 826 * 26  # ok with new PSS_correlator_mr
     else:
