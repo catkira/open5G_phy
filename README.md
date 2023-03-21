@@ -31,12 +31,13 @@ Implemented so far:<br>
 * (optional) optimize PSS correlator further like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
 
 # Ressource usage
+* CFO correction            :  3 DSP slices
 * Decimator                 :  0 DSP slices
 * PSS correlator            :  6 DSP slices (with MULT_REUSE=64)
 * Peak detector             :  0 DSP slices
-* FFT demodulator           :  ? DSP slices
-* SSS detector              :  ? DSP slices
-* Channel estimator         :  ? DSP slices
+* FFT demodulator           :  (3*NFFT or 1*NFFT) DSP slices
+* SSS detector              :  0 DSP slices
+* Channel estimator         :  3 DSP slices
 * Ressource Grid Subscriber :  0 DSP slices
 * AXI-DMAC                  :  0 DSP slices
 
