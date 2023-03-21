@@ -35,7 +35,7 @@ Implemented so far:<br>
 * Decimator                 :  0 DSP slices
 * PSS correlator            :  6 DSP slices (with MULT_REUSE=64)
 * Peak detector             :  0 DSP slices
-* FFT demodulator           :  (3*NFFT or 1*NFFT) DSP slices
+* FFT demodulator           :  (3 \* NFFT or 1 \* NFFT) DSP slices
 * SSS detector              :  0 DSP slices
 * Channel estimator         :  3 DSP slices
 * Ressource Grid Subscriber :  0 DSP slices
