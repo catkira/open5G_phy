@@ -8,7 +8,7 @@ Cell search is limited to 1 frequency offset range. Within this frequency offset
 Each PSS correlator only detects one of the possible three different PSS sequences. If a general cell search for all 3 possible N_id_2's is needed, 3 PSS correlators need to be instanciated in parallel. If CFOs larger than the detection range of the PSS correlator are expected, the different CFO possibilities can be tried sequentially by configuring the receiver via its AXI-lite interface.<br>
 
 Implemented so far:<br>
-* Decimator (detailed description below)
+* Decimator (detailed description below)[https://github.com/catkira/open5G_rx#decimator]
 * PSS correlator (detailed description below)
 * Peak detector (detailed description below)
 * PSS detector (detailed description below)
