@@ -8,16 +8,16 @@ Cell search is limited to 1 frequency offset range. Within this frequency offset
 Each PSS correlator only detects one of the possible three different PSS sequences. If a general cell search for all 3 possible N_id_2's is needed, 3 PSS correlators need to be instanciated in parallel. If CFOs larger than the detection range of the PSS correlator are expected, the different CFO possibilities can be tried sequentially by configuring the receiver via its AXI-lite interface.<br>
 
 Implemented so far:<br>
-* Decimator (detailed description below)[https://github.com/catkira/open5G_rx#decimator]
-* PSS correlator (detailed description below)
-* Peak detector (detailed description below)
-* PSS detector (detailed description below)
-* FFT demodulator (detailed description below)
-* SSS detector (detailed description below)
-* Frame sync (detailed description below)
-* Channel estimator (detailed description below)
-* Ressource grid subscriber  (detailed description below)
-* AXI-DMAC (detailed description below)
+* Decimator [detailed description below](https://github.com/catkira/open5G_rx#decimator)
+* PSS correlator [detailed description below](https://github.com/catkira/open5G_rx#pss-correlator)
+* Peak detector [detailed description below](https://github.com/catkira/open5G_rx#peak-detector)
+* PSS detector [detailed description below](https://github.com/catkira/open5G_rx#pss-detector)
+* FFT demodulator [detailed description below](https://github.com/catkira/open5G_rx#fft-demodulator)
+* SSS detector [detailed description below](https://github.com/catkira/open5G_rx#sss-detector)
+* Frame sync [detailed description below](https://github.com/catkira/open5G_rx#frame-sync)
+* Channel estimator [detailed description below](https://github.com/catkira/open5G_rx#channel-estimator)
+* Ressource grid subscriber [detailed description below](https://github.com/catkira/open5G_rx#ressource-grid-subscriber)
+* AXI-DMAC [detailed description below](https://github.com/catkira/open5G_rx#axi-dmac)
 
 <b>Disclaimer: It is unlikely that this design which is optimized for mobility and low ressource usage will implement all possible 5G NR Phy features in hdl. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication. The 'Ressource Grid Subscriber' core can be used, which sends user selectable OFDM symbols via AXI-DMA to the A9 core. This can then be used to implement full 5G functionality on the CPU, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project).</b>
 
