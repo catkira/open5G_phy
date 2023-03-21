@@ -125,7 +125,7 @@ always @(posedge clk_i) begin
         
         div_valid_in <= valid_i;
         div_user_in <= {inv_div_result, sign(numerator_i), sign(denominator_i)};
-        numerator_wide <= (numerator << LUT_DW) - 1;
+        numerator_wide <= numerator != 0 ? (numerator << LUT_DW) - 1 : 0;  // don't do -1 when numerator is 0 !!!
         denominator_wide <= {{(LUT_DW){1'b0}}, denominator};  // explicit zero padding is actually not needed   
 
         // stage n
