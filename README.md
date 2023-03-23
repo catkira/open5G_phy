@@ -19,7 +19,12 @@ Implemented so far:<br>
 * Ressource grid subscriber [detailed description below](https://github.com/catkira/open5G_rx#ressource-grid-subscriber)
 * AXI-DMAC [detailed description below](https://github.com/catkira/open5G_rx#axi-dmac)
 
-<b>Disclaimer: It is unlikely that this design which is optimized for mobility and low ressource usage will implement all possible 5G NR Phy features in hdl. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication. The 'Ressource Grid Subscriber' core can be used, which sends user selectable OFDM symbols via AXI-DMA to the A9 core. This can then be used to implement full 5G functionality on the CPU, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project).</b>
+<b>Limitation:</b> The current design is not yet fully 5G NR compliant, because it assumes that the SSB is always in the center of the ressource grid bandwidth (see this issue). 
+The current design implements only the lower phy. It can be used in combination with a CPU that runs the higher layers to implement full 5G functionality, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project).
+
+<br><br>
+<b>Discalimer:</b> This design is not intended for very high data rate applications. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication or HAM radio. The main goal of this design is to achieve a digital data link with fairly high data rates while using minimal ressources so that it can be used in portable battery powered devices. </b>
+<br><br>
 
 ![Overview diagram](doc/overview.jpg)
 
