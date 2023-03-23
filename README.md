@@ -23,7 +23,7 @@ Implemented so far:<br>
 This design implements only the lower phy. It can be used in combination with a CPU that runs the higher layers to implement full 5G functionality, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project).
 
 <br>
-<b>Discalimer:</b> This design is not intended for very high data rate applications. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication or HAM radio. The main goal of this design is to achieve a digital data link with fairly high data rates while using minimal ressources so that it can be used in portable battery powered devices. </b>
+<b>Disclaimer:</b> This design is not intended for very high data rate applications. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication or HAM radio. The main goal of this design is to achieve a digital data link with fairly high data rates while using minimal ressources so that it can be used in portable battery powered devices. </b>
 <br><br>
 
 ![Overview diagram](doc/overview.jpg)
