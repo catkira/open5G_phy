@@ -229,12 +229,11 @@ for (ii = 0; ii < PSS_LEN; ii++) begin
             in_im[ii] <= '0;
         end else if (s_axis_in_tvalid) begin
             if (ii == 0) begin
-                in_re[0] <= axis_in_re;
-                in_im[0] <= axis_in_im;
-            end
-            if (ii < PSS_LEN - 1) begin
-                in_re[ii + 1] <= in_re[ii];
-                in_im[ii + 1] <= in_im[ii];
+                in_re[ii] <= axis_in_re;
+                in_im[ii] <= axis_in_im;
+            end else begin
+                in_re[ii] <= in_re[ii - 1];
+                in_im[ii] <= in_im[ii - 1];
             end
         end
     end
