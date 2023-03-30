@@ -138,23 +138,8 @@ else begin : GEN_SYNC
     wire                            underflow       = (!s_axis_in_tfull) && m_axis_out_tvalid;
 
     always @(posedge clk_i) begin
-        if (!reset_ni) begin
-            wr_ptr <= '0;
-            for(integer i = 0; i < FIFO_LEN; i = i + 1) begin
-                mem[i] = '0;  // Non-delayed for verilator
-                if (USER_WIDTH > 0)  mem_user[i] = '0;
-                mem_last[i] = '0;
-            end
-        end else begin
-            if (s_axis_in_tvalid) begin
-                // for (integer i = 0; i < IN_MUX; i = i + 1) begin
-                //     mem[wr_ptr_addr + i] <= s_axis_in_tuser[(i + 1) * USER_WIDTH - 1 -: USER_WIDTH];
-                //     mem_last[wr_ptr_addr + i] <= (i == IN_MUX - 1 ? s_axis_in_tlast : 1'b0);
-                //     if (USER_WIDTH > 0)  mem_user[wr_ptr_addr + i] <= s_axis_in_tuser[(i + 1) * USER_WIDTH - 1 -: USER_WIDTH];
-                // end
-                wr_ptr <= wr_ptr + IN_MUX;
-            end
-        end
+        if (!reset_ni) wr_ptr <= '0;
+        else if (s_axis_in_tvalid) wr_ptr <= wr_ptr + IN_MUX;
     end
 
     // its lame that verilog distinguishes between procedural and generational for loops
@@ -163,11 +148,22 @@ else begin : GEN_SYNC
         wire [DATA_WIDTH - 1 : 0] data = s_axis_in_tdata[DATA_WIDTH * (ii + 1) - 1 -: DATA_WIDTH];
         if (USER_WIDTH > 0) begin : GEN_USER
             wire [USER_WIDTH - 1 : 0] user = s_axis_in_tuser[USER_WIDTH * (ii + 1) - 1 -: USER_WIDTH];
-            always @(posedge clk_i)
-            if (s_axis_in_tvalid)  mem_user[wr_ptr_addr + ii] <= user;
+            always @(posedge clk_i) begin
+                if (!reset_ni) begin
+                    for(integer i = 0; i < FIFO_LEN; i = i + 1) mem_user[i] = '0;
+                end else if (s_axis_in_tvalid)  mem_user[wr_ptr_addr + ii] <= user;
+            end
         end
+
         always @(posedge clk_i) begin
-            if (s_axis_in_tvalid) begin
+            if (!reset_ni) begin
+                if (ii == 0) begin  // only do reset initializations for ii = 0 to prevent multi-driven nets
+                    for(integer i = 0; i < FIFO_LEN; i = i + 1) begin
+                        mem_last[i] = '0;
+                        mem[i] = '0;  // Non-delayed for verilator
+                    end
+                end
+            end else if (s_axis_in_tvalid) begin
                 mem[wr_ptr_addr + ii] <= data;
                 mem_last[wr_ptr_addr + ii] <= (ii == IN_MUX - 1 ? s_axis_in_tlast : 1'b0);
             end
