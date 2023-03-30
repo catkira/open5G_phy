@@ -30,7 +30,7 @@ localparam WAIT_FOR_MULT  = 4'b0010;
 localparam CALC_ATAN      = 4'b0101;
 localparam OUTPUT         = 4'b0110;
 
-localparam ATAN_IN_DW = 16;
+localparam ATAN_IN_DW = 8;
 reg [2*ATAN_IN_DW : 0] C0_times_conjC1;
 
 reg atan_valid_in;
