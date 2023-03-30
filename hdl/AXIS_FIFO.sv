@@ -73,7 +73,7 @@ endfunction
 
 reg [DATA_WIDTH - 1  : 0]           mem [0 : FIFO_LEN - 1];
 reg [USER_WIDTH - 1  : 0]           mem_user [0 : FIFO_LEN - 1];
-reg [USER_WIDTH - 1  : 0]           mem_last [0 : FIFO_LEN - 1];
+reg [FIFO_LEN - 1 : 0]              mem_last;
 
 if (ASYNC) begin  : GEN_ASYNC
     reg [PTR_WIDTH - 1 : 0]             rd_ptr;
@@ -158,8 +158,8 @@ else begin : GEN_SYNC
         always @(posedge clk_i) begin
             if (!reset_ni) begin
                 if (ii == 0) begin  // only do reset initializations for ii = 0 to prevent multi-driven nets
+                    mem_last <= '0;
                     for(integer i = 0; i < FIFO_LEN; i = i + 1) begin
-                        mem_last[i] = '0;
                         mem[i] = '0;  // Non-delayed for verilator
                     end
                 end
