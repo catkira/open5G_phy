@@ -5,6 +5,7 @@ module CFO_calc
     parameter C_DW = 32,
     parameter CFO_DW = 20,
     parameter DDS_DW = 20,
+    parameter ATAN_IN_DW = 8,
     localparam SAMPLE_RATE = 3840000
 )
 (
@@ -30,7 +31,6 @@ localparam WAIT_FOR_MULT  = 4'b0010;
 localparam CALC_ATAN      = 4'b0101;
 localparam OUTPUT         = 4'b0110;
 
-localparam ATAN_IN_DW = 8;
 reg [2*ATAN_IN_DW : 0] C0_times_conjC1;
 
 reg atan_valid_in;

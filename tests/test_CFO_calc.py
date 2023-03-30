@@ -97,6 +97,7 @@ def test(C_DW, CFO_DW, DDS_DW, ANGLE):
     parameters['C_DW'] = C_DW
     parameters['CFO_DW'] = CFO_DW
     parameters['DDS_DW'] = DDS_DW
+    parameters['ATAN_IN_DW'] = 16
     os.environ['ANGLE'] = str(ANGLE)
 
     parameters_dir = parameters.copy()
