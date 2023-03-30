@@ -43,7 +43,7 @@ module receiver
 )
 (
     input                                           clk_i,
-    input                                           reset_ni,
+    input                                           reset_n,
 
     input                                           sample_clk_i,
     input   wire    [IN_DW - 1 : 0]                 s_axis_in_tdata,
@@ -175,7 +175,7 @@ reg [IN_DW - 1 : 0]             FIFO_out_tdata;
 reg                             FIFO_out_tvalid;
 
 wire [IN_DW - 1 : 0] in_data = SEPARATE_IQ_IN ? {s_axis_in_Q_tdata, s_axis_in_I_tdata} : s_axis_in_tdata;
-
+wire reset_ni = reset_n; // port was renamed from reset_ni to reset_n so that Vivado infers correct polarity
 AXIS_FIFO #(
     .DATA_WIDTH(IN_DW),
     .FIFO_LEN(16),

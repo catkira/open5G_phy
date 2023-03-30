@@ -4,7 +4,6 @@ import os
 import pytest
 import logging
 import matplotlib.pyplot as plt
-import os
 import importlib.util
 
 import cocotb
@@ -48,11 +47,11 @@ class TB(object):
 
     async def cycle_reset(self):
         self.dut.s_axis_in_tvalid.value = 0
-        self.dut.reset_ni.value = 1
+        self.dut.reset_n.value = 1
         await RisingEdge(self.dut.clk_i)
-        self.dut.reset_ni.value = 0
+        self.dut.reset_n.value = 0
         await RisingEdge(self.dut.clk_i)
-        self.dut.reset_ni.value = 1
+        self.dut.reset_n.value = 1
         await RisingEdge(self.dut.clk_i)
 
     async def read_axil(self, addr):
@@ -97,7 +96,7 @@ async def simple_test(dut):
     if USE_COCOTB_AXI:
         # cocotbext-axi hangs with Verilator -> https://github.com/verilator/verilator/issues/3919
         # case_insensitive=False is a workaround https://github.com/alexforencich/verilog-axi/issues/48
-        axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi_if", case_insensitive=False), dut.clk_i, dut.reset_ni, reset_active_level = False)
+        axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi_if", case_insensitive=False), dut.clk_i, dut.reset_n, reset_active_level = False)
         addr = 0
         data = await axi_master.read_dword(4 * addr)
         data = int(data)
