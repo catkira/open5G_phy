@@ -28,6 +28,7 @@ module receiver
     parameter XSERIES = "OLD",        // use "OLD" for Zynq7, "NEW" for MPSoC
     parameter MULT_REUSE = 0,
     parameter CLK_FREQ = 3840000,
+    parameter SEPARATE_IQ_IN = 0,
 
     localparam BLK_EXP_LEN = 8,
     localparam FFT_LEN = 2 ** NFFT,
@@ -46,6 +47,8 @@ module receiver
 
     input                                           sample_clk_i,
     input   wire    [IN_DW - 1 : 0]                 s_axis_in_tdata,
+    input   wire    [IN_DW / 2 - 1 : 0]             s_axis_in_I_tdata,
+    input   wire    [IN_DW / 2 - 1 : 0]             s_axis_in_Q_tdata,
     input                                           s_axis_in_tvalid,
 
     output                                          PBCH_valid_o,
@@ -171,6 +174,8 @@ reg                             mult_out_tvalid;
 reg [IN_DW - 1 : 0]             FIFO_out_tdata;
 reg                             FIFO_out_tvalid;
 
+wire [IN_DW - 1 : 0] in_data = SEPARATE_IQ_IN ? {s_axis_in_Q_tdata, s_axis_in_I_tdata} : s_axis_in_tdata;
+
 AXIS_FIFO #(
     .DATA_WIDTH(IN_DW),
     .FIFO_LEN(16),
@@ -180,7 +185,7 @@ AXIS_FIFO_i(
     .clk_i(sample_clk_i),
     .reset_ni(reset_ni),
 
-    .s_axis_in_tdata(s_axis_in_tdata),
+    .s_axis_in_tdata(in_data),
     .s_axis_in_tvalid(s_axis_in_tvalid),
     .s_axis_in_tuser(),
     .s_axis_in_tlast(),
