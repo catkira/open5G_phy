@@ -142,30 +142,30 @@ else begin : GEN_SYNC
         else if (s_axis_in_tvalid) wr_ptr <= wr_ptr + IN_MUX;
     end
 
-    // its lame that verilog distinguishes between procedural and generational for loops
-    genvar ii;
-    for(ii = 0; ii < IN_MUX; ii = ii + 1) begin : GEN_LOOP
-        wire [DATA_WIDTH - 1 : 0] data = s_axis_in_tdata[DATA_WIDTH * (ii + 1) - 1 -: DATA_WIDTH];
-        if (USER_WIDTH > 0) begin : GEN_USER
-            wire [USER_WIDTH - 1 : 0] user = s_axis_in_tuser[USER_WIDTH * (ii + 1) - 1 -: USER_WIDTH];
-            always @(posedge clk_i) begin
-                if (!reset_ni) begin
-                    for(integer i = 0; i < FIFO_LEN; i = i + 1) mem_user[i] = '0;
-                end else if (s_axis_in_tvalid)  mem_user[wr_ptr_addr + ii] <= user;
+    always @(posedge clk_i) begin
+        if (!reset_ni) begin
+            for(integer i = 0; i < FIFO_LEN; i = i + 1) begin
+                if (USER_WIDTH > 0) mem_user[i] = '0;
+                mem[i] = '0;
             end
-        end
-
-        always @(posedge clk_i) begin
-            if (!reset_ni) begin
-                // if (ii == 0) begin  // only do reset initializations for ii = 0 to prevent multi-driven nets
-                //     mem_last <= '0;
-                //     for(integer i = 0; i < FIFO_LEN; i = i + 1) begin
-                //         mem[i] = '0;  // Non-delayed for verilator
-                //     end
-                // end
-            end else if (s_axis_in_tvalid) begin
-                mem[wr_ptr_addr + ii] <= data;
-                mem_last[wr_ptr_addr + ii] <= (ii == IN_MUX - 1 ? s_axis_in_tlast : 1'b0);
+            mem_last <= '0;
+        end else begin
+            if (IN_MUX == 1) begin
+                mem[wr_ptr_addr] <= s_axis_in_tdata;
+                mem_last[wr_ptr_addr] <= s_axis_in_tlast;
+                if (USER_WIDTH > 0) mem_user[wr_ptr_addr] <= s_axis_in_tuser;
+            end else if (IN_MUX == 2) begin
+                mem[wr_ptr_addr]     <= s_axis_in_tdata[DATA_WIDTH * 1 - 1 -: DATA_WIDTH];
+                mem[wr_ptr_addr + 1] <= s_axis_in_tdata[DATA_WIDTH * 2 - 1 -: DATA_WIDTH];
+                mem_last[wr_ptr_addr]     <= '0;
+                mem_last[wr_ptr_addr + 1] <= s_axis_in_tlast;
+                if (USER_WIDTH > 0) begin
+                    mem_user[wr_ptr_addr]     <= s_axis_in_tuser;
+                    mem_user[wr_ptr_addr + 1] <= s_axis_in_tuser;
+                end
+            end else begin
+                $display("Error: IN_MUX = %d is not supported!", IN_MUX);
+                $finish();
             end
         end
     end
