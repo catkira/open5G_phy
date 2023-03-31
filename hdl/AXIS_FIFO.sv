@@ -144,11 +144,11 @@ else begin : GEN_SYNC
 
     always @(posedge clk_i) begin
         if (!reset_ni) begin
-            for(integer i = 0; i < FIFO_LEN; i = i + 1) begin
-                if (USER_WIDTH > 0) mem_user[i] = '0;
-                mem[i] = '0;
-            end
-            mem_last <= '0;
+            // for(integer i = 0; i < FIFO_LEN; i = i + 1) begin
+            //     if (USER_WIDTH > 0) mem_user[i] = '0;
+            //     mem[i] = '0;
+            // end
+            // mem_last <= '0;
         end else begin
             if (IN_MUX == 1) begin
                 mem[wr_ptr_addr] <= s_axis_in_tdata;
