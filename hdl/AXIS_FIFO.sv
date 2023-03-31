@@ -157,12 +157,12 @@ else begin : GEN_SYNC
 
         always @(posedge clk_i) begin
             if (!reset_ni) begin
-                if (ii == 0) begin  // only do reset initializations for ii = 0 to prevent multi-driven nets
-                    mem_last <= '0;
-                    for(integer i = 0; i < FIFO_LEN; i = i + 1) begin
-                        mem[i] = '0;  // Non-delayed for verilator
-                    end
-                end
+                // if (ii == 0) begin  // only do reset initializations for ii = 0 to prevent multi-driven nets
+                //     mem_last <= '0;
+                //     for(integer i = 0; i < FIFO_LEN; i = i + 1) begin
+                //         mem[i] = '0;  // Non-delayed for verilator
+                //     end
+                // end
             end else if (s_axis_in_tvalid) begin
                 mem[wr_ptr_addr + ii] <= data;
                 mem_last[wr_ptr_addr + ii] <= (ii == IN_MUX - 1 ? s_axis_in_tlast : 1'b0);
