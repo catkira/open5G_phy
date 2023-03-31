@@ -5,7 +5,8 @@ module channel_estimator #(
     localparam OUT_DW = IN_DW,
     localparam NFFT = 8,
     localparam FFT_LEN = 2 ** NFFT,
-    localparam MAX_CELL_ID = 1007
+    localparam MAX_CELL_ID = 1007,
+    localparam PHASE_DW = 12        // LUT size inside DDS is 2 ** (PHASE_DW - 2)
 )
 (
     input                                           clk_i,
@@ -320,7 +321,6 @@ data_FIFO_i(
 
 // This atan2 instance is used to calculate angle(received_i),
 // which is the phase of each subcarrier of the current symbol
-localparam PHASE_DW = 18;
 reg signed [PHASE_DW - 1 : 0]   SC_phase;
 reg                             SC_phase_valid;
 atan2 #(
@@ -584,6 +584,7 @@ reg signed [DDS_OUT_DW - 1 : 0] DDS_out;
 reg                             DDS_out_valid;
 dds #(
     .PHASE_DW(PHASE_DW),
+//    .LUT_DW(PHASE_DW - 2),
     .OUT_DW(DDS_OUT_DW / 2),
     .USE_TAYLOR(0),
     .SIN_COS(1),
