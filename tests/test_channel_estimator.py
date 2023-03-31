@@ -247,9 +247,9 @@ async def simple_test3(dut):
                 + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
             corrected_PBCH_idx += 1
         
-        if dut.m_axis_out_tlast.value == 1:
-            corrected_PBCH_sym_cnt += 1
-            corrected_PBCH_idx = 0
+            if dut.m_axis_out_tlast.value == 1:
+                corrected_PBCH_sym_cnt += 1
+                corrected_PBCH_idx = 0
 
         if dut.debug_ibar_SSB_valid_o.value == 1:
             ibar_SSB_det = dut.debug_ibar_SSB_o.value.integer
