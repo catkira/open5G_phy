@@ -67,12 +67,12 @@ always @(posedge clk_i) begin
     end
 end
 
-AXIS_FIFO #(
-    .DATA_WIDTH(LLR_DW),
-    .FIFO_LEN(1024),
-    .USER_WIDTH(2),
-    .ASYNC(0),
-    .IN_MUX(2)
+axis_fifo_asym #(
+    .DATA_WIDTH_IN(2 * LLR_DW),
+    .DATA_WIDTH_OUT(LLR_DW),
+    .ADDRESS_WIDTH_IN(10),
+    .USER_WIDTH_IN(2 * 2),
+    .ASYNC(0)
 )
 out_fifo_i(
     .clk_i(clk_i),
@@ -82,12 +82,39 @@ out_fifo_i(
     .s_axis_in_tuser(out_fifo_user_in),
     .s_axis_in_tlast(out_fifo_last_in),
     .s_axis_in_tvalid(out_fifo_valid_in),
+    .s_axis_in_tfull(),
 
+    .out_clk_i(clk_i),
     .m_axis_out_tready(1'b1),
     .m_axis_out_tdata(m_axis_out_tdata),
     .m_axis_out_tuser(m_axis_out_tuser),
     .m_axis_out_tlast(m_axis_out_tlast),
-    .m_axis_out_tvalid(m_axis_out_tvalid)
+    .m_axis_out_tvalid(m_axis_out_tvalid),
+    .m_axis_out_tlevel(),
+    .m_axis_out_tempty()
 );
+
+// AXIS_FIFO #(
+//     .DATA_WIDTH(LLR_DW),
+//     .FIFO_LEN(1024),
+//     .USER_WIDTH(2),
+//     .ASYNC(0),
+//     .IN_MUX(2)
+// )
+// out_fifo_i(
+//     .clk_i(clk_i),
+//     .reset_ni(reset_ni),
+
+//     .s_axis_in_tdata(out_fifo_data_in),
+//     .s_axis_in_tuser(out_fifo_user_in),
+//     .s_axis_in_tlast(out_fifo_last_in),
+//     .s_axis_in_tvalid(out_fifo_valid_in),
+
+//     .m_axis_out_tready(1'b1),
+//     .m_axis_out_tdata(m_axis_out_tdata),
+//     .m_axis_out_tuser(m_axis_out_tuser),
+//     .m_axis_out_tlast(m_axis_out_tlast),
+//     .m_axis_out_tvalid(m_axis_out_tvalid)
+// );
 
 endmodule

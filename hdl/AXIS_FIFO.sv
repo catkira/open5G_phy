@@ -21,15 +21,14 @@ module AXIS_FIFO #(
     parameter DATA_WIDTH = 16,
     parameter FIFO_LEN = 8,      // has to be power of 2 !
     parameter USER_WIDTH = 1,
-    parameter ASYNC = 1,
-    parameter IN_MUX = 1
+    parameter ASYNC = 1
 )
 (
     input                                               clk_i,
     input                                               reset_ni,
 
-    input           [DATA_WIDTH * IN_MUX - 1 : 0]       s_axis_in_tdata,
-    input           [USER_WIDTH * IN_MUX - 1 : 0]       s_axis_in_tuser,
+    input           [DATA_WIDTH - 1 : 0]                s_axis_in_tdata,
+    input           [USER_WIDTH - 1 : 0]                s_axis_in_tuser,
     input                                               s_axis_in_tlast,
     input                                               s_axis_in_tvalid,
     output  reg                                         s_axis_in_tfull,
@@ -112,7 +111,6 @@ if (ASYNC) begin  : GEN_ASYNC
     end
 
     // TODO: tfull, tuser, tlast, tempty, tlevel are not support for ASYNC = 1
-    // ASYNC currently only supports IN_MUX = 1
     always @(posedge clk_i) begin
         s_axis_in_tfull <= '0;
     end
@@ -139,7 +137,7 @@ else begin : GEN_SYNC
 
     always @(posedge clk_i) begin
         if (!reset_ni) wr_ptr <= '0;
-        else if (s_axis_in_tvalid) wr_ptr <= wr_ptr + IN_MUX;
+        else if (s_axis_in_tvalid) wr_ptr <= wr_ptr + 1'b1;
     end
 
     always @(posedge clk_i) begin
@@ -150,23 +148,9 @@ else begin : GEN_SYNC
             // end
             // mem_last <= '0;
         end else begin
-            if (IN_MUX == 1) begin
-                mem[wr_ptr_addr] <= s_axis_in_tdata;
-                mem_last[wr_ptr_addr] <= s_axis_in_tlast;
-                if (USER_WIDTH > 0) mem_user[wr_ptr_addr] <= s_axis_in_tuser;
-            end else if (IN_MUX == 2) begin
-                mem[wr_ptr_addr]     <= s_axis_in_tdata[DATA_WIDTH * 1 - 1 -: DATA_WIDTH];
-                mem[wr_ptr_addr + 1] <= s_axis_in_tdata[DATA_WIDTH * 2 - 1 -: DATA_WIDTH];
-                mem_last[wr_ptr_addr]     <= '0;
-                mem_last[wr_ptr_addr + 1] <= s_axis_in_tlast;
-                if (USER_WIDTH > 0) begin
-                    mem_user[wr_ptr_addr]     <= s_axis_in_tuser;
-                    mem_user[wr_ptr_addr + 1] <= s_axis_in_tuser;
-                end
-            end else begin
-                $display("Error: IN_MUX = %d is not supported!", IN_MUX);
-                $finish();
-            end
+            mem[wr_ptr_addr] <= s_axis_in_tdata;
+            mem_last[wr_ptr_addr] <= s_axis_in_tlast;
+            if (USER_WIDTH > 0) mem_user[wr_ptr_addr] <= s_axis_in_tuser;
         end
     end
 

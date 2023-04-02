@@ -3,15 +3,14 @@ module axis_axil_fifo #(
     parameter DATA_WIDTH = 16,
     parameter FIFO_LEN = 8,      // has to be power of 2 !
     parameter USER_WIDTH = 1,
-    parameter IN_MUX = 1,
     parameter ADDRESS_WIDTH = 16    
 )
 (
     input                                               clk_i,
     input                                               reset_ni,
 
-    input           [DATA_WIDTH * IN_MUX - 1 : 0]       s_axis_in_tdata,
-    input           [USER_WIDTH * IN_MUX - 1 : 0]       s_axis_in_tuser,
+    input           [DATA_WIDTH - 1 : 0]                s_axis_in_tdata,
+    input           [USER_WIDTH - 1 : 0]                s_axis_in_tuser,
     input                                               s_axis_in_tlast,
     input                                               s_axis_in_tvalid,
     output  reg                                         s_axis_in_tfull,
@@ -59,8 +58,7 @@ AXIS_FIFO #(
     .DATA_WIDTH(DATA_WIDTH),
     .FIFO_LEN(FIFO_LEN),
     .USER_WIDTH(USER_WIDTH),
-    .ASYNC(1'b0),
-    .IN_MUX(IN_MUX)
+    .ASYNC(1'b0)
 )
 AXIS_FIFO_i(
     .clk_i(clk_i),

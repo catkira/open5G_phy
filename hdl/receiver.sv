@@ -590,7 +590,6 @@ axis_axil_fifo #(
     .DATA_WIDTH(LLR_DW),
     .FIFO_LEN(2048),
     .USER_WIDTH(1),
-    .IN_MUX(1),
     .ADDRESS_WIDTH(OFFSET_ADDR_WIDTH)
 )
 axis_axil_fifo_i(
