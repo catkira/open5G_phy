@@ -152,7 +152,7 @@ else begin : GEN_SYNC
     end
 
     wire empty = wr_ptr == rd_ptr;
-    wire [PTR_WIDTH : 0] rd_ptr_next = m_axis_out_tready ? rd_ptr + 1 : rd_ptr;
+    wire [PTR_WIDTH : 0] rd_ptr_next = m_axis_out_tready && m_axis_out_tvalid ? rd_ptr + 1 : rd_ptr;
     wire [PTR_WIDTH - 1: 0] rd_ptr_addr_next = rd_ptr_next[PTR_WIDTH - 1 : 0];
 
     always @(posedge clk_i) begin

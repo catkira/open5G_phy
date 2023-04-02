@@ -33,7 +33,7 @@ jobs:
         #./configure
         #make -j20 install
 
-    - name: Verify with verilator        
+    - name: Compile Verilator        
       run: |
         sudo apt install libfl-dev help2man
         git clone https://github.com/verilator/verilator.git
@@ -44,7 +44,7 @@ jobs:
         sudo make -j20
         sudo make install
 
-    - name: Verify with verilator
+    - name: Verify with Verilator
       run: |
         SIM=verilator pytest -v tests/test_receiver.py
         SIM=verilator pytest -v tests/test_Decimator_to_SSS_detector.py
