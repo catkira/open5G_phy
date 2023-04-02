@@ -80,9 +80,9 @@ if (ASYNC) begin  : GEN_ASYNC
     wire [PTR_WIDTH : 0]                wr_ptr          = g2b(wr_ptr_grey);
     wire [PTR_WIDTH - 1: 0]             wr_ptr_addr     = wr_ptr[PTR_WIDTH - 1 : 0];
     wire [PTR_WIDTH - 1: 0]             rd_ptr_addr     = rd_ptr[PTR_WIDTH - 1 : 0];
-    wire                                empty           = wr_ptr == rd_ptr_next;
-    wire [PTR_WIDTH : 0]                rd_ptr_next     = m_axis_out_tready ? rd_ptr + 1 : rd_ptr;
-    wire [PTR_WIDTH - 1: 0]             rd_ptr_addr_next = rd_ptr_next[PTR_WIDTH - 1 : 0];    
+    wire                                empty           = wr_ptr == rd_ptr;
+    // wire [PTR_WIDTH : 0]                rd_ptr_next     = (m_axis_out_tready && !empty) ? rd_ptr + 1 : rd_ptr;
+    // wire [PTR_WIDTH - 1: 0]             rd_ptr_addr_next = rd_ptr_next[PTR_WIDTH - 1 : 0];    
 
 
     always @(posedge clk_i) begin
@@ -101,13 +101,11 @@ if (ASYNC) begin  : GEN_ASYNC
             m_axis_out_tvalid <= '0;
             rd_ptr <= '0;
         end else begin
-            if (!empty) begin
-                m_axis_out_tvalid <= 1;
-                rd_ptr <= rd_ptr_next;
-                m_axis_out_tdata <= mem[rd_ptr_addr_next];
-                if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr_next];
-            end else begin
-                m_axis_out_tvalid <= 0;
+            m_axis_out_tvalid <= !empty;
+            m_axis_out_tdata <= mem[rd_ptr_addr];
+            if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr];
+            if (!empty && m_axis_out_tready) begin
+                rd_ptr <= rd_ptr + 1;
             end
         end
     end
@@ -152,7 +150,7 @@ else begin : GEN_SYNC
     end
 
     wire empty = wr_ptr == rd_ptr;
-    wire [PTR_WIDTH : 0] rd_ptr_next = m_axis_out_tready && m_axis_out_tvalid ? rd_ptr + 1 : rd_ptr;
+    wire [PTR_WIDTH : 0] rd_ptr_next =(m_axis_out_tready && m_axis_out_tvalid) ? rd_ptr + 1 : rd_ptr;
     wire [PTR_WIDTH - 1: 0] rd_ptr_addr_next = rd_ptr_next[PTR_WIDTH - 1 : 0];
 
     always @(posedge clk_i) begin
@@ -163,16 +161,12 @@ else begin : GEN_SYNC
             m_axis_out_tvalid <= '0;
             rd_ptr <= '0;
         end else begin
-            // output tdata and tuser as early as possible, even if tready is not yet asserted
-            // this is a feature and can be used to peek inside the fifo without taking data out !
+            m_axis_out_tvalid <= !empty;
             if (!empty) begin
-                m_axis_out_tvalid <= 1;
                 rd_ptr <= rd_ptr_next;
                 m_axis_out_tdata <= mem[rd_ptr_addr_next];
                 m_axis_out_tlast <= mem_last[rd_ptr_addr_next];
                 if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr_next];
-            end else begin
-                m_axis_out_tvalid <= 0;
             end
         end
     end
