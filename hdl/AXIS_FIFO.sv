@@ -45,53 +45,55 @@ module AXIS_FIFO #(
 
 localparam PTR_WIDTH = $clog2(FIFO_LEN);
 
-function [PTR_WIDTH - 1 : 0] g2b;
-	input [PTR_WIDTH - 1 : 0] g;
-	reg   [PTR_WIDTH - 1 : 0] b;
+function [PTR_WIDTH : 0] g2b;
+	input [PTR_WIDTH : 0] g;
+	reg   [PTR_WIDTH : 0] b;
 	integer i;
 	begin
-		b[PTR_WIDTH-1] = g[PTR_WIDTH-1];
-		for (i = PTR_WIDTH - 2; i >= 0; i =  i - 1)
+		b[PTR_WIDTH] = g[PTR_WIDTH];
+		for (i = PTR_WIDTH - 1; i >= 0; i =  i - 1)
 			b[i] = b[i + 1] ^ g[i];
 		g2b = b;
 	end
 endfunction
 
-function [PTR_WIDTH - 1 : 0] b2g;
-	input [PTR_WIDTH - 1 : 0] b;
-	reg [PTR_WIDTH - 1 : 0] g;
+function [PTR_WIDTH : 0] b2g;
+	input [PTR_WIDTH : 0] b;
+	reg [PTR_WIDTH : 0] g;
 	integer i;
 	begin
-		g[PTR_WIDTH-1] = b[PTR_WIDTH-1];
-		for (i = PTR_WIDTH - 2; i >= 0; i = i -1)
+		g[PTR_WIDTH] = b[PTR_WIDTH];
+		for (i = PTR_WIDTH - 1; i >= 0; i = i -1)
 				g[i] = b[i + 1] ^ b[i];
 		b2g = g;
 	end
 endfunction
 
 
-reg [DATA_WIDTH - 1  : 0]           mem [0 : FIFO_LEN - 1];
-reg [USER_WIDTH - 1  : 0]           mem_user [0 : FIFO_LEN - 1];
+reg [DATA_WIDTH - 1  : 0]           mem[0 : FIFO_LEN - 1];
+reg [USER_WIDTH - 1  : 0]           mem_user[0 : FIFO_LEN - 1];
 reg [FIFO_LEN - 1 : 0]              mem_last;
 
 if (ASYNC) begin  : GEN_ASYNC
-    reg [PTR_WIDTH - 1 : 0]             rd_ptr;
-    reg [PTR_WIDTH - 1 : 0]             wr_ptr_grey;    
+    reg [PTR_WIDTH : 0]                 rd_ptr;
+    reg [PTR_WIDTH : 0]                 wr_ptr_grey;
+    wire [PTR_WIDTH : 0]                wr_ptr          = g2b(wr_ptr_grey);
+    wire [PTR_WIDTH - 1: 0]             wr_ptr_addr     = wr_ptr[PTR_WIDTH - 1 : 0];
+    wire [PTR_WIDTH - 1: 0]             rd_ptr_addr     = rd_ptr[PTR_WIDTH - 1 : 0];
+    wire                                empty           = wr_ptr == rd_ptr_next;
+    wire [PTR_WIDTH : 0]                rd_ptr_next     = m_axis_out_tready ? rd_ptr + 1 : rd_ptr;
+    wire [PTR_WIDTH - 1: 0]             rd_ptr_addr_next = rd_ptr_next[PTR_WIDTH - 1 : 0];    
+
+
     always @(posedge clk_i) begin
-        if (!reset_ni) begin
-            wr_ptr_grey <= '0;
-            for(integer i = 0; i < FIFO_LEN; i = i + 1)   begin
-                mem[i] = '0;  // Non-delayed for verilator
-                if (USER_WIDTH > 0)  mem_user[i] = '0;
-            end
-        end else begin
-            if (s_axis_in_tvalid) begin
-                mem[g2b(wr_ptr_grey)] <= s_axis_in_tdata;
-                if (USER_WIDTH > 0)  mem_user[g2b(wr_ptr_grey)] <= s_axis_in_tuser;
-                wr_ptr_grey <= b2g(g2b(wr_ptr_grey) + 1);
-            end
-        end
+        if (!reset_ni) wr_ptr_grey <= '0;
+        else if (s_axis_in_tvalid) wr_ptr_grey <= b2g(g2b(wr_ptr_grey) + 1);
     end
+
+    always @(posedge clk_i) begin
+        mem[wr_ptr_addr] <= s_axis_in_tdata;
+        if (USER_WIDTH > 0)  mem_user[wr_ptr_addr] <= s_axis_in_tuser;
+    end    
 
     always @(posedge out_clk_i) begin
         if (!reset_ni) begin
@@ -99,27 +101,32 @@ if (ASYNC) begin  : GEN_ASYNC
             m_axis_out_tvalid <= '0;
             rd_ptr <= '0;
         end else begin
-            if ((rd_ptr != g2b(wr_ptr_grey)) && m_axis_out_tready) begin
-                m_axis_out_tdata <= mem[rd_ptr];
-                if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr];
+            if (!empty) begin
                 m_axis_out_tvalid <= 1;
-                rd_ptr <= rd_ptr + 1;
+                rd_ptr <= rd_ptr_next;
+                m_axis_out_tdata <= mem[rd_ptr_addr_next];
+                if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr_next];
             end else begin
                 m_axis_out_tvalid <= 0;
             end
         end
     end
 
-    // TODO: tfull, tuser, tlast, tempty, tlevel are not support for ASYNC = 1
+    // TODO: tfull, tlast, level are not support for ASYNC = 1
     always @(posedge clk_i) begin
         s_axis_in_tfull <= '0;
     end
 
     always @(posedge out_clk_i) begin
-        m_axis_out_tuser <= '0;
-        m_axis_out_tlast <= '0;
-        m_axis_out_tempty <= 1;
-        m_axis_out_tlevel <= '0;
+        if (!reset_ni) begin
+            m_axis_out_tlast <= '0;
+            m_axis_out_tempty <= '0;
+            m_axis_out_tlevel <= '0;
+        end else begin
+            m_axis_out_tlast <= '0;
+            m_axis_out_tempty <= empty;
+            m_axis_out_tlevel <= '0;
+        end
     end
 end
 // -----------------------------------------------------------------------------------------------------
@@ -128,12 +135,10 @@ else begin : GEN_SYNC
     reg  [PTR_WIDTH : 0]            wr_ptr;
     reg  [PTR_WIDTH : 0]            rd_ptr;
     wire                            ptr_equal       = wr_ptr[PTR_WIDTH - 1 : 0] == rd_ptr[PTR_WIDTH - 1 : 0];
-    wire [PTR_WIDTH : 0]            ptr_diff        = wr_ptr[PTR_WIDTH : 0] - rd_ptr[PTR_WIDTH : 0];
     wire                            ptr_msb_equal   = wr_ptr[PTR_WIDTH] == rd_ptr[PTR_WIDTH];
     wire [PTR_WIDTH - 1: 0]         wr_ptr_addr     = wr_ptr[PTR_WIDTH - 1 : 0];
     wire [PTR_WIDTH - 1: 0]         rd_ptr_addr     = rd_ptr[PTR_WIDTH - 1 : 0];
     wire                            overflow        = s_axis_in_tfull && s_axis_in_tvalid;
-    wire                            underflow       = (!s_axis_in_tfull) && m_axis_out_tvalid;
 
     always @(posedge clk_i) begin
         if (!reset_ni) wr_ptr <= '0;
@@ -141,38 +146,31 @@ else begin : GEN_SYNC
     end
 
     always @(posedge clk_i) begin
-        if (!reset_ni) begin
-            // for(integer i = 0; i < FIFO_LEN; i = i + 1) begin
-            //     if (USER_WIDTH > 0) mem_user[i] = '0;
-            //     mem[i] = '0;
-            // end
-            // mem_last <= '0;
-        end else begin
-            mem[wr_ptr_addr] <= s_axis_in_tdata;
-            mem_last[wr_ptr_addr] <= s_axis_in_tlast;
-            if (USER_WIDTH > 0) mem_user[wr_ptr_addr] <= s_axis_in_tuser;
-        end
+        mem[wr_ptr_addr] <= s_axis_in_tdata;
+        mem_last[wr_ptr_addr] <= s_axis_in_tlast;
+        if (USER_WIDTH > 0) mem_user[wr_ptr_addr] <= s_axis_in_tuser;
     end
 
-    wire empty = ptr_equal && ptr_msb_equal;
+    wire empty = wr_ptr == rd_ptr;
+    wire [PTR_WIDTH : 0] rd_ptr_next = m_axis_out_tready ? rd_ptr + 1 : rd_ptr;
+    wire [PTR_WIDTH - 1: 0] rd_ptr_addr_next = rd_ptr_next[PTR_WIDTH - 1 : 0];
 
     always @(posedge clk_i) begin
         if (!reset_ni) begin
             m_axis_out_tdata <= '0;
             m_axis_out_tlast <= '0;
-            m_axis_out_tuser <= '0;            
+            m_axis_out_tuser <= '0;
             m_axis_out_tvalid <= '0;
             rd_ptr <= '0;
         end else begin
             // output tdata and tuser as early as possible, even if tready is not yet asserted
             // this is a feature and can be used to peek inside the fifo without taking data out !
-            m_axis_out_tdata <= mem[rd_ptr_addr];
-            m_axis_out_tlast <= mem_last[rd_ptr_addr];
-            if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr];                
-
-            if ((!empty) && m_axis_out_tready) begin
+            if (!empty) begin
                 m_axis_out_tvalid <= 1;
-                rd_ptr <= rd_ptr + 1;
+                rd_ptr <= rd_ptr_next;
+                m_axis_out_tdata <= mem[rd_ptr_addr_next];
+                m_axis_out_tlast <= mem_last[rd_ptr_addr_next];
+                if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr_next];
             end else begin
                 m_axis_out_tvalid <= 0;
             end
@@ -187,7 +185,7 @@ else begin : GEN_SYNC
         end else begin
             s_axis_in_tfull <= ptr_equal && (!ptr_msb_equal);
             m_axis_out_tempty <= empty;
-            m_axis_out_tlevel <= ptr_diff[PTR_WIDTH - 1 : 0];
+            m_axis_out_tlevel <= wr_ptr - rd_ptr_next;
         end
     end
 end

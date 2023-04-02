@@ -84,7 +84,7 @@ for (ii = 0; ii < RATIO; ii = ii + 1) begin
         .out_clk_i(out_clk_i),
         .m_axis_out_tdata(m_axis_data_int[A_WIDTH * ii +: A_WIDTH]),
         .m_axis_out_tvalid(m_axis_valid_int[ii]),
-        .m_axis_out_tuser(m_axis_user_int[ii]),
+        .m_axis_out_tuser(m_axis_user_int[A_USER_WIDTH * ii +: A_USER_WIDTH]),
         .m_axis_out_tready(m_axis_ready_int[ii])
     );
 end
@@ -104,7 +104,7 @@ end
 
 // read logic
 if (RATIO_TYPE) begin : small_master
-    for (ii=0; ii < RATIO; ii = ii + 1) begin
+    for (ii = 0; ii < RATIO; ii = ii + 1) begin
         assign m_axis_ready_int[ii] = (m_axis_counter == ii) ? m_axis_out_tready : 1'b0;
     end
     
@@ -122,7 +122,7 @@ end
 // sequencer
 if (RATIO == 1) begin
     initial m_axis_counter = 1'b0;
-end else if (RATIO > 1) begin
+end else begin
     always @(posedge out_clk_i) begin
         if (!reset_ni) begin
             m_axis_counter <= 0;

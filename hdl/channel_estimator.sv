@@ -418,9 +418,13 @@ always @(posedge clk_i) begin
         corr_data_fifo_in_last <= '0;
         start_idx <= '0;
         ibar_SSB_buf <= '0;
+        in_fifo_ready <= '0;
+        angle_FIFO_ready <= '0;        
     end else begin
         case(state_corrector)
             WAIT_FOR_INPUTS : begin
+                in_fifo_ready <= '0;
+                angle_FIFO_ready <= '0;
                 SC_cnt <= '0;
                 pilot_SC_idx <= '0;
                 corr_data_fifo_in_valid <= '0;
@@ -452,19 +456,15 @@ always @(posedge clk_i) begin
             end
             CALC_CORRECTION : begin
                 // only need to check angle_FIFO because, it becomes always later ready than data_FIFO
-                if ((angle_FIFO_level > 0) && (SC_cnt < FFT_LEN - 2 - ZERO_CARRIERS)) begin
+                if (angle_FIFO_valid && in_fifo_valid && (SC_cnt != FFT_LEN - 1 - ZERO_CARRIERS)) begin
                     in_fifo_ready <= 1;
-                    angle_FIFO_ready <= 1;
+                    angle_FIFO_ready <= 1;              
                 end else begin
-                    in_fifo_ready <= '0;
-                    angle_FIFO_ready <= '0;
-                end
-                
-                if (angle_FIFO_valid != in_fifo_valid) begin
-                    $display("ERROR: in_FIFO and angle_FIFO don't output in sync !");
+                    in_fifo_ready <= 0;
+                    angle_FIFO_ready <= 0;
                 end
 
-                if (angle_FIFO_valid) begin
+                if (angle_FIFO_valid && in_fifo_valid && angle_FIFO_ready) begin
                     corr_data_fifo_in_data <= in_fifo_data;
                     // if (symbol_cnt == 0)  $display("data %x  angle %f", in_fifo_data, $itor(angle_FIFO_data) / DEG45 * 45);
                     if (SC_idx_plus_start[1:0] == 0) begin
@@ -479,7 +479,7 @@ always @(posedge clk_i) begin
                         endcase
                         // if (symbol_cnt == 0)  $display("pilot = %x", PBCH_DMRS[ibar_SSB_buf][pilot_SC_idx]);
                         
-                        if ((remaining_syms == 1) && ((SC_cnt >= 48) && (SC_cnt <= 191))) begin
+                        if ((remaining_syms == 1) && ((SC_cnt >= 47) && (SC_cnt <= 191))) begin
                             // This is a special case for the 2nd PBCH symbol
                             // some SCs in the middle of the symbol are the SSS, which needs to be skipped here
                             corr_angle_DDS_in <= 0;
@@ -522,8 +522,7 @@ always @(posedge clk_i) begin
                         corr_data_fifo_in_tuser <= symbol_type;
                         SC_cnt <= SC_cnt + 1;
                     end
-                end
-                else begin
+                end else begin
                     corr_angle_DDS_in <= 0;
                     corr_data_fifo_in_valid <= '0;
                     corr_angle_DDS_valid_in <= '0;
@@ -532,15 +531,15 @@ always @(posedge clk_i) begin
             end
             PASS_THROUGH : begin
                 // only need to check angle_FIFO because, it becomes always later ready than data_FIFO
-                if ((angle_FIFO_level > 0) && (SC_cnt < FFT_LEN - 2 - ZERO_CARRIERS)) begin
+                if (angle_FIFO_valid && in_fifo_valid && (SC_cnt != FFT_LEN - 1 - ZERO_CARRIERS)) begin
                     in_fifo_ready <= 1;
-                    angle_FIFO_ready <= 1;
+                    angle_FIFO_ready <= 1;              
                 end else begin
-                    in_fifo_ready <= '0;
-                    angle_FIFO_ready <= '0;
-                end
+                    in_fifo_ready <= 0;
+                    angle_FIFO_ready <= 0;
+                end                
 
-                if (angle_FIFO_valid) begin
+                if (angle_FIFO_valid && in_fifo_valid && angle_FIFO_ready) begin
                     corr_data_fifo_in_data <= in_fifo_data;
                     if (SC_idx_plus_start[1:0] == 0) begin
                         corr_data_fifo_in_valid <= 0;
@@ -698,7 +697,7 @@ always @(posedge clk_i) begin
             if (i == 0)  begin
                 corr_data_delayed[0] <= corr_data_fifo_out_data;
                 corr_last_delayed[0] <= corr_data_fifo_out_last;
-                corr_valid_delayed[0] <= corr_data_fifo_out_valid;
+                corr_valid_delayed[0] <= corr_data_fifo_out_valid && corr_data_fifo_out_ready;
             end else begin
                 corr_data_delayed[i] = corr_data_delayed[i - 1];
                 corr_last_delayed[i] <= corr_last_delayed[i - 1];
@@ -736,24 +735,26 @@ always @(posedge clk_i) begin
                 corr_angle_fifo_out_ready <= '0;
                 corr_data_fifo_out_ready <= '0;
                 div3_cnt <= '0;
-                if (!corr_angle_fifo_out_empty) begin
+                if (corr_data_fifo_out_valid) begin
                     state_interp <= STATE_INTERP_INTERPOLATE;
                 end
             end
             STATE_INTERP_INTERPOLATE : begin
-                if (corr_data_fifo_out_last && corr_data_fifo_out_valid) begin
-                    corr_data_fifo_out_ready <= '0;
-                    corr_angle_fifo_out_ready <= '0;
+                if (corr_data_fifo_out_valid && corr_angle_fifo_out_valid) begin
+                    corr_data_fifo_out_ready <= 1;
+                    corr_angle_fifo_out_ready <= div3_cnt == 0;                    
+                end else begin
+                    corr_data_fifo_out_ready <= 0;
+                    corr_angle_fifo_out_ready <= 0;
+                end
+
+                if (corr_data_fifo_out_last && corr_data_fifo_out_valid && corr_data_fifo_out_ready) begin
                     state_interp <= STATE_INTERP_WAIT_FOR_START;
-                end else if (!corr_angle_fifo_out_empty) begin
-                    corr_data_fifo_out_ready <= '1;
+                end else if (corr_data_fifo_out_valid && corr_data_fifo_out_ready) begin
                     out_sample_cnt <= out_sample_cnt + 1;
-                    corr_angle_fifo_out_ready <= div3_cnt == 0;
+                    // corr_angle_fifo_out_ready <= div3_cnt == 0;
                     if (div3_cnt == 2)  div3_cnt <= '0;
                     else div3_cnt <= div3_cnt + 1;
-                end else begin
-                    corr_angle_fifo_out_ready <= '0;
-                    corr_data_fifo_out_ready <= '0;
                 end
             end
         endcase

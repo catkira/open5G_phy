@@ -226,7 +226,7 @@ async def simple_test3(dut):
                 SC_cnt = 0
                 # some idle clks between symbols is needed for the channel estimator FSM !
                 # this idle happens in reality automatically because of the cyclic prefix
-                idle_clks = 10
+                idle_clks = 100
                 dut.s_axis_in_tvalid.value = 0
             elif (SC_cnt >= SC_START) and (SC_cnt <= FFT_LEN - SC_START - 1):
                 data = (((int(symbol[symbol_id][SC_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
