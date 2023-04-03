@@ -403,19 +403,8 @@ reg                            corr_data_fifo_in_valid;
 reg [1 : 0]                    corr_data_fifo_in_tuser;
 reg                            corr_data_fifo_in_last;
 
-reg in_fifo_ready_reg;
-reg angle_fifo_ready_reg;
 wire in_fifo_ready = angle_FIFO_valid && in_fifo_valid && (SC_cnt != FFT_LEN - ZERO_CARRIERS) && (state_corrector != WAIT_FOR_INPUTS);
 wire angle_fifo_ready = angle_FIFO_valid && in_fifo_valid && (SC_cnt != FFT_LEN - ZERO_CARRIERS) && (state_corrector != WAIT_FOR_INPUTS);
-always @(posedge clk_i) begin
-    if (!reset_ni) begin
-        in_fifo_ready_reg <= '0;
-        angle_fifo_ready_reg <= '0;
-    end else begin
-        in_fifo_ready_reg <= in_fifo_ready;
-        angle_fifo_ready_reg <= angle_fifo_ready;
-    end
-end
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
