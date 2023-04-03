@@ -214,6 +214,7 @@ always @(posedge clk_i) begin
         DDS_phase <= '0;
         DDS_phase_valid <= '0;
         CFO_DDS_inc_f <= '0;
+        DDS_phase_valid <= 1;
     end 
     else begin
         if (CFO_valid) begin
@@ -222,7 +223,6 @@ always @(posedge clk_i) begin
         end
         if(FIFO_out_tvalid) begin
             DDS_phase <= DDS_phase + CFO_DDS_inc_f;
-            DDS_phase_valid <= 1;
         end
     end
 end
