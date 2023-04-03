@@ -69,12 +69,10 @@ function [PTR_WIDTH : 0] b2g;
 	end
 endfunction
 
-
-reg [DATA_WIDTH - 1  : 0]           mem[0 : FIFO_LEN - 1];
-reg [USER_WIDTH - 1  : 0]           mem_user[0 : FIFO_LEN - 1];
-reg [FIFO_LEN - 1 : 0]              mem_last;
-
 if (ASYNC) begin  : GEN_ASYNC
+    (* ram_style = "block" *)
+    reg [DATA_WIDTH - 1  : 0]           mem[0 : FIFO_LEN - 1];
+
     reg [PTR_WIDTH : 0]                 rd_ptr;
     reg [PTR_WIDTH : 0]                 wr_ptr_grey;
     wire [PTR_WIDTH : 0]                wr_ptr          = g2b(wr_ptr_grey);
@@ -117,6 +115,10 @@ end
 // -----------------------------------------------------------------------------------------------------
 // SYNC CLOCK
 else begin : GEN_SYNC
+    reg [DATA_WIDTH - 1  : 0]           mem[0 : FIFO_LEN - 1];
+    reg [USER_WIDTH - 1  : 0]           mem_user[0 : FIFO_LEN - 1];
+    reg [FIFO_LEN - 1 : 0]              mem_last;
+
     reg  [PTR_WIDTH : 0]            wr_ptr;
     reg  [PTR_WIDTH : 0]            rd_ptr;
     wire                            ptr_equal       = wr_ptr[PTR_WIDTH - 1 : 0] == rd_ptr[PTR_WIDTH - 1 : 0];
