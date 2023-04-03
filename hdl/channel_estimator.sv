@@ -257,10 +257,10 @@ always @(posedge clk_i) begin
                             //     PBCH_DMRS[4][PBCH_DMRS_idx], PBCH_DMRS[5][PBCH_DMRS_idx], PBCH_DMRS[6][PBCH_DMRS_idx], PBCH_DMRS[7][PBCH_DMRS_idx]);
                             PBCH_DMRS_idx <= PBCH_DMRS_idx + 1;
                             for (integer i = 0; i < 8; i = i + 1) begin
-                                DMRS_corr[i] = DMRS_corr[i] + ((PBCH_DMRS[i][PBCH_DMRS_idx][0] == in_demod[0]) ? 1 : -1);
-                                DMRS_corr[i] = DMRS_corr[i] + ((PBCH_DMRS[i][PBCH_DMRS_idx][1] == in_demod[1]) ? 1 : -1);
-                                DMRS_corr_rot[i] = DMRS_corr_rot[i] + ((PBCH_DMRS[i][PBCH_DMRS_idx][0] == in_demod_rot[0]) ? 1 : -1);
-                                DMRS_corr_rot[i] = DMRS_corr_rot[i] + ((PBCH_DMRS[i][PBCH_DMRS_idx][1] == in_demod_rot[1]) ? 1 : -1);
+                                DMRS_corr[i] <= DMRS_corr[i] + ((PBCH_DMRS[i][PBCH_DMRS_idx][0] == in_demod[0]) ? 1 : -1)
+                                                + ((PBCH_DMRS[i][PBCH_DMRS_idx][1] == in_demod[1]) ? 1 : -1);
+                                DMRS_corr_rot[i] <= DMRS_corr_rot[i] + ((PBCH_DMRS[i][PBCH_DMRS_idx][0] == in_demod_rot[0]) ? 1 : -1)
+                                                + ((PBCH_DMRS[i][PBCH_DMRS_idx][1] == in_demod_rot[1]) ? 1 : -1);
                             end
                         end
                         PBCH_SC_used_idx <= PBCH_SC_used_idx + 1;
