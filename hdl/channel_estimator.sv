@@ -208,6 +208,7 @@ always @(posedge clk_i) valid_in <= s_axis_in_tvalid;
 // This process detects which PBCH DMRS is used for the current PBCH symbol
 // There are 8 possible PBCH DMRSs, the number of the used PBCH DMRS is called ibar_SSB
 // and determines the subframe number of the current symbol
+reg [$clog2(8) - 1 : 0] ibar_idx;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         state_det_ibar <= '0;
@@ -219,10 +220,11 @@ always @(posedge clk_i) begin
             DMRS_corr[i] <= '0;
             DMRS_corr_rot[i] <= '0;
         end
-        ibar_SSB_detected = '0;
+        ibar_SSB_detected <= '0;
         debug_ibar_SSB_o <= '0;
         debug_ibar_SSB_valid_o <= '0;
         pilots_ready <= '0;
+        ibar_idx <= '0;
     end else begin
         // if (s_axis_in_tvalid) $display("rx %d + j%d -> %b", in_re, in_im, {s_axis_in_tdata[IN_DW/2-1], s_axis_in_tdata[IN_DW-1]});
 
@@ -241,6 +243,9 @@ always @(posedge clk_i) begin
             1: begin // compare 1st PBCH symbol
                 if (PBCH_SC_idx == 255) begin
                     if (PBCH_sym_idx == 0) begin
+                        ibar_idx <= '0;
+                        ibar_SSB_detected <= '0;
+                        tmp_corr <= '0;
                         state_det_ibar <= 2;
                         PBCH_sym_idx <= PBCH_sym_idx + 1;
                         PBCH_SC_used_idx <= '0;
@@ -270,14 +275,14 @@ always @(posedge clk_i) begin
             end
             2: begin
                 // for(integer i = 0; i < 8; i = i + 1)  $display("corr[%d] = %d", i, DMRS_corr[i]);
-                ibar_SSB_detected = '0;
-                tmp_corr = '0;
-                for(integer i = 0; i < 8; i = i + 1) begin
-                    if ((abs_DMRS_corr(DMRS_corr[i]) > tmp_corr) || (abs_DMRS_corr(DMRS_corr_rot[i]) > tmp_corr)) begin
-                        tmp_corr = abs_DMRS_corr(DMRS_corr_rot[i]) > abs_DMRS_corr(DMRS_corr[i]) ? abs_DMRS_corr(DMRS_corr_rot[i]) : abs_DMRS_corr(DMRS_corr[i]);
-                        ibar_SSB_detected = i;
-                    end
+                if ((abs_DMRS_corr(DMRS_corr[ibar_idx]) > tmp_corr) || (abs_DMRS_corr(DMRS_corr_rot[ibar_idx]) > tmp_corr)) begin
+                    tmp_corr <= abs_DMRS_corr(DMRS_corr_rot[ibar_idx]) > abs_DMRS_corr(DMRS_corr[ibar_idx]) ? abs_DMRS_corr(DMRS_corr_rot[ibar_idx]) : abs_DMRS_corr(DMRS_corr[ibar_idx]);
+                    ibar_SSB_detected <= ibar_idx;
                 end
+                if (ibar_idx < 7) ibar_idx <= ibar_idx + 1;
+                else state_det_ibar <= 3;
+            end
+            3: begin
                 $display("detected ibar_SSB = %d with correlation = %d", ibar_SSB_detected, tmp_corr);
                 pilots_ready <= 1;
                 debug_ibar_SSB_o <= ibar_SSB_detected;
