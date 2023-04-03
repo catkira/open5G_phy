@@ -220,7 +220,7 @@ always @(posedge clk_i) begin
             // CFO_DDS_inc_f <= '0; // deactive CFO correction for debugging
             CFO_DDS_inc_f <= CFO_DDS_inc_f - CFO_DDS_inc;  // incoming CFO_DDS_inc are relative to last one !
         end
-        if(s_axis_in_tvalid) begin
+        if(FIFO_out_tvalid) begin
             DDS_phase <= DDS_phase + CFO_DDS_inc_f;
             DDS_phase_valid <= 1;
         end
