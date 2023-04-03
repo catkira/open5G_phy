@@ -31,7 +31,7 @@ module AXIS_FIFO #(
     input           [USER_WIDTH - 1 : 0]                s_axis_in_tuser,
     input                                               s_axis_in_tlast,
     input                                               s_axis_in_tvalid,
-    output  reg                                         s_axis_in_tfull,
+    output                                              s_axis_in_tfull,
 
     input                                               out_clk_i,
     input                                               m_axis_out_tready,
@@ -39,8 +39,8 @@ module AXIS_FIFO #(
     output  reg     [USER_WIDTH - 1 : 0]                m_axis_out_tuser,
     output  reg                                         m_axis_out_tlast,
     output  reg                                         m_axis_out_tvalid,
-    output  reg     [$clog2(FIFO_LEN) - 1 : 0]          m_axis_out_tlevel,
-    output  reg                                         m_axis_out_tempty
+    output          [$clog2(FIFO_LEN) - 1 : 0]          m_axis_out_tlevel,
+    output                                              m_axis_out_tempty
 );
 
 localparam PTR_WIDTH = $clog2(FIFO_LEN);
@@ -81,9 +81,6 @@ if (ASYNC) begin  : GEN_ASYNC
     wire [PTR_WIDTH - 1: 0]             wr_ptr_addr     = wr_ptr[PTR_WIDTH - 1 : 0];
     wire [PTR_WIDTH - 1: 0]             rd_ptr_addr     = rd_ptr[PTR_WIDTH - 1 : 0];
     wire                                empty           = wr_ptr == rd_ptr;
-    // wire [PTR_WIDTH : 0]                rd_ptr_next     = (m_axis_out_tready && !empty) ? rd_ptr + 1 : rd_ptr;
-    // wire [PTR_WIDTH - 1: 0]             rd_ptr_addr_next = rd_ptr_next[PTR_WIDTH - 1 : 0];    
-
 
     always @(posedge clk_i) begin
         if (!reset_ni) wr_ptr_grey <= '0;
@@ -92,39 +89,29 @@ if (ASYNC) begin  : GEN_ASYNC
 
     always @(posedge clk_i) begin
         mem[wr_ptr_addr] <= s_axis_in_tdata;
-        if (USER_WIDTH > 0)  mem_user[wr_ptr_addr] <= s_axis_in_tuser;
     end    
 
     always @(posedge out_clk_i) begin
         if (!reset_ni) begin
             m_axis_out_tdata <= '0;
-            m_axis_out_tvalid <= '0;
             rd_ptr <= '0;
+            m_axis_out_tvalid <= '0;
         end else begin
             m_axis_out_tvalid <= !empty;
-            m_axis_out_tdata <= mem[rd_ptr_addr];
-            if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr];
-            if (!empty && m_axis_out_tready) begin
+            // read new data if fifo is not empty and if there is space in the output pipeline
+            if (!empty && ((!m_axis_out_tvalid) || m_axis_out_tready)) begin
+                m_axis_out_tdata <= mem[rd_ptr_addr];
                 rd_ptr <= rd_ptr + 1;
             end
         end
     end
 
     // TODO: tfull, tlast, level are not support for ASYNC = 1
-    always @(posedge clk_i) begin
-        s_axis_in_tfull <= '0;
-    end
-
+    assign m_axis_out_tlevel = '0;
+    assign m_axis_out_tempty = empty;
+    assign s_axis_in_tfull = '0;
     always @(posedge out_clk_i) begin
-        if (!reset_ni) begin
-            m_axis_out_tlast <= '0;
-            m_axis_out_tempty <= '0;
-            m_axis_out_tlevel <= '0;
-        end else begin
-            m_axis_out_tlast <= '0;
-            m_axis_out_tempty <= empty;
-            m_axis_out_tlevel <= '0;
-        end
+        m_axis_out_tlast <= '0;
     end
 end
 // -----------------------------------------------------------------------------------------------------
@@ -137,6 +124,7 @@ else begin : GEN_SYNC
     wire [PTR_WIDTH - 1: 0]         wr_ptr_addr     = wr_ptr[PTR_WIDTH - 1 : 0];
     wire [PTR_WIDTH - 1: 0]         rd_ptr_addr     = rd_ptr[PTR_WIDTH - 1 : 0];
     wire                            overflow        = s_axis_in_tfull && s_axis_in_tvalid;
+    wire                            empty           = wr_ptr == rd_ptr;
 
     always @(posedge clk_i) begin
         if (!reset_ni) wr_ptr <= '0;
@@ -149,39 +137,28 @@ else begin : GEN_SYNC
         if (USER_WIDTH > 0) mem_user[wr_ptr_addr] <= s_axis_in_tuser;
     end
 
-    wire empty = wr_ptr == rd_ptr;
-    wire [PTR_WIDTH : 0] rd_ptr_next =(m_axis_out_tready && m_axis_out_tvalid) ? rd_ptr + 1 : rd_ptr;
-    wire [PTR_WIDTH - 1: 0] rd_ptr_addr_next = rd_ptr_next[PTR_WIDTH - 1 : 0];
-
+    wire data_in_pipeline = m_axis_out_tvalid && (!m_axis_out_tready);
     always @(posedge clk_i) begin
         if (!reset_ni) begin
             m_axis_out_tdata <= '0;
             m_axis_out_tlast <= '0;
             m_axis_out_tuser <= '0;
-            m_axis_out_tvalid <= '0;
             rd_ptr <= '0;
+            m_axis_out_tvalid <= '0;
         end else begin
-            m_axis_out_tvalid <= !empty;
-            if (!empty) begin
-                rd_ptr <= rd_ptr_next;
-                m_axis_out_tdata <= mem[rd_ptr_addr_next];
-                m_axis_out_tlast <= mem_last[rd_ptr_addr_next];
-                if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr_next];
+            m_axis_out_tvalid <= !empty || data_in_pipeline;
+            if (!empty && ((!m_axis_out_tvalid) || m_axis_out_tready)) begin
+                m_axis_out_tdata <= mem[rd_ptr_addr];
+                m_axis_out_tlast <= mem_last[rd_ptr_addr];
+                if (USER_WIDTH > 0)  m_axis_out_tuser <= mem_user[rd_ptr_addr];
+                rd_ptr <= rd_ptr + 1;
             end
         end
     end
 
-    always @(posedge clk_i) begin
-        if (!reset_ni) begin
-            s_axis_in_tfull <= '0;
-            m_axis_out_tempty <= 1;
-            m_axis_out_tlevel <= '0;
-        end else begin
-            s_axis_in_tfull <= ptr_equal && (!ptr_msb_equal);
-            m_axis_out_tempty <= empty;
-            m_axis_out_tlevel <= wr_ptr - rd_ptr_next;
-        end
-    end
+    assign m_axis_out_tlevel = wr_ptr - rd_ptr + data_in_pipeline;
+    assign m_axis_out_tempty = empty && (!data_in_pipeline);
+    assign s_axis_in_tfull = ptr_equal && (!ptr_msb_equal);
 end
 
 endmodule

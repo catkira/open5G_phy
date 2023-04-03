@@ -294,7 +294,7 @@ end
 // to detect the PBCH DRMS
 reg [IN_DW - 1 : 0] in_fifo_data;
 reg                 in_fifo_valid;
-reg                 in_fifo_ready;
+// wire                 in_fifo_ready;
 reg                 in_fifo_user;
 localparam EXTRA_LEN = FFT_LEN;  // for the atan2 latency, FIFO_LEN has to be power of 2, therefore increase by FFT_LEN !
 reg [$clog2(FFT_LEN + EXTRA_LEN) - 1 : 0]  in_fifo_level;
@@ -341,7 +341,7 @@ atan2_i(
 );
 
 // Put all calculated phases into a FIFO
-reg  angle_FIFO_ready;
+// wire  angle_FIFO_ready;
 reg  angle_FIFO_valid;
 reg  [$clog2(FFT_LEN) - 1 : 0] angle_FIFO_level;
 reg  signed [PHASE_DW - 1 : 0] angle_FIFO_data;
@@ -357,7 +357,7 @@ angle_FIFO_i(
     .s_axis_in_tdata(SC_phase),
     .s_axis_in_tvalid(SC_phase_valid),
 
-    .m_axis_out_tready(angle_FIFO_ready),
+    .m_axis_out_tready(angle_fifo_ready),
     .m_axis_out_tdata(angle_FIFO_data),
     .m_axis_out_tvalid(angle_FIFO_valid),
     .m_axis_out_tlevel(angle_FIFO_level)
@@ -403,6 +403,20 @@ reg                            corr_data_fifo_in_valid;
 reg [1 : 0]                    corr_data_fifo_in_tuser;
 reg                            corr_data_fifo_in_last;
 
+reg in_fifo_ready_reg;
+reg angle_fifo_ready_reg;
+wire in_fifo_ready = angle_FIFO_valid && in_fifo_valid && (SC_cnt != FFT_LEN - ZERO_CARRIERS) && (state_corrector != WAIT_FOR_INPUTS);
+wire angle_fifo_ready = angle_FIFO_valid && in_fifo_valid && (SC_cnt != FFT_LEN - ZERO_CARRIERS) && (state_corrector != WAIT_FOR_INPUTS);
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        in_fifo_ready_reg <= '0;
+        angle_fifo_ready_reg <= '0;
+    end else begin
+        in_fifo_ready_reg <= in_fifo_ready;
+        angle_fifo_ready_reg <= angle_fifo_ready;
+    end
+end
+
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         state_corrector <= WAIT_FOR_INPUTS;
@@ -418,24 +432,25 @@ always @(posedge clk_i) begin
         corr_data_fifo_in_last <= '0;
         start_idx <= '0;
         ibar_SSB_buf <= '0;
-        in_fifo_ready <= '0;
-        angle_FIFO_ready <= '0;        
+        // in_fifo_ready <= '0;
+        // angle_FIFO_ready <= '0;        
     end else begin
         case(state_corrector)
             WAIT_FOR_INPUTS : begin
-                in_fifo_ready <= '0;
-                angle_FIFO_ready <= '0;
+                // in_fifo_ready <= '0;
+                // angle_FIFO_ready <= '0;
                 SC_cnt <= '0;
                 pilot_SC_idx <= '0;
                 corr_data_fifo_in_valid <= '0;
                 corr_angle_DDS_valid_in <= '0;
                 start_idx <= PBCH_DMRS_start_idx;
-                if ((in_fifo_level > 0) && (!PBCH_DMRS_ready)) begin
+                corr_data_fifo_in_last <= '0;
+                if (in_fifo_valid && (!PBCH_DMRS_ready)) begin
                     // $display("calculate_phase: PBCH DMRS not ready, pass through without correction");
                     symbol_type <= SYMBOL_TYPE_OTHER;
                     state_corrector <= PASS_THROUGH;
                     remaining_syms <= SYMS_PER_OTHER - 1;
-                end else if ((in_fifo_level > 0) && PBCH_DMRS_ready) begin
+                end else if (in_fifo_valid && PBCH_DMRS_ready) begin
                     // in_fifo_user signals start of a new burst if its != 0
                     // the symbol type depends on the position of the set bit
                     if ((in_fifo_user == 1) && pilots_ready)  begin  // pilots become ready withing 256 clks, so we can wait here, FIFOs are large enough
@@ -457,14 +472,14 @@ always @(posedge clk_i) begin
             CALC_CORRECTION : begin
                 // only need to check angle_FIFO because, it becomes always later ready than data_FIFO
                 if (angle_FIFO_valid && in_fifo_valid && (SC_cnt != FFT_LEN - 1 - ZERO_CARRIERS)) begin
-                    in_fifo_ready <= 1;
-                    angle_FIFO_ready <= 1;              
+                    // in_fifo_ready <= 1;
+                    // angle_FIFO_ready <= 1;              
                 end else begin
-                    in_fifo_ready <= 0;
-                    angle_FIFO_ready <= 0;
+                    // in_fifo_ready <= 0;
+                    // angle_FIFO_ready <= 0;
                 end
 
-                if (angle_FIFO_valid && in_fifo_valid && angle_FIFO_ready) begin
+                if (angle_FIFO_valid && in_fifo_valid && angle_fifo_ready) begin
                     corr_data_fifo_in_data <= in_fifo_data;
                     // if (symbol_cnt == 0)  $display("data %x  angle %f", in_fifo_data, $itor(angle_FIFO_data) / DEG45 * 45);
                     if (SC_idx_plus_start[1:0] == 0) begin
@@ -502,13 +517,8 @@ always @(posedge clk_i) begin
                         end
                     end
 
-                    if (SC_cnt == FFT_LEN - 2 - ZERO_CARRIERS) begin
-                        corr_data_fifo_in_last <= remaining_syms == 0;
-                    end else begin
-                        corr_data_fifo_in_last <= '0;
-                    end
-
                     if (SC_cnt == FFT_LEN - 1 - ZERO_CARRIERS) begin
+                        corr_data_fifo_in_last <= remaining_syms == 0;
                         if (remaining_syms > 0) begin
                             // if (symbol_type == SYMBOL_TYPE_PBCH)  $display("starting with PBCH symbol %d", SYMS_PER_PBCH - remaining_syms);
                             // stay in CALC_CORRECTION state and proces next symbol of burst
@@ -519,6 +529,7 @@ always @(posedge clk_i) begin
                             symbol_cnt <= symbol_cnt + 1;
                         end
                     end else begin
+                        corr_data_fifo_in_last <= '0;
                         corr_data_fifo_in_tuser <= symbol_type;
                         SC_cnt <= SC_cnt + 1;
                     end
@@ -531,15 +542,15 @@ always @(posedge clk_i) begin
             end
             PASS_THROUGH : begin
                 // only need to check angle_FIFO because, it becomes always later ready than data_FIFO
-                if (angle_FIFO_valid && in_fifo_valid && (SC_cnt != FFT_LEN - 1 - ZERO_CARRIERS)) begin
-                    in_fifo_ready <= 1;
-                    angle_FIFO_ready <= 1;              
-                end else begin
-                    in_fifo_ready <= 0;
-                    angle_FIFO_ready <= 0;
-                end                
+                // if (angle_FIFO_valid && in_fifo_valid && (SC_cnt != FFT_LEN - 1 - ZERO_CARRIERS)) begin
+                //     in_fifo_ready <= 1;
+                //     angle_FIFO_ready <= 1;              
+                // end else begin
+                //     in_fifo_ready <= 0;
+                //     angle_FIFO_ready <= 0;
+                // end                
 
-                if (angle_FIFO_valid && in_fifo_valid && angle_FIFO_ready) begin
+                if (angle_FIFO_valid && in_fifo_valid && angle_fifo_ready) begin
                     corr_data_fifo_in_data <= in_fifo_data;
                     if (SC_idx_plus_start[1:0] == 0) begin
                         corr_data_fifo_in_valid <= 0;
@@ -551,17 +562,13 @@ always @(posedge clk_i) begin
                         corr_data_fifo_in_valid <= 1;          
                     end
 
-                    if (SC_cnt == FFT_LEN - 2 - ZERO_CARRIERS) begin
-                        corr_data_fifo_in_last <= remaining_syms == 0;
-                    end else begin
-                        corr_data_fifo_in_last <= '0;
-                    end                    
-
                     if (SC_cnt == FFT_LEN - 1 - ZERO_CARRIERS) begin
+                        corr_data_fifo_in_last <= remaining_syms == 0;
                         state_corrector <= WAIT_FOR_INPUTS;
                         if (symbol_cnt == SYMS_BTWN_SSB - 1)    symbol_cnt <= '0;
                         else                                    symbol_cnt <= symbol_cnt + 1;
                     end else begin
+                        corr_data_fifo_in_last <= '0;
                         corr_data_fifo_in_tuser <= symbol_type;
                         SC_cnt <= SC_cnt + 1;
                     end
@@ -605,7 +612,7 @@ DDS_i(
 reg signed [DDS_OUT_DW - 1 : 0] corr_angle_fifo_out_data;
 reg                             corr_angle_fifo_out_valid;
 reg                             corr_angle_fifo_out_empty;
-reg                             corr_angle_fifo_out_ready;
+wire                            corr_angle_fifo_out_ready;
 AXIS_FIFO #(
     .DATA_WIDTH(DDS_OUT_DW),
     .FIFO_LEN(FFT_LEN),
@@ -628,7 +635,7 @@ corr_angle_fifo_i(
 reg [IN_DW - 1 : 0] corr_data_fifo_out_data;
 reg corr_data_fifo_out_valid;
 reg corr_data_fifo_out_empty;
-reg corr_data_fifo_out_ready;
+wire corr_data_fifo_out_ready;
 reg corr_data_fifo_out_last;
 reg [$clog2(FFT_LEN) - 1 : 0] corr_data_fifo_out_level;
 reg [1 : 0] corr_data_fifo_out_symbol_type;
@@ -658,7 +665,7 @@ corr_data_fifo_i(
 // corr_data_fifo_out_symbol_type needs to be connected to m_axis_out_tuser with delay
 // because the delay line and complex multiplier needs some clks
 localparam COMPLEX_MULT_DELAY = 6;
-localparam CORR_DATA_DELAY = 4;
+localparam CORR_DATA_DELAY = 4 - 1;
 localparam CORR_DELAY = CORR_DATA_DELAY + COMPLEX_MULT_DELAY;
 reg [1 : 0] symbol_type_delayed [0 : CORR_DELAY - 1];
 reg         tlast_delayed [0 : CORR_DELAY - 1];
@@ -723,30 +730,32 @@ reg [1 : 0] state_interp;
 reg [10 : 0] out_sample_cnt;
 localparam [1 : 0]  STATE_INTERP_WAIT_FOR_START     = 0;
 localparam [1 : 0]  STATE_INTERP_INTERPOLATE        = 1;
+assign corr_data_fifo_out_ready = corr_data_fifo_out_valid && (corr_angle_fifo_out_valid || (div3_cnt != 0)) && (state_interp != STATE_INTERP_WAIT_FOR_START);
+assign corr_angle_fifo_out_ready = corr_data_fifo_out_valid && corr_angle_fifo_out_valid && (state_interp != STATE_INTERP_WAIT_FOR_START) && div3_cnt == 0;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         div3_cnt <= '0;
-        corr_angle_fifo_out_ready <= '0;
-        corr_data_fifo_out_ready <= '0;
+        // corr_angle_fifo_out_ready <= '0;
+        // corr_data_fifo_out_ready <= '0;
         state_interp <= STATE_INTERP_WAIT_FOR_START;
     end else begin
         case(state_interp)
             STATE_INTERP_WAIT_FOR_START : begin
-                corr_angle_fifo_out_ready <= '0;
-                corr_data_fifo_out_ready <= '0;
+                // corr_angle_fifo_out_ready <= '0;
+                // corr_data_fifo_out_ready <= '0;
                 div3_cnt <= '0;
                 if (corr_data_fifo_out_valid) begin
                     state_interp <= STATE_INTERP_INTERPOLATE;
                 end
             end
             STATE_INTERP_INTERPOLATE : begin
-                if (corr_data_fifo_out_valid && corr_angle_fifo_out_valid) begin
-                    corr_data_fifo_out_ready <= 1;
-                    corr_angle_fifo_out_ready <= div3_cnt == 0;                    
-                end else begin
-                    corr_data_fifo_out_ready <= 0;
-                    corr_angle_fifo_out_ready <= 0;
-                end
+                // if (corr_data_fifo_out_valid && corr_angle_fifo_out_valid) begin
+                //     corr_data_fifo_out_ready <= 1;
+                //     corr_angle_fifo_out_ready <= div3_cnt == 0;                  
+                // end else begin
+                //     corr_data_fifo_out_ready <= 0;
+                //     corr_angle_fifo_out_ready <= 0;
+                // end
 
                 if (corr_data_fifo_out_last && corr_data_fifo_out_valid && corr_data_fifo_out_ready) begin
                     state_interp <= STATE_INTERP_WAIT_FOR_START;
