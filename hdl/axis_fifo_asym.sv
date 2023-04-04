@@ -28,7 +28,7 @@ module axis_fifo_asym #(
 )
 (
     input                                               clk_i,
-    input                                               reset_ni,
+    input                                               s_reset_ni,
 
     input           [DATA_WIDTH_IN - 1 : 0]             s_axis_in_tdata,
     input           [USER_WIDTH_IN - 1 : 0]             s_axis_in_tuser,
@@ -37,6 +37,7 @@ module axis_fifo_asym #(
     output  reg                                         s_axis_in_tfull,
 
     input                                               out_clk_i,
+    input                                               m_reset_ni,
     input                                               m_axis_out_tready,
     output  reg     [DATA_WIDTH_OUT - 1 : 0]            m_axis_out_tdata,
     output  reg     [USER_WIDTH_OUT - 1 : 0]            m_axis_out_tuser,
@@ -75,13 +76,14 @@ for (ii = 0; ii < RATIO; ii = ii + 1) begin
         .ASYNC(ASYNC)
     )
     axis_fifo_i(
-        .reset_ni(reset_ni),
         .clk_i(clk_i),
+        .s_reset_ni(s_reset_ni),
         .s_axis_in_tdata(s_axis_data_int[A_WIDTH * ii +: A_WIDTH]),
         .s_axis_in_tvalid(s_axis_valid_int[ii]),
         .s_axis_in_tuser(s_axis_user_int[A_USER_WIDTH * ii +: A_USER_WIDTH]),
         
         .out_clk_i(out_clk_i),
+        .m_reset_ni(m_reset_ni),
         .m_axis_out_tdata(m_axis_data_int[A_WIDTH * ii +: A_WIDTH]),
         .m_axis_out_tvalid(m_axis_valid_int[ii]),
         .m_axis_out_tuser(m_axis_user_int[A_USER_WIDTH * ii +: A_USER_WIDTH]),
@@ -124,7 +126,7 @@ if (RATIO == 1) begin
     initial m_axis_counter = 1'b0;
 end else begin
     always @(posedge out_clk_i) begin
-        if (!reset_ni) begin
+        if (!m_reset_ni) begin
             m_axis_counter <= 0;
         end else begin
             if (m_axis_out_tready && m_axis_out_tvalid) begin

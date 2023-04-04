@@ -62,8 +62,8 @@ AXIS_FIFO #(
     .ASYNC(0)
 )
 output_fifo_i(
-    .reset_ni(reset_ni),
     .clk_i(clk_i),
+    .s_reset_ni(reset_ni),
 
     .s_axis_in_tdata(s_axis_iq_tdata),
     .s_axis_in_tvalid(s_axis_iq_tvalid),
@@ -71,6 +71,7 @@ output_fifo_i(
     .s_axis_in_tuser(s_axis_iq_tuser[BLK_EXP_LEN -: BLK_EXP_LEN]),
 
     .out_clk_i(clk_i),
+    .m_reset_ni(reset_ni),
     .m_axis_out_tready(out_fifo_ready),
     .m_axis_out_tdata(out_fifo_data),
     .m_axis_out_tlast(out_fifo_last),

@@ -25,7 +25,7 @@ module AXIS_FIFO #(
 )
 (
     input                                               clk_i,
-    input                                               reset_ni,
+    input                                               s_reset_ni,
 
     input           [DATA_WIDTH - 1 : 0]                s_axis_in_tdata,
     input           [USER_WIDTH - 1 : 0]                s_axis_in_tuser,
@@ -34,6 +34,7 @@ module AXIS_FIFO #(
     output                                              s_axis_in_tfull,
 
     input                                               out_clk_i,
+    input                                               m_reset_ni,
     input                                               m_axis_out_tready,
     output  reg     [DATA_WIDTH - 1 : 0]                m_axis_out_tdata,
     output  reg     [USER_WIDTH - 1 : 0]                m_axis_out_tuser,
@@ -83,7 +84,7 @@ if (ASYNC) begin  : GEN_ASYNC
     wire                                empty           = wr_ptr_master == rd_ptr;
 
     always @(posedge clk_i) begin
-        if (!reset_ni) wr_ptr_grey <= '0;
+        if (!s_reset_ni) wr_ptr_grey <= '0;
         else if (s_axis_in_tvalid) wr_ptr_grey <= b2g(g2b(wr_ptr_grey) + 1);
     end
 
@@ -92,7 +93,7 @@ if (ASYNC) begin  : GEN_ASYNC
     end    
 
     always @(posedge out_clk_i) begin
-        if (!reset_ni) begin
+        if (!m_reset_ni) begin
             wr_ptr_f <= '0;
             wr_ptr_ff <= '0;
         end else begin
@@ -102,7 +103,7 @@ if (ASYNC) begin  : GEN_ASYNC
     end
 
     always @(posedge out_clk_i) begin
-        if (!reset_ni) begin
+        if (!m_reset_ni) begin
             m_axis_out_tdata <= '0;
             rd_ptr <= '0;
             m_axis_out_tvalid <= '0;
@@ -141,7 +142,7 @@ else begin : GEN_SYNC
     wire                            empty           = wr_ptr == rd_ptr;
 
     always @(posedge clk_i) begin
-        if (!reset_ni) wr_ptr <= '0;
+        if (!s_reset_ni) wr_ptr <= '0;
         else if (s_axis_in_tvalid) wr_ptr <= wr_ptr + 1'b1;
     end
 
@@ -153,7 +154,7 @@ else begin : GEN_SYNC
 
     wire data_in_pipeline = m_axis_out_tvalid && (!m_axis_out_tready);
     always @(posedge clk_i) begin
-        if (!reset_ni) begin
+        if (!m_reset_ni) begin
             m_axis_out_tdata <= '0;
             m_axis_out_tlast <= '0;
             m_axis_out_tuser <= '0;

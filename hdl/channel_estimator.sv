@@ -311,12 +311,13 @@ AXIS_FIFO #(
 )
 data_FIFO_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .s_reset_ni(reset_ni),
 
     .s_axis_in_tdata(s_axis_in_tdata),
     .s_axis_in_tuser(s_axis_in_tuser),
     .s_axis_in_tvalid(s_axis_in_tvalid),
 
+    .m_reset_ni(reset_ni),
     .m_axis_out_tready(in_fifo_ready),
     .m_axis_out_tdata(in_fifo_data),
     .m_axis_out_tuser(in_fifo_user),
@@ -357,11 +358,12 @@ AXIS_FIFO #(
 )
 angle_FIFO_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .s_reset_ni(reset_ni),
 
     .s_axis_in_tdata(SC_phase),
     .s_axis_in_tvalid(SC_phase_valid),
 
+    .m_reset_ni(reset_ni),
     .m_axis_out_tready(angle_fifo_ready),
     .m_axis_out_tdata(angle_FIFO_data),
     .m_axis_out_tvalid(angle_FIFO_valid),
@@ -615,10 +617,11 @@ AXIS_FIFO #(
 )
 corr_angle_fifo_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .s_reset_ni(reset_ni),
     .s_axis_in_tdata(DDS_out),
     .s_axis_in_tvalid(DDS_out_valid),
 
+    .m_reset_ni(reset_ni),
     .m_axis_out_tready(corr_angle_fifo_out_ready),
     .m_axis_out_tdata(corr_angle_fifo_out_data),
     .m_axis_out_tvalid(corr_angle_fifo_out_valid),
@@ -641,12 +644,13 @@ AXIS_FIFO #(
 )
 corr_data_fifo_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .s_reset_ni(reset_ni),
     .s_axis_in_tdata(corr_data_fifo_in_data),
     .s_axis_in_tuser(corr_data_fifo_in_tuser),
     .s_axis_in_tlast(corr_data_fifo_in_last),
     .s_axis_in_tvalid(corr_data_fifo_in_valid),
 
+    .m_reset_ni(reset_ni),
     .m_axis_out_tready(corr_data_fifo_out_ready),
     .m_axis_out_tdata(corr_data_fifo_out_data),
     .m_axis_out_tvalid(corr_data_fifo_out_valid),

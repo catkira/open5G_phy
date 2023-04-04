@@ -52,11 +52,12 @@ AXIS_FIFO #(
 )
 meta_FIFO_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .s_reset_ni(reset_ni),
 
     .s_axis_in_tdata(s_axis_in_tuser[USER_WIDTH_IN - 1 : $clog2(MAX_CP_LEN)]),
     .s_axis_in_tvalid(meta_FIFO_valid_in),
 
+    .m_reset_ni(reset_ni),
     .m_axis_out_tdata(meta_FIFO_out_data),
     .m_axis_out_tready(meta_FIFO_out_ready),
     .m_axis_out_tvalid(meta_FIFO_valid_out)

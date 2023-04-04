@@ -176,6 +176,15 @@ reg                             FIFO_out_tvalid;
 
 wire [IN_DW - 1 : 0] in_data = SEPARATE_IQ_IN ? {s_axis_in_Q_tdata, s_axis_in_I_tdata} : s_axis_in_tdata;
 wire reset_ni = reset_n; // port was renamed from reset_ni to reset_n so that Vivado infers correct polarity
+
+// reset CDC from clk_i to sample_clk_i
+reg reset_f, reset_ff;
+wire reset_sample_clk = reset_ff;
+always @(posedge sample_clk_i) begin
+    reset_f <= reset_ni;
+    reset_ff <= reset_f;
+end
+
 AXIS_FIFO #(
     .DATA_WIDTH(IN_DW),
     .FIFO_LEN(16),
@@ -183,7 +192,7 @@ AXIS_FIFO #(
 )
 AXIS_FIFO_i(
     .clk_i(sample_clk_i),
-    .reset_ni(reset_ni),
+    .s_reset_ni(reset_sample_clk),
 
     .s_axis_in_tdata(in_data),
     .s_axis_in_tvalid(s_axis_in_tvalid),
@@ -192,6 +201,7 @@ AXIS_FIFO_i(
     .s_axis_in_tfull(),
 
     .out_clk_i(clk_i),
+    .m_reset_ni(reset_ni),
     .m_axis_out_tready(1'b1),
     .m_axis_out_tdata(FIFO_out_tdata),
     .m_axis_out_tvalid(FIFO_out_tvalid),

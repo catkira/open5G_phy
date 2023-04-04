@@ -62,7 +62,7 @@ AXIS_FIFO #(
 )
 AXIS_FIFO_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .s_reset_ni(reset_ni),
 
     .s_axis_in_tdata(s_axis_in_tdata),
     .s_axis_in_tuser(s_axis_in_tuser),
@@ -71,6 +71,7 @@ AXIS_FIFO_i(
     .s_axis_in_tfull(s_axis_in_tfull),
 
     .out_clk_i(clk_i),
+    .m_reset_ni(reset_ni),
     .m_axis_out_tready(fifo_ready),
     .m_axis_out_tdata(fifo_data),
     .m_axis_out_tuser(fifo_user),
