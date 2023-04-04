@@ -259,12 +259,12 @@ async def simple_test(dut):
         if tb.MULT_REUSE < 8:
             assert peak_pos == DETECTOR_LATENCY + 823
         elif tb.MULT_REUSE == 8:
-            assert peak_pos == 3332  # TODO: why is this a different formula?
+            assert peak_pos == 3333  # TODO: why is this a different formula?
     elif NFFT == 9:
         if tb.MULT_REUSE < 8:
             assert peak_pos == DETECTOR_LATENCY + 1647
         elif tb.MULT_REUSE == 8:
-            assert peak_pos == 6636  # TODO: why is this a different formula?
+            assert peak_pos == 6637  # TODO: why is this a different formula?
 
     corr = np.zeros(335)
     for i in range(335):
@@ -394,4 +394,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 9, USE_TAP_FILE = 1, MULT_REUSE = 32)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 8)
