@@ -141,7 +141,7 @@ async def simple_test(dut):
     # TODO: make this nicer / more systematic
     if NFFT == 8:
         if tb.MULT_REUSE == 0:
-            DETECTOR_LATENCY = 21
+            DETECTOR_LATENCY = 20
         elif tb.MULT_REUSE == 1:
             DETECTOR_LATENCY = 30
         elif tb.MULT_REUSE == 2:
