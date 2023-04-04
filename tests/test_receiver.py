@@ -141,15 +141,15 @@ async def simple_test(dut):
     # TODO: make this nicer / more systematic
     if NFFT == 8:
         if tb.MULT_REUSE == 0:
-            DETECTOR_LATENCY = 20
+            DETECTOR_LATENCY = 21
         elif tb.MULT_REUSE == 1:
-            DETECTOR_LATENCY = 29
-        elif tb.MULT_REUSE == 2:
             DETECTOR_LATENCY = 30
+        elif tb.MULT_REUSE == 2:
+            DETECTOR_LATENCY = 31
         elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 31 + 826
+            DETECTOR_LATENCY = 32 + 826
         elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 39 + 826
+            DETECTOR_LATENCY = 40 + 826
     else:
         assert False, print("Error: only NFFT 8 is supported for now!")
     DETECTOR_LATENCY += 9 # for CFO correction complex_multiplier
@@ -317,7 +317,7 @@ async def simple_test(dut):
         if tb.MULT_REUSE < 8:
             assert peak_pos == DETECTOR_LATENCY + 823
         elif tb.MULT_REUSE == 8:
-            assert peak_pos == 3343  # TODO: why is this a different formula?
+            assert peak_pos == 3344  # TODO: why is this a different formula?
 
     corr = np.zeros(335)
     for i in range(335):

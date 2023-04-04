@@ -94,32 +94,32 @@ async def simple_test(dut):
         if tb.MULT_REUSE == 0:
             DETECTOR_LATENCY = 18
         elif tb.MULT_REUSE == 1:
-            DETECTOR_LATENCY = 27  # ok with new PSS_correlator_mr
-        elif tb.MULT_REUSE == 2:
             DETECTOR_LATENCY = 28  # ok with new PSS_correlator_mr
+        elif tb.MULT_REUSE == 2:
+            DETECTOR_LATENCY = 29  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 28 + 827  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 30 + 827  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 36 + 827  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 37 + 827  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 16:
-            DETECTOR_LATENCY = 36 + 827 * 5  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 37 + 827 * 5  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 32:
-            DETECTOR_LATENCY = 36 + 827 * 13  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 37 + 827 * 13  # ok with new PSS_correlator_mr
     elif NFFT == 9:
         if tb.MULT_REUSE == 0:
             DETECTOR_LATENCY = 20
         elif tb.MULT_REUSE == 1:
-            DETECTOR_LATENCY = 29  # ok with new PSS_correlator_mr
-        elif tb.MULT_REUSE == 2:
             DETECTOR_LATENCY = 30  # ok with new PSS_correlator_mr
+        elif tb.MULT_REUSE == 2:
+            DETECTOR_LATENCY = 31  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 31 + 826 * 2  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 32 + 826 * 2  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 45 + 826 * 2  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 46 + 826 * 2  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 16:
-            DETECTOR_LATENCY = 49 + 826 * 10  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 50 + 826 * 10  # ok with new PSS_correlator_mr
         elif tb.MULT_REUSE == 32:
-            DETECTOR_LATENCY = 57 + 826 * 26  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 58 + 826 * 26  # ok with new PSS_correlator_mr
     else:
         assert False, print("Error: only NFFT 8 and 9 are supported for now!")
     FFT_OUT_DW = 32

@@ -52,10 +52,13 @@ initial begin
     if (REQUIRED_OUT_DW > OUT_DW) $display("truncating output from %d to %d bits", REQUIRED_OUT_DW, OUT_DW);
 end
 
-
 reg unsigned [REQUIRED_OUT_DW - 1: 0] filter_result;
 wire signed [REQUIRED_OUT_DW - 1 : 0] mult_out_re [0 : REQ_MULTS - 1];
 wire signed [REQUIRED_OUT_DW - 1: 0] mult_out_im [0 : REQ_MULTS - 1];
+
+reg            [C_DW - 1 : 0]           C0_f, C1_f;
+reg signed [REQUIRED_OUT_DW - 1 : 0]    sum_im_f, sum_re_f;
+reg                                     sum_valid;
 
 initial begin
     $display("used real multiplications: %d", REQ_MULTS * 4 + 2);
@@ -242,15 +245,14 @@ end
 // global output process
 always @(posedge clk_i) begin // cannot use $display inside always_ff with iverilog
     if (!reset_ni) begin
-        m_axis_out_tdata <= '0;
-        m_axis_out_tvalid <= '0;
+        sum_valid <= '0;
         valid <= '0;
         C0_im = '0;
         C1_im = '0;
         C0_re = '0;
         C1_re = '0;
-        C0_o <= '0;
-        C1_o <= '0;
+        C0_f <= '0;
+        C1_f <= '0;
     end
     else begin
         valid <= s_axis_in_tvalid;
@@ -272,24 +274,38 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
                     C1_im = C1_im + mult_out_im[i];
                 end
             end
-            C0_o <= {C0_im, C0_re};
-            C1_o <= {C1_im, C1_re};
-            
-            // https://openofdm.readthedocs.io/en/latest/verilog.html
-            if (abs(sum_im) > abs(sum_re))   filter_result = abs(sum_im) + (abs(sum_re) >> 2);
-            else                             filter_result = abs(sum_re) + (abs(sum_im) >> 2);
-
-            if (REQUIRED_OUT_DW >= OUT_DW) begin
-                m_axis_out_tdata <= filter_result[REQUIRED_OUT_DW - 1 -: OUT_DW];
-            end else begin
-                // m_axis_out_tdata <= {{(OUT_DW - REQUIRED_OUT_DW){1'b0}}, filter_result};   // do zero padding
-                m_axis_out_tdata <= {{(OUTPUT_PAD_BITS){1'b0}}, filter_result};
-            end                        
-            m_axis_out_tvalid <= '1;
+            C0_f <= {C0_im, C0_re};
+            C1_f <= {C1_im, C1_re};
+            sum_im_f <= sum_im;
+            sum_re_f <= sum_re;
+            sum_valid <= 1;
         end else begin
-            m_axis_out_tdata <= '0;
-            m_axis_out_tvalid <= '0;
+            sum_valid <= '0;
         end
+    end
+end
+
+// output pipeline
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        m_axis_out_tvalid <= '0;
+        m_axis_out_tdata <= '0;
+        C0_o <= '0;
+        C1_o <= '0;
+    end else begin
+        // https://openofdm.readthedocs.io/en/latest/verilog.html
+        if (abs(sum_im_f) > abs(sum_re_f))   filter_result = abs(sum_im_f) + (abs(sum_re_f) >> 2);
+        else                             filter_result = abs(sum_re_f) + (abs(sum_im_f) >> 2);
+
+        if (REQUIRED_OUT_DW >= OUT_DW) begin
+            m_axis_out_tdata <= filter_result[REQUIRED_OUT_DW - 1 -: OUT_DW];
+        end else begin
+            // m_axis_out_tdata <= {{(OUT_DW - REQUIRED_OUT_DW){1'b0}}, filter_result};   // do zero padding
+            m_axis_out_tdata <= {{(OUTPUT_PAD_BITS){1'b0}}, filter_result};
+        end 
+        m_axis_out_tvalid <= sum_valid;
+        C0_o <= C0_f;
+        C1_o <= C1_f;
     end
 end
 
