@@ -78,7 +78,9 @@ if (ASYNC) begin  : GEN_ASYNC
     wire [PTR_WIDTH : 0]                wr_ptr          = g2b(wr_ptr_grey);
     wire [PTR_WIDTH - 1: 0]             wr_ptr_addr     = wr_ptr[PTR_WIDTH - 1 : 0];
     wire [PTR_WIDTH - 1: 0]             rd_ptr_addr     = rd_ptr[PTR_WIDTH - 1 : 0];
-    wire                                empty           = wr_ptr == rd_ptr;
+    reg [PTR_WIDTH : 0]                 wr_ptr_f, wr_ptr_ff;
+    wire [PTR_WIDTH : 0]                wr_ptr_master   = g2b(wr_ptr_ff);
+    wire                                empty           = wr_ptr_master == rd_ptr;
 
     always @(posedge clk_i) begin
         if (!reset_ni) wr_ptr_grey <= '0;
@@ -88,6 +90,16 @@ if (ASYNC) begin  : GEN_ASYNC
     always @(posedge clk_i) begin
         mem[wr_ptr_addr] <= s_axis_in_tdata;
     end    
+
+    always @(posedge out_clk_i) begin
+        if (!reset_ni) begin
+            wr_ptr_f <= '0;
+            wr_ptr_ff <= '0;
+        end else begin
+            wr_ptr_f <= wr_ptr_grey;
+            wr_ptr_ff <= wr_ptr_f;
+        end
+    end
 
     always @(posedge out_clk_i) begin
         if (!reset_ni) begin

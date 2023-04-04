@@ -143,13 +143,13 @@ async def simple_test(dut):
         if tb.MULT_REUSE == 0:
             DETECTOR_LATENCY = 18
         elif tb.MULT_REUSE == 1:
-            DETECTOR_LATENCY = 27  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 29
         elif tb.MULT_REUSE == 2:
-            DETECTOR_LATENCY = 28  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 30
         elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 29 + 826  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 31 + 826
         elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 37 + 826  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 39 + 826
     else:
         assert False, print("Error: only NFFT 8 is supported for now!")
     DETECTOR_LATENCY += 9 # for CFO correction complex_multiplier
