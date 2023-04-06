@@ -167,7 +167,6 @@ end else begin
         .USE_TAP_FILE(USE_TAP_FILE),
         .TAP_FILE(TAP_FILE_0),
         .TAP_FILE_PATH(TAP_FILE_PATH),
-        .ALGO(ALGO),
         .N_ID_2(0),
         .MULT_REUSE(MULT_REUSE)
     )
@@ -191,7 +190,6 @@ end else begin
         .USE_TAP_FILE(USE_TAP_FILE),
         .TAP_FILE(TAP_FILE_1),
         .TAP_FILE_PATH(TAP_FILE_PATH),
-        .ALGO(ALGO),
         .N_ID_2(1),
         .MULT_REUSE(MULT_REUSE)
     )
@@ -215,7 +213,6 @@ end else begin
         .USE_TAP_FILE(USE_TAP_FILE),
         .TAP_FILE(TAP_FILE_2),
         .TAP_FILE_PATH(TAP_FILE_PATH),
-        .ALGO(ALGO),
         .N_ID_2(2),
         .MULT_REUSE(MULT_REUSE)
     )

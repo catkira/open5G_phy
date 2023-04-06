@@ -7,7 +7,6 @@ module PSS_correlator_mr
     parameter TAP_DW = 32,
     parameter PSS_LEN = 128,
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
-    parameter ALGO = 0,  // not used anymore
     parameter USE_TAP_FILE = 0,
     parameter TAP_FILE = "",
     parameter TAP_FILE_PATH = "",
@@ -34,7 +33,7 @@ localparam IN_OP_DW  = IN_DW / 2;
 localparam TAP_OP_DW = TAP_DW / 2;
 localparam REQUIRED_OUT_DW = IN_OP_DW + TAP_OP_DW + 1 + $clog2(PSS_LEN);
 
-localparam PSS_LEN_USED = ALGO ? (PSS_LEN - 2) / 2 : PSS_LEN;
+localparam PSS_LEN_USED = PSS_LEN;
 localparam REQ_MULTS = (PSS_LEN_USED % MULT_REUSE) != 0 ? PSS_LEN_USED / MULT_REUSE + 1 : PSS_LEN_USED / MULT_REUSE;
 
 wire signed [IN_OP_DW - 1 : 0] axis_in_re, axis_in_im;
@@ -43,8 +42,9 @@ assign axis_in_im = s_axis_in_tdata[IN_DW - 1     -: IN_OP_DW];
 
 reg signed [TAP_OP_DW - 1 : 0] tap_re, tap_im;
 
-reg signed [IN_OP_DW - 1 : 0] in_re [0 : PSS_LEN - 1];
-reg signed [IN_OP_DW - 1 : 0] in_im [0 : PSS_LEN - 1];
+// input buffer
+reg signed [IN_DW - 1 : 0] in [0 : PSS_LEN - 1];
+
 reg valid;
 reg signed [REQUIRED_OUT_DW - 1 : 0] sum_im, sum_re;
 reg signed [REQUIRED_OUT_DW - 1 : 0] C0_im, C0_re, C1_im, C1_re; // partial sums, used for CFO estimation
@@ -117,11 +117,23 @@ endfunction
 
 localparam OUTPUT_PAD_BITS = REQUIRED_OUT_DW >= OUT_DW ? 0 : OUT_DW - REQUIRED_OUT_DW;
 
+reg start, start_f;
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        start <= '0;
+        start_f <= '0;
+    end else if (wr_ptr == 127) begin
+        start <= 1;
+    end
+    if (start && s_axis_in_tvalid)
+        start_f <= 1;
+end
+
 for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
     localparam MULT_REUSE_CUR = PSS_LEN_USED - i_g * MULT_REUSE >= MULT_REUSE ? MULT_REUSE : PSS_LEN_USED % MULT_REUSE;
     reg [$clog2(MULT_REUSE) : 0] idx = '0;
     reg signed [REQUIRED_OUT_DW - 1: 0] out_buf_re, out_buf_im;
-    reg [$clog2(PSS_LEN_USED) : 0] pos;
+    reg unsigned [$clog2(PSS_LEN_USED) - 1 : 0] pos, pos_tab;
     reg ready;
     assign mult_out_re[i_g] = out_buf_re;
     assign mult_out_im[i_g] = out_buf_im;
@@ -165,16 +177,17 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
         if ((!valid && (idx == 0)) || !reset_ni) begin
             idx <= '0;
             mult_in_valid <= '0;
-            pos <= ALGO ? i_g * MULT_REUSE + 1 : i_g * MULT_REUSE;
+            pos <= - i_g * MULT_REUSE + wr_ptr;
+            pos_tab <= i_g * MULT_REUSE;
         end else if (idx < MULT_REUSE) begin
             if (valid && (idx != 0)) begin
                 $display("Error: valid should not go high now!");
                 $finish();
             end
             if (idx < MULT_REUSE_CUR) begin
-                tap_re = get_tap_re(pos);
-                tap_im = get_tap_im(pos);
-                mult_in_data <= {in_im[pos], in_re[pos]};
+                tap_re = get_tap_re(pos_tab);
+                tap_im = get_tap_im(pos_tab);
+                mult_in_data <= start_f ? in[pos] : {(IN_DW){1'b0}};
                 mult_in_tap <= {tap_im, tap_re};
                 mult_in_valid <= 1;
             end else begin
@@ -183,9 +196,11 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
 
             if (idx == MULT_REUSE - 1) begin
                 idx <= '0;
-                pos <= ALGO ? i_g * MULT_REUSE + 1 : i_g * MULT_REUSE;
+                pos <= - i_g * MULT_REUSE + wr_ptr;
+                pos_tab <= i_g * MULT_REUSE;
             end else begin
-                pos <= pos + 1;
+                pos <= pos - 1;
+                pos_tab <= pos_tab + 1;
                 idx <= idx + 1;
             end
         end
@@ -223,22 +238,14 @@ for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
     end
 end
 
-// delay line buffer for incoming samples
-genvar ii;
-for (ii = 0; ii < PSS_LEN; ii++) begin
-    always @(posedge clk_i) begin
-        if (!reset_ni) begin
-            in_re[ii] <= '0;
-            in_im[ii] <= '0;
-        end else if (s_axis_in_tvalid) begin
-            if (ii == 0) begin
-                in_re[ii] <= axis_in_re;
-                in_im[ii] <= axis_in_im;
-            end else begin
-                in_re[ii] <= in_re[ii - 1];
-                in_im[ii] <= in_im[ii - 1];
-            end
-        end
+// circular input buffer
+reg [6 : 0] wr_ptr;
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        wr_ptr <= '0;
+    end else if (s_axis_in_tvalid) begin
+        in[wr_ptr] <= s_axis_in_tdata;
+        wr_ptr <= wr_ptr + 1; // rely on automatic wrap around
     end
 end
 
@@ -294,8 +301,8 @@ always @(posedge clk_i) begin
         C1_o <= '0;
     end else begin
         // https://openofdm.readthedocs.io/en/latest/verilog.html
-        if (abs(sum_im_f) > abs(sum_re_f))   filter_result = abs(sum_im_f) + (abs(sum_re_f) >> 2);
-        else                             filter_result = abs(sum_re_f) + (abs(sum_im_f) >> 2);
+        if (abs(sum_im_f) > abs(sum_re_f))  filter_result = abs(sum_im_f) + (abs(sum_re_f) >> 2);
+        else                                filter_result = abs(sum_re_f) + (abs(sum_im_f) >> 2);
 
         if (REQUIRED_OUT_DW >= OUT_DW) begin
             m_axis_out_tdata <= filter_result[REQUIRED_OUT_DW - 1 -: OUT_DW];

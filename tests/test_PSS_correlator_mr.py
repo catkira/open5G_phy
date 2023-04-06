@@ -35,7 +35,6 @@ class TB(object):
         self.TAP_DW = int(dut.TAP_DW.value)
         self.PSS_LEN = int(dut.PSS_LEN.value)
         self.PSS_LOCAL = int(dut.PSS_LOCAL.value)
-        self.ALGO = int(dut.ALGO.value)
         self.MULT_REUSE = int(dut.MULT_REUSE.value)
 
         self.log = logging.getLogger('cocotb.tb')
@@ -46,7 +45,7 @@ class TB(object):
         spec = importlib.util.spec_from_file_location('PSS_correlator', model_dir)
         foo = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(foo)
-        self.model = foo.Model(self.IN_DW, self.OUT_DW, self.TAP_DW, self.PSS_LEN, self.PSS_LOCAL, self.ALGO)
+        self.model = foo.Model(self.IN_DW, self.OUT_DW, self.TAP_DW, self.PSS_LEN, self.PSS_LOCAL, ALGO = 0)
 
         cocotb.start_soon(Clock(self.dut.clk_i, CLK_PERIOD_NS, units='ns').start())
         cocotb.start_soon(self.model_clk(CLK_PERIOD_NS, 'ns'))
@@ -142,20 +141,14 @@ async def simple_test(dut):
     print(f'max correlation is {received[ssb_start]} at {ssb_start}')
 
     print(f'max model-hdl difference is {max(np.abs(received - received_model))}')
-    if tb.ALGO == 0:
-        for i in range(len(received)):
-            assert received[i] == received_model[i]
-    else:
-        # TODO: implement model
-        pass
-    if tb.ALGO == 0:
-        prod = C0[ssb_start+128] * np.conj(C1[ssb_start+128])
-        # detectedCFO = np.arctan2(prod.imag, prod.real)
-        detectedCFO = np.angle(prod)
-        detectedCFO_Hz = detectedCFO / (2*np.pi) * (fs/decimation_factor) / 64
-        print(f'detected CFO = {detectedCFO_Hz} Hz')
-    else:
-        print('CFO estimation is not possible with ALGO=1')
+    for i in range(len(received)):
+        assert received[i] == received_model[i]
+
+    prod = C0[ssb_start+128] * np.conj(C1[ssb_start+128])
+    # detectedCFO = np.arctan2(prod.imag, prod.real)
+    detectedCFO = np.angle(prod)
+    detectedCFO_Hz = detectedCFO / (2*np.pi) * (fs/decimation_factor) / 64
+    print(f'detected CFO = {detectedCFO_Hz} Hz')
 
     PSS = np.zeros(128, 'complex')
     PSS[:-1] = py3gpp.nrPSS(2)
@@ -167,33 +160,30 @@ async def simple_test(dut):
     detectedCFO = np.angle(prod)
     detectedCFO_Hz_model = detectedCFO / (2*np.pi) * (fs/decimation_factor) / 64
     print(f'detected CFO (model) = {detectedCFO_Hz_model} Hz')
-    if tb.ALGO == 0:
-        if CFO != 0:
-            assert (np.abs(detectedCFO_Hz - detectedCFO_Hz_model)/np.abs(CFO)) < 0.05
-        else:
-            assert np.abs(detectedCFO_Hz - detectedCFO_Hz_model) < 20
+    if CFO != 0:
+        assert (np.abs(detectedCFO_Hz - detectedCFO_Hz_model)/np.abs(CFO)) < 0.05
+    else:
+        assert np.abs(detectedCFO_Hz - detectedCFO_Hz_model) < 20
 
     assert ssb_start == 284
     assert len(received) == num_items - 128
 
 
-@pytest.mark.parametrize("ALGO", [0])
 @pytest.mark.parametrize("IN_DW", [32])
 @pytest.mark.parametrize("OUT_DW", [45])
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("CFO", [0, 6500, -5500])
 @pytest.mark.parametrize("MULT_REUSE", [1, 16])
-def test_CFO(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
-    test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE)
+def test_CFO(IN_DW, OUT_DW, TAP_DW, CFO, MULT_REUSE):
+    test(IN_DW, OUT_DW, TAP_DW, CFO, MULT_REUSE)
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
-@pytest.mark.parametrize("ALGO", [0, 1])
 @pytest.mark.parametrize("IN_DW", [14, 32])
 @pytest.mark.parametrize("OUT_DW", [45])
 @pytest.mark.parametrize("TAP_DW", [18, 32])
 @pytest.mark.parametrize("CFO", [1000])
 @pytest.mark.parametrize("MULT_REUSE", [1, 15, 16])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
+def test(IN_DW, OUT_DW, TAP_DW, CFO, MULT_REUSE):
     dut = 'PSS_correlator_mr'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -210,7 +200,6 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
     parameters['OUT_DW'] = OUT_DW
     parameters['TAP_DW'] = TAP_DW
     parameters['PSS_LEN'] = PSS_LEN
-    parameters['ALGO'] = ALGO
     parameters['MULT_REUSE'] = MULT_REUSE
 
     # imaginary part is in upper 16 Bit
@@ -247,4 +236,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 45, TAP_DW = 18, ALGO = 0, CFO = 2000, MULT_REUSE = 15)
+    test(IN_DW = 32, OUT_DW = 45, TAP_DW = 18, CFO = 2000, MULT_REUSE = 16)
