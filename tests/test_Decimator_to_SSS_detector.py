@@ -199,7 +199,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
         os.path.join(rtl_dir, 'frame_sync.sv'),
         os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
         os.path.join(rtl_dir, 'FFT_demod.sv'),
-        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v'),
+        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.sv'),
         os.path.join(rtl_dir, 'CIC/cic_d.sv'),
         os.path.join(rtl_dir, 'CIC/comb.sv'),
         os.path.join(rtl_dir, 'CIC/downsampler.sv'),

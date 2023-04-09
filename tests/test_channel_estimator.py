@@ -313,7 +313,7 @@ def test_PBCH_DMRS_gen(N_ID_1, N_ID_2):
         os.path.join(rtl_dir, 'DDS/dds.sv'),
         os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
         os.path.join(rtl_dir, 'LFSR/LFSR.sv'),
-        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
+        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.sv')
     ]
     includes = []
 
@@ -353,7 +353,7 @@ def test_PBCH_ibar_SSB_det(IN_DW, ibar_SSB):
         os.path.join(rtl_dir, 'DDS/dds.sv'),
         os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
         os.path.join(rtl_dir, 'LFSR/LFSR.sv'),
-        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
+        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.sv')
     ]
     includes = []
     os.environ['ibar_SSB'] = str(ibar_SSB)
@@ -389,7 +389,7 @@ def test_PBCH_stream(IN_DW):
         os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
         os.path.join(rtl_dir, 'LFSR/LFSR.sv'),
         os.path.join(rtl_dir, 'DDS/dds.sv'),
-        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
+        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.sv')
     ]
     includes = []
     parameters = {}

@@ -190,7 +190,7 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO, MULT_REUSE):
 
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
-        os.path.join(rtl_dir, 'complex_multiplier', 'complex_multiplier.v')
+        os.path.join(rtl_dir, 'complex_multiplier', 'complex_multiplier.sv')
     ]
     includes = []
 

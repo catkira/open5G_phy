@@ -201,7 +201,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, CFO, MULT_REUSE, CFO_CORR, PSS_CORRELATOR_
         os.path.join(rtl_dir, 'CIC/comb.sv'),
         os.path.join(rtl_dir, 'CIC/downsampler.sv'),
         os.path.join(rtl_dir, 'CIC/integrator.sv'),
-        os.path.join(rtl_dir, 'complex_multiplier', 'complex_multiplier.v'),
+        os.path.join(rtl_dir, 'complex_multiplier', 'complex_multiplier.sv'),
         os.path.join(rtl_dir, 'DDS', 'dds.sv')
     ]
     includes = [
