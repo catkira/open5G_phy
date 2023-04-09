@@ -72,7 +72,7 @@ endfunction
 
 if (ASYNC) begin  : GEN_ASYNC
     (* ram_style = "block" *)
-    reg [DATA_WIDTH - 1  : 0]           mem[0 : FIFO_LEN - 1];
+    reg [DATA_WIDTH + USER_WIDTH- 1  : 0]           mem[0 : FIFO_LEN - 1];
 
     reg [PTR_WIDTH : 0]                 rd_ptr;
     reg [PTR_WIDTH : 0]                 wr_ptr_grey;
@@ -89,7 +89,8 @@ if (ASYNC) begin  : GEN_ASYNC
     end
 
     always @(posedge clk_i) begin
-        mem[wr_ptr_addr] <= s_axis_in_tdata;
+        if (USER_WIDTH == 0)    mem[wr_ptr_addr] <= s_axis_in_tdata;
+        else                    mem[wr_ptr_addr] <= {s_axis_in_tuser, s_axis_in_tdata};
     end    
 
     always @(posedge out_clk_i) begin
@@ -102,6 +103,7 @@ if (ASYNC) begin  : GEN_ASYNC
         end
     end
 
+    wire [DATA_WIDTH + USER_WIDTH - 1 : 0] rd_data = mem[rd_ptr_addr];
     always @(posedge out_clk_i) begin
         if (!m_reset_ni) begin
             m_axis_out_tdata <= '0;
@@ -111,7 +113,12 @@ if (ASYNC) begin  : GEN_ASYNC
             m_axis_out_tvalid <= !empty;
             // read new data if fifo is not empty and if there is space in the output pipeline
             if (!empty && ((!m_axis_out_tvalid) || m_axis_out_tready)) begin
-                m_axis_out_tdata <= mem[rd_ptr_addr];
+                if (USER_WIDTH == 0) begin
+                    m_axis_out_tdata <= rd_data;
+                end else begin
+                    m_axis_out_tdata <= rd_data[DATA_WIDTH - 1 : 0];
+                    m_axis_out_tuser <= rd_data[DATA_WIDTH - USER_WIDTH - 1 -: USER_WIDTH];
+                end
                 rd_ptr <= rd_ptr + 1;
             end
         end

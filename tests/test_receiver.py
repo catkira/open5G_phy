@@ -473,7 +473,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
         generate_PSS_tap_file.main(['--PSS_LEN', str(PSS_LEN),'--TAP_DW', str(TAP_DW), '--N_id_2', str(N_id_2), '--path', sim_build])
 
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
-
+ 
     compile_args = []
     if os.environ.get('SIM') == 'verilator':
         compile_args = ['--no-timing', '-Wno-fatal', '-Wno-PINMISSING', '-y', tests_dir + '/../submodules/verilator-unisims']
