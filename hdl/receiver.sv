@@ -171,6 +171,11 @@ assign m_axis_cic_debug_tvalid = m_axis_cic_tvalid;
 reg [COMPL_MULT_OUT_DW - 1 : 0] mult_out_tdata;
 reg                             mult_out_tvalid;
 
+localparam SAMPLE_CNT_WIDTH = 64;
+reg [SAMPLE_CNT_WIDTH - 1 : 0]  sample_cnt_out_data;
+wire                            sample_cnt_out_ready;
+wire                            sample_cnt_out_valid;
+
 reg [IN_DW - 1 : 0]             FIFO_out_tdata;
 reg                             FIFO_out_tvalid;
 
@@ -185,12 +190,19 @@ always @(posedge sample_clk_i) begin
     reset_ff <= reset_f;
 end
 
+reg [SAMPLE_CNT_WIDTH - 1 : 0] sample_cnt;
+always @(posedge sample_clk_i) begin
+    if (!reset_ff) sample_cnt <= '0;
+    else sample_cnt <= sample_cnt + 1;
+end
+
 AXIS_FIFO #(
     .DATA_WIDTH(IN_DW),
+    .USER_WIDTH(0),
     .FIFO_LEN(16),
     .ASYNC(1)
 )
-AXIS_FIFO_i(
+sample_in_fifo_i(
     .clk_i(sample_clk_i),
     .s_reset_ni(reset_sample_clk),
 
@@ -211,6 +223,36 @@ AXIS_FIFO_i(
     .m_axis_out_tempty()
 );
 
+AXIS_FIFO #(
+    .DATA_WIDTH(SAMPLE_CNT_WIDTH),
+    .USER_WIDTH(0),
+    .FIFO_LEN(32),  // a bit larger, needs to cover complex_multiplier latency
+    .ASYNC(1)
+)
+sample_cnt_fifo_i(
+    .clk_i(sample_clk_i),
+    .s_reset_ni(reset_sample_clk),
+
+    .s_axis_in_tdata(sample_cnt),
+    .s_axis_in_tvalid(s_axis_in_tvalid),
+    .s_axis_in_tuser(),
+    .s_axis_in_tlast(),
+    .s_axis_in_tfull(),
+
+    .out_clk_i(clk_i),
+    .m_reset_ni(reset_ni),
+    .m_axis_out_tready(sample_cnt_out_ready),
+    .m_axis_out_tdata(sample_cnt_out_data),
+    .m_axis_out_tvalid(sample_cnt_out_valid),
+    .m_axis_out_tuser(),
+    .m_axis_out_tlast(),
+    .m_axis_out_tlevel(),
+    .m_axis_out_tempty()
+);
+
+// take sample_id out of sample_cnt_fifo whenever a valid sample comes
+// out of the CFO correction multiplier
+assign sample_cnt_out_ready = mult_out_tvalid;
 
 reg signed [DDS_PHASE_DW - 1 : 0]   CFO_DDS_inc, CFO_DDS_inc_f;
 reg                                 CFO_valid;
@@ -448,7 +490,7 @@ localparam SYM_PER_SF = 14;
 localparam SFN_WIDTH = $clog2(SFN_MAX);
 localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1);
 localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1);
-localparam USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + $clog2(MAX_CP_LEN);
+localparam USER_WIDTH = SAMPLE_CNT_WIDTH + SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + $clog2(MAX_CP_LEN);
 
 reg [IN_DW - 1 : 0]     fs_out_tdata;
 reg [USER_WIDTH - 1 : 0] fs_out_tuser;
@@ -476,6 +518,7 @@ frame_sync_i
     .ibar_SSB_i(ce_ibar_SSB),
     .ibar_SSB_valid_i(ce_ibar_SSB_valid),
     .s_axis_in_tdata(delay_line_data[DELAY_LINE_LEN - 1]),
+    .s_axis_in_tuser(sample_cnt_out_data),
     .s_axis_in_tvalid(delay_line_valid[DELAY_LINE_LEN - 1]),
 
     .PSS_detector_mode_o(PSS_detector_mode),

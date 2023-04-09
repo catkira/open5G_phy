@@ -16,12 +16,15 @@ module frame_sync #(
     localparam SFN_WIDTH = $clog2(SFN_MAX),
     localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1),
     localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1),
-    localparam USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + $clog2(MAX_CP_LEN)
+    localparam SAMPLE_CNT_WIDTH = 64,
+    localparam USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + $clog2(MAX_CP_LEN),
+    localparam USER_WIDTH_OUT = USER_WIDTH + SAMPLE_CNT_WIDTH
 )
 (
     input                                           clk_i,
     input                                           reset_ni,
     input   wire       [IN_DW - 1 : 0]              s_axis_in_tdata,
+    input   wire       [SAMPLE_CNT_WIDTH - 1 : 0]   s_axis_in_tuser,
     input                                           s_axis_in_tvalid,
 
     input              [1 : 0]                      N_id_2_i,
@@ -33,7 +36,7 @@ module frame_sync #(
     output  reg        [1 : 0]                      requested_N_id_2_o,
 
     output  reg        [OUT_DW - 1 : 0]             m_axis_out_tdata,
-    output  reg        [USER_WIDTH - 1 : 0]         m_axis_out_tuser,
+    output  reg        [USER_WIDTH_OUT - 1 : 0]     m_axis_out_tuser,
     output  reg                                     m_axis_out_tlast,
     output  reg                                     m_axis_out_tvalid,
     output  reg                                     symbol_start_o,
@@ -46,15 +49,18 @@ reg [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_number;
 reg [SYMBOL_NUMBER_WIDTH - 1 : 0] sym_cnt;
 reg [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len;
 reg [IN_DW - 1 : 0] s_axis_in_tdata_f;
+reg [SAMPLE_CNT_WIDTH - 1 : 0] sample_id;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         m_axis_out_tdata <= '0;
         m_axis_out_tuser <= '0;
         s_axis_in_tdata_f <= '0;
+        sample_id <= '0;
     end else begin
         s_axis_in_tdata_f <= s_axis_in_tdata;
         m_axis_out_tdata <= s_axis_in_tdata_f;
-        m_axis_out_tuser <= {sfn, subframe_number, sym_cnt, current_CP_len};
+        sample_id <= s_axis_in_tuser;
+        m_axis_out_tuser <= {sample_id, sfn, subframe_number, sym_cnt, current_CP_len};
     end
 end
 

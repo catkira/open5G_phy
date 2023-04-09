@@ -25,8 +25,9 @@ module ressource_grid_subscriber #(
     localparam SYM_PER_SF = 14,
     localparam SFN_WIDTH = $clog2(SFN_MAX),
     localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1),
-    localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1),    
-    localparam USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1
+    localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1),
+    localparam SAMPLE_CNT_WIDTH = 64,
+    localparam USER_WIDTH = SAMPLE_CNT_WIDTH + SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1
 )
 (
     input                                               clk_i,
@@ -88,6 +89,7 @@ reg [2 : 0] state;
 wire [SYMBOL_NUMBER_WIDTH - 1 : 0] symbol_id = s_axis_iq_tuser[SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1 - 1 -: SYMBOL_NUMBER_WIDTH];
 wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_id = s_axis_iq_tuser[SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1 - 1 -: SUBFRAME_NUMBER_WIDTH];
 wire [SFN_WIDTH - 1 : 0] sfn = s_axis_iq_tuser[USER_WIDTH - 1 -: SFN_WIDTH];
+wire [SAMPLE_CNT_WIDTH - 1 : 0] sample_id = s_axis_iq_tuser[USER_WIDTH - 1 -: SAMPLE_CNT_WIDTH];
 reg [IQ_WIDTH - 1 : 0] sample_buffer;
 always @(posedge clk_i) begin
     if (!reset_ni) begin

@@ -476,7 +476,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
  
     compile_args = []
     if os.environ.get('SIM') == 'verilator':
-        compile_args = ['--no-timing', '-Wno-fatal', '-Wno-PINMISSING', '-y', tests_dir + '/../submodules/verilator-unisims']
+        compile_args = ['--no-timing', '-Wno-fatal', '-Wno-width', '-Wno-PINMISSING', '-y', tests_dir + '/../submodules/verilator-unisims']
     else:
         compile_args = ['-sglbl', '-y' + unisim_dir]
     cocotb_test.simulator.run(
