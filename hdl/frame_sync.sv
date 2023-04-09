@@ -16,15 +16,12 @@ module frame_sync #(
     localparam SFN_WIDTH = $clog2(SFN_MAX),
     localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1),
     localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1),
-    localparam SAMPLE_CNT_WIDTH = 64,
-    localparam USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + $clog2(MAX_CP_LEN),
-    localparam USER_WIDTH_OUT = USER_WIDTH + SAMPLE_CNT_WIDTH
+    localparam USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + $clog2(MAX_CP_LEN)
 )
 (
     input                                           clk_i,
     input                                           reset_ni,
     input   wire       [IN_DW - 1 : 0]              s_axis_in_tdata,
-    input   wire       [SAMPLE_CNT_WIDTH - 1 : 0]   s_axis_in_tuser,
     input                                           s_axis_in_tvalid,
 
     input              [1 : 0]                      N_id_2_i,
@@ -35,8 +32,12 @@ module frame_sync #(
     output  reg        [1 : 0]                      PSS_detector_mode_o,
     output  reg        [1 : 0]                      requested_N_id_2_o,
 
+    // interface to sample_id FIFO
+    output  wire                                    sample_id_valid,
+
+    // output to FFT_demod
     output  reg        [OUT_DW - 1 : 0]             m_axis_out_tdata,
-    output  reg        [USER_WIDTH_OUT - 1 : 0]     m_axis_out_tuser,
+    output  reg        [USER_WIDTH - 1 : 0]         m_axis_out_tuser,
     output  reg                                     m_axis_out_tlast,
     output  reg                                     m_axis_out_tvalid,
     output  reg                                     symbol_start_o,
@@ -49,18 +50,15 @@ reg [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_number;
 reg [SYMBOL_NUMBER_WIDTH - 1 : 0] sym_cnt;
 reg [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len;
 reg [IN_DW - 1 : 0] s_axis_in_tdata_f;
-reg [SAMPLE_CNT_WIDTH - 1 : 0] sample_id;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         m_axis_out_tdata <= '0;
         m_axis_out_tuser <= '0;
         s_axis_in_tdata_f <= '0;
-        sample_id <= '0;
     end else begin
         s_axis_in_tdata_f <= s_axis_in_tdata;
         m_axis_out_tdata <= s_axis_in_tdata_f;
-        sample_id <= s_axis_in_tuser;
-        m_axis_out_tuser <= {sample_id, sfn, subframe_number, sym_cnt, current_CP_len};
+        m_axis_out_tuser <= {sfn, subframe_number, sym_cnt, current_CP_len};
     end
 end
 
@@ -122,7 +120,6 @@ always @(posedge clk_i) begin
     end
 end
 
-
 // ---------------------------------------------------------------------------------------------------//
 // FSM for keeping track of current subframe number and symbol number within a subframe 
 // and sending the current CP length to the FFT_demod core
@@ -143,17 +140,18 @@ reg [1 : 0] state;
 localparam [1 : 0] WAIT_FOR_SSB = 0;
 localparam [1 : 0] WAIT_FOR_IBAR = 1;
 localparam [1 : 0] SYNCED = 2;
+reg [SYMBOL_NUMBER_WIDTH - 1 : 0] sym_cnt_next;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         sfn <= '0;
         subframe_number <= '0;
-        sym_cnt = '0;
+        sym_cnt <= '0;
+        sym_cnt_next = '0;
         sample_cnt <= '0;
         state <= WAIT_FOR_SSB;
         current_CP_len <= CP2_LEN;
         find_SSB <= '0;
-        symbol_start_o <= '0;
         SSB_start_o <= '0;
         syms_since_last_SSB <= '0;
         m_axis_out_tvalid <= '0;
@@ -169,7 +167,7 @@ always @(posedge clk_i) begin
                     // assume for now that we are at symbol 3
                     // it might have to be corrected once ibar_SSB arrives
                     current_CP_len <= CP2_LEN;
-                    sym_cnt = 3;
+                    sym_cnt <= 3;
                     state <= WAIT_FOR_IBAR;
                     syms_since_last_SSB <= '0;
                     SSB_start_o <= 1;
@@ -188,10 +186,10 @@ always @(posedge clk_i) begin
                                 // no adjustment needed here
                             end
                             1: begin
-                                sym_cnt = sym_cnt + 6 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
+                                sym_cnt <= sym_cnt + 6 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
                             end
                             2: begin
-                                sym_cnt = sym_cnt + 14 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
+                                sym_cnt <= sym_cnt + 14 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
                                 if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
                                     subframe_number <= '0;
                                     // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
@@ -200,7 +198,7 @@ always @(posedge clk_i) begin
                                     subframe_number <= subframe_number + 1;
                                 end                            end
                             3: begin
-                                sym_cnt = sym_cnt + 20 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
+                                sym_cnt <= sym_cnt + 20 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
                                 if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
                                     subframe_number <= '0;
                                     // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
@@ -221,7 +219,8 @@ always @(posedge clk_i) begin
                         m_axis_out_tlast <= 1;
 
                         if (sym_cnt == SYM_PER_SF - 1) begin
-                            sym_cnt = 0;
+                            sym_cnt <= 0;
+                            sym_cnt_next = 0;
                             subframe_number <= subframe_number == SYM_PER_SF - 1 ? 0 : subframe_number + 1;
                             if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
                                 subframe_number <= '0;
@@ -231,11 +230,12 @@ always @(posedge clk_i) begin
                                 subframe_number <= subframe_number + 1;
                             end
                         end else begin
-                            sym_cnt = sym_cnt + 1;
+                            sym_cnt <= sym_cnt + 1;
+                            sym_cnt_next = sym_cnt + 1;
                         end
 
                         sample_cnt <= '0;
-                        if ((sym_cnt == 0) || (sym_cnt == 7))   current_CP_len <= CP1_LEN;
+                        if ((sym_cnt_next == 0) || (sym_cnt_next == 7))   current_CP_len <= CP1_LEN;
                         else                                    current_CP_len <= CP2_LEN;
                         
                         if ((syms_since_last_SSB == SYMS_BTWN_SSB - 1) || N_id_2_valid_i)   syms_since_last_SSB <= 0;
@@ -315,7 +315,8 @@ always @(posedge clk_i) begin
                     if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
                         m_axis_out_tlast <= 1;
                         if (sym_cnt == SYM_PER_SF - 1) begin
-                            sym_cnt = 0;
+                            sym_cnt <= 0;
+                            sym_cnt_next = '0;
                             subframe_number <= subframe_number == SYM_PER_SF - 1 ? 0 : subframe_number + 1;
                             if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
                                 subframe_number <= '0;
@@ -325,11 +326,12 @@ always @(posedge clk_i) begin
                                 subframe_number <= subframe_number + 1;
                             end
                         end else begin
-                            sym_cnt = sym_cnt + 1;
+                            sym_cnt <= sym_cnt + 1;
+                            sym_cnt_next = sym_cnt + 1;
                         end
 
                         sample_cnt <= '0;
-                        if ((sym_cnt == 0) || (sym_cnt == 7))   current_CP_len <= CP1_LEN;
+                        if ((sym_cnt_next == 0) || (sym_cnt_next == 7))   current_CP_len <= CP1_LEN;
                         else                                    current_CP_len <= CP2_LEN;
                         
                         if (N_id_2_valid_i) syms_since_last_SSB <= '0;
@@ -345,5 +347,37 @@ always @(posedge clk_i) begin
         endcase
     end
 end
+
+// ----------------------------------------------------------------
+// This process sets symbol_start_o to 1 at the beginning of every symbol,
+// but only when the FSM above is in SYNCED state
+reg symbol_state;
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        symbol_start_o <= '0;
+        symbol_state <= '0;
+    end else begin
+        case (symbol_state)
+            0: begin
+                // first symbol of SSB can arrive a bit earlier or later,
+                // therefore need a special check for this case
+                if ((state != WAIT_FOR_SSB) && find_SSB && N_id_2_valid_i) begin
+                    symbol_state <= 1;
+                    symbol_start_o <= 1;
+                end else if ((state != WAIT_FOR_SSB) && (sample_cnt == 0) && (s_axis_in_tvalid)) begin
+                    symbol_state <= 1;
+                    symbol_start_o <= 1;
+                end
+            end
+            1: begin
+                symbol_start_o <= '0;
+                if ((sample_cnt == 1) || (state == WAIT_FOR_SSB)) symbol_state <= '0;
+            end
+        endcase
+    end
+end
+
+// store sample_id into FIFO at the beginning of each symbol
+assign sample_id_valid = symbol_start_o;
 
 endmodule

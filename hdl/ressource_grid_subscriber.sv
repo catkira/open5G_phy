@@ -26,8 +26,8 @@ module ressource_grid_subscriber #(
     localparam SFN_WIDTH = $clog2(SFN_MAX),
     localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1),
     localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1),
-    localparam SAMPLE_CNT_WIDTH = 64,
-    localparam USER_WIDTH = SAMPLE_CNT_WIDTH + SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1
+    localparam SAMPLE_ID_WIDTH = 64,
+    localparam USER_WIDTH =  SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1
 )
 (
     input                                               clk_i,
@@ -38,6 +38,11 @@ module ressource_grid_subscriber #(
     input                                               s_axis_iq_tvalid,
     input           [USER_WIDTH - 1 : 0]                s_axis_iq_tuser,
     input                                               s_axis_iq_tlast,
+
+    // interface to sample_id FIFO
+    input           [SAMPLE_ID_WIDTH - 1 : 0]           sample_id_data,
+    input                                               sample_id_valid,
+    output  reg                                         sample_id_ready,
 
     // interface to frame_sync
     output  reg                                         overflow_o,
@@ -89,8 +94,8 @@ reg [2 : 0] state;
 wire [SYMBOL_NUMBER_WIDTH - 1 : 0] symbol_id = s_axis_iq_tuser[SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1 - 1 -: SYMBOL_NUMBER_WIDTH];
 wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_id = s_axis_iq_tuser[SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1 - 1 -: SUBFRAME_NUMBER_WIDTH];
 wire [SFN_WIDTH - 1 : 0] sfn = s_axis_iq_tuser[USER_WIDTH - 1 -: SFN_WIDTH];
-wire [SAMPLE_CNT_WIDTH - 1 : 0] sample_id = s_axis_iq_tuser[USER_WIDTH - 1 -: SAMPLE_CNT_WIDTH];
 reg [IQ_WIDTH - 1 : 0] sample_buffer;
+reg [SAMPLE_ID_WIDTH - 1 : 0] sample_id_buffer;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         state <= '0;
@@ -98,6 +103,7 @@ always @(posedge clk_i) begin
         m_axis_fifo_tdata <= '0;
         m_axis_fifo_tvalid <= '0;
         sample_buffer <= '0;
+        sample_id_ready <= '0;
     end else begin
         case (state)
             0 : begin // enable FIFO output
@@ -109,6 +115,7 @@ always @(posedge clk_i) begin
                     m_axis_fifo_tdata <= blk_exp;
                     sample_buffer <= out_fifo_data;
                     m_axis_fifo_tvalid <= 1;
+                    sample_id_ready <= 1;
                     out_fifo_ready <= 0; // next cycle still has a valid sample coming out!
                     state <= 2;
                 end else begin
@@ -116,6 +123,8 @@ always @(posedge clk_i) begin
                 end
             end
             2 : begin // output stored sample
+                sample_id_buffer <= sample_id_data;  // TODO: insert this in output packet
+                sample_id_ready <= 0;
                 sample_buffer <= out_fifo_data;
                 m_axis_fifo_tdata <= sample_buffer;
                 m_axis_fifo_tvalid <= 1;
