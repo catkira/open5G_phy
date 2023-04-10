@@ -346,7 +346,7 @@ end else begin
             m_axis_out_tvalid <= '0;
         end else begin
             m_axis_out_tdata <= {fft_result_im, fft_result_re};
-            m_axis_out_tlast <= last_SC;
+            m_axis_out_tlast <= fft_val && (out_cnt == (FFT_LEN - 1 - SC_START));
             m_axis_out_tuser <= meta_out;
             m_axis_out_tvalid <= fft_val && valid_SC;
         end
