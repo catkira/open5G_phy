@@ -51,6 +51,7 @@ module ressource_grid_subscriber #(
     input                                               m_axis_fifo_tready,
     output  reg                                         m_axis_fifo_tvalid,
     output  reg     [IQ_WIDTH - 1 : 0]                  m_axis_fifo_tdata,
+    output  reg                                         m_axis_fifo_tlast,
 
     // interface to CPU interrupt controller
     output  reg                                         int_o
@@ -104,6 +105,7 @@ always @(posedge clk_i) begin
         state <= '0;
         m_axis_fifo_tdata <= '0;
         m_axis_fifo_tvalid <= '0;
+        m_axis_fifo_tlast <= '0;
         sample_buffer <= '0;
         sample_id_ready <= '0;
         timestamp_cnt <= '0;
@@ -111,6 +113,7 @@ always @(posedge clk_i) begin
     end else begin
         case (state)
             0 : begin
+                m_axis_fifo_tlast <= '0;
                 if (out_fifo_valid) begin
                     // start outputting data when out_fifo has data
                     // output blk_exp first
@@ -151,6 +154,7 @@ always @(posedge clk_i) begin
                 if (out_fifo_last) begin
                     state <= 0;
                     out_fifo_ready <= '0;
+                    m_axis_fifo_tlast <= 1;
                 end
             end
         endcase

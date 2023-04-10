@@ -66,6 +66,7 @@ module receiver
     // AXI stream interface to DMA core
     output          [FFT_OUT_DW - 1 : 0]            m_axis_out_tdata,
     output                                          m_axis_out_tvalid,
+    output                                          m_axis_out_tlast,
 
     // AXI lite interface
     // write address channel
@@ -611,6 +612,7 @@ ressource_grid_subscriber_i(
 
     .m_axis_fifo_tdata(m_axis_out_tdata),
     .m_axis_fifo_tvalid(m_axis_out_tvalid),
+    .m_axis_fifo_tlast(m_axis_out_tlast),
     .overflow_o(rgs_overflow)
 );
 
