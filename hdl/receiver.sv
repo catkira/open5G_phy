@@ -244,10 +244,6 @@ sample_id_cdc_i(
     .m_axis_out_tempty()
 );
 
-// take sample_id out of sample_cnt_fifo whenever a valid sample comes
-// out of the CFO correction multiplier
-assign sample_id_out_ready = mult_out_tvalid;
-
 reg signed [DDS_PHASE_DW - 1 : 0]   CFO_DDS_inc, CFO_DDS_inc_f;
 reg                                 CFO_valid;
 wire [DDS_OUT_DW - 1 : 0]           DDS_out;
