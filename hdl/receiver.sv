@@ -1,22 +1,16 @@
 `timescale 1ns / 1ns
 
-`ifdef VERILATOR  // make parameter readable from VPI
-  `define VL_RD /*verilator public_flat_rd*/
-`else
-  `define VL_RD
-`endif
-
 module receiver
 #(
-    parameter IN_DW `VL_RD = 32,           // input data width
-    parameter OUT_DW `VL_RD = 32,          // correlator output data width
-    parameter TAP_DW `VL_RD = 32,
-    parameter PSS_LEN `VL_RD = 128,
-    parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_0 `VL_RD = {(PSS_LEN * TAP_DW){1'b0}},
-    parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_1 `VL_RD = {(PSS_LEN * TAP_DW){1'b0}},
-    parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_2 `VL_RD = {(PSS_LEN * TAP_DW){1'b0}},
-    parameter WINDOW_LEN `VL_RD = 8,
-    parameter HALF_CP_ADVANCE `VL_RD = 9,
+    parameter IN_DW = 32,           // input data width
+    parameter OUT_DW = 32,          // correlator output data width
+    parameter TAP_DW = 32,
+    parameter PSS_LEN = 128,
+    parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_0 = {(PSS_LEN * TAP_DW){1'b0}},
+    parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_1 = {(PSS_LEN * TAP_DW){1'b0}},
+    parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_2 = {(PSS_LEN * TAP_DW){1'b0}},
+    parameter WINDOW_LEN = 8,
+    parameter HALF_CP_ADVANCE = 9,
     parameter USE_TAP_FILE = 1,
     parameter TAP_FILE_0 = "",
     parameter TAP_FILE_1 = "",
@@ -34,8 +28,8 @@ module receiver
     localparam FFT_LEN = 2 ** NFFT,
     localparam MAX_CP_LEN = 20 * FFT_LEN / 256,
     localparam CIC_RATE = FFT_LEN / 128,    
-    localparam FFT_OUT_DW `VL_RD = 16,
-    localparam N_id_1_MAX `VL_RD = 335,
+    localparam FFT_OUT_DW = 16,
+    localparam N_id_1_MAX = 335,
     localparam DDS_PHASE_DW = 20,
     localparam DDS_OUT_DW = 32,
     localparam CFO_DW = 20,
