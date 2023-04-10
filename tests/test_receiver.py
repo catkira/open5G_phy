@@ -133,6 +133,13 @@ async def simple_test(dut):
     received_SSS = []
     corrected_PBCH = []
     received_PBCH_LLR = []
+    FFT_OUT_DW = 16
+    SYMBOL_LEN = 240
+    NUM_TIMESTAMP_SAMPLES = 64 // FFT_OUT_DW
+    RGS_TRANSFER_LEN = SYMBOL_LEN + NUM_TIMESTAMP_SAMPLES + 1
+    received_rgs = np.zeros((1, RGS_TRANSFER_LEN), 'complex')
+    num_rgs_symbols = 0
+    rgs_sc_idx = 0
     HALF_CP_ADVANCE = tb.HALF_CP_ADVANCE
     CP2_LEN = 18 * FFT_LEN // 256
     SSS_LEN = 127
@@ -153,8 +160,6 @@ async def simple_test(dut):
     else:
         assert False, print("Error: only NFFT 8 is supported for now!")
     DETECTOR_LATENCY += 9 # for CFO correction complex_multiplier
-    FFT_OUT_DW = 16
-    SYMBOL_LEN = 240
     MAX_TX = int(0.045 * fs) # simulate 45ms tx data
     SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
     MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
@@ -206,6 +211,20 @@ async def simple_test(dut):
         if dut.SSS_valid_o.value.integer == 1:
             received_SSS.append(_twos_comp(dut.m_axis_demod_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
+
+        if dut.m_axis_out_tvalid.value.integer:
+            if rgs_sc_idx < 1 + NUM_TIMESTAMP_SAMPLES:
+                received_rgs[num_rgs_symbols, rgs_sc_idx] = dut.m_axis_out_tdata.value.integer
+            else:
+                received_rgs[num_rgs_symbols, rgs_sc_idx] = _twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2) \
+                    + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+            if dut.m_axis_out_tlast.value.integer:
+                num_rgs_symbols += 1
+                assert rgs_sc_idx == RGS_TRANSFER_LEN - 1, print('Error: received from number of bytes from ressource_grid_subscriber!')
+                rgs_sc_idx = 0
+                received_rgs = np.vstack((received_rgs, np.zeros((1, RGS_TRANSFER_LEN), 'complex')))
+            else:
+                rgs_sc_idx += 1
 
         if dut.m_axis_demod_out_tvalid.value.integer == 1:
             # this is not used anymore, can be deleted in the future
@@ -313,19 +332,37 @@ async def simple_test(dut):
     scaling_factor = 2 ** (tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mode
     ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
 
+    # verift PSS_detector
     if NFFT == 8:
         if tb.MULT_REUSE < 8:
             assert peak_pos == DETECTOR_LATENCY + 823
         elif tb.MULT_REUSE == 8:
             assert peak_pos == 3344  # TODO: why is this a different formula?
 
+    # verify received SSS sequence
     corr = np.zeros(335)
     for i in range(335):
         sss = py3gpp.nrSSS(i)
         corr[i] = np.abs(np.vdot(sss, received_SSS[:SSS_LEN]))
     detected_NID = np.argmax(corr)
     assert detected_NID == 209
+    
+    # verify received ressource_grid_subscriber
+    def extract_timestamp(packet):
+        ts = 0
+        samples = packet[1:][:NUM_TIMESTAMP_SAMPLES]
+        for i in range(NUM_TIMESTAMP_SAMPLES):
+            ts += int(samples[i].real) << int(FFT_OUT_DW * i)
+        return ts
+    
+    timestamp = extract_timestamp(received_rgs[0, :])
+    for i in range(1, num_rgs_symbols):
+        delta_samples = extract_timestamp(received_rgs[i, :]) - timestamp
+        print(f'delta_samples = {delta_samples}')
+        assert delta_samples in [274, 276], print('Error: symbols have wrong spacing!') # depending on cp1 or cp2
+        timestamp = extract_timestamp(received_rgs[i, :])
 
+    # verify channel_estimator and demap
     # try to decode PBCH
     ibar_SSB = 0 # TODO grab this from hdl
     nVar = 1

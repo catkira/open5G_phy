@@ -98,7 +98,7 @@ wire [SFN_WIDTH - 1 : 0] sfn = s_axis_iq_tuser[USER_WIDTH - 1 -: SFN_WIDTH];
 reg [IQ_WIDTH - 1 : 0] sample_buffer;
 reg [SAMPLE_ID_WIDTH - 1 : 0] sample_id_buffer;
 localparam NUM_TIMESTAMP_SAMPLES = 64 / IQ_WIDTH;
-reg [$clog2(NUM_TIMESTAMP_SAMPLES) - 1 : 0] timestamp_cnt;
+reg [$clog2(NUM_TIMESTAMP_SAMPLES) - 1: 0] timestamp_cnt;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -127,8 +127,8 @@ always @(posedge clk_i) begin
             1 : begin // output timestamp
                 if (sample_id_valid) begin
                     m_axis_fifo_tdata <= sample_id_data;
-                    sample_id_buffer <= sample_id_data;
-                    timestamp_cnt <= 1;
+                    sample_id_buffer <= sample_id_data >> IQ_WIDTH;
+                    timestamp_cnt <= 0;
                     m_axis_fifo_tvalid <= 1;
                     sample_id_ready <= 1;
                     state <= 2;
@@ -138,14 +138,15 @@ always @(posedge clk_i) begin
             end
             2: begin // output remaining samples with timestamp
                 sample_id_ready <= '0;
+                timestamp_cnt <= timestamp_cnt + 1;
                 m_axis_fifo_tdata <= sample_id_buffer;
                 sample_id_buffer <= sample_id_buffer >> IQ_WIDTH;
-                m_axis_fifo_tvalid <= 1;
                 if (timestamp_cnt == NUM_TIMESTAMP_SAMPLES - 1) begin
                     out_fifo_ready <= 1;
                     state <= 3;
+                    m_axis_fifo_tvalid <= '0;
                 end else begin
-                    timestamp_cnt <= timestamp_cnt + 1;
+                    m_axis_fifo_tvalid <= 1;
                 end
             end
             3 : begin // output IQ samples (forward from FIFO)
