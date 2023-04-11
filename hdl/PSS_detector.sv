@@ -86,6 +86,9 @@ assign m_axis_correlator_debug_tvalid = correlator_2_tvalid;
 reg [2 : 0] peak_detected; 
 reg correlator_en;
 reg [IN_DW-1:0] score [0 : 2];
+wire cfo_mode;
+localparam CFO_MODE_AUTO = 1'b0;
+localparam CFO_MODE_MANUAL = 1'b1;
 
 if (MULT_REUSE == 0) begin
     PSS_correlator #(
@@ -361,7 +364,7 @@ always @(posedge clk_i) begin
                     CFO_state <= WAIT_FOR_PEAK;
                     CFO_angle_o <= CFO_angle;
                     CFO_DDS_inc_o <= CFO_DDS_inc;
-                    CFO_valid_o <= 1;
+                    CFO_valid_o <= 1 && (cfo_mode == CFO_MODE_AUTO);
                 end
             end
         endcase
@@ -430,6 +433,7 @@ PSS_detector_regmap_i(
 
     .mode_i(mode_i),
     .CFO_angle_i(CFO_angle_o),
+    .cfo_mode_o(cfo_mode),
 
     .s_axi_if_awaddr(s_axi_awaddr),
     .s_axi_if_awvalid(s_axi_awvalid),

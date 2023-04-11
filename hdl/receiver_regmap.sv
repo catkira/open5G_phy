@@ -1,5 +1,5 @@
 `timescale 1ns / 1ns
-// This core connects AXI lite mapped registers from the PSS detector
+// This core connects AXI lite mapped registers from the Open5G receiver
 // Copyright (C) 2023  Benjamin Menkuec
 //
 // This program is free software: you can redistribute it and/or modify
@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-module PSS_detector_regmap #(
+module receiver_regmap #(
     parameter ID = 0,
     parameter ADDRESS_WIDTH = 11
 )
@@ -52,9 +52,7 @@ module PSS_detector_regmap #(
     input                                       s_axi_if_rready,
 
     // mapped registers
-    input           [1 : 0]                     mode_i,
-    input  signed   [31 : 0]                    CFO_angle_i,
-    output reg                                  cfo_mode_o
+    input           [1 : 0]                     fs_state_i
 );
 
 localparam PCORE_VERSION = 'h00040069;
@@ -79,9 +77,7 @@ always @(posedge clk_i) begin
                 9'h002: rdata <= '0;
                 9'h003: rdata <= 32'h50535344; // "PSSD"
                 9'h004: rdata <= 32'h69696969;
-                9'h005: rdata <= mode_i;
-                9'h006: rdata <= CFO_angle_i;
-                9'h007: rdata <= cfo_mode_o;
+                9'h005: rdata <= fs_state_i;
                 default: rdata <= '0;
             endcase
         end
@@ -100,11 +96,9 @@ end
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
-        cfo_mode_o <= '0;
     end else begin
         if (wreq) begin
             case (waddr)
-                9'h007: cfo_mode_o <= wdata;
                 default: begin end
             endcase
         end

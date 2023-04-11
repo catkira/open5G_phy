@@ -33,7 +33,8 @@ module receiver
     localparam DDS_PHASE_DW = 20,
     localparam DDS_OUT_DW = 32,
     localparam CFO_DW = 20,
-    localparam COMPL_MULT_OUT_DW = 32
+    localparam COMPL_MULT_OUT_DW = 32,
+    localparam AXI_ADDRESS_WIDTH = 11
 )
 (
     input                                           clk_i,
@@ -155,6 +156,29 @@ wire            [ 1 : 0]                        s_axi_pss_rresp;
 wire                                            s_axi_pss_rvalid;
 wire                                            s_axi_pss_rready;
 // ------------------------------------------------------------------
+// --------------   wires for receiver_regmap_i  -----------------------
+wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_rx_awaddr;
+wire                                            s_axi_rx_awvalid;
+wire                                            s_axi_rx_awready;
+// write data channel
+wire            [31 : 0]                        s_axi_rx_wdata;
+wire            [ 3 : 0]                        s_axi_rx_wstrb;
+wire                                            s_axi_rx_wvalid;
+wire                                            s_axi_rx_wready;
+// write response channel
+wire            [ 1 : 0]                        s_axi_rx_bresp;
+wire                                            s_axi_rx_bvalid;
+wire                                            s_axi_rx_bready;
+// read address channel
+wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_rx_araddr;
+wire                                            s_axi_rx_arvalid;
+wire                                            s_axi_rx_arready;
+// read data channel
+wire            [31 : 0]                        s_axi_rx_rdata;
+wire            [ 1 : 0]                        s_axi_rx_rresp;
+wire                                            s_axi_rx_rvalid;
+wire                                            s_axi_rx_rready;
+// ------------------------------------------------------------------
 
 
 wire [IN_DW - 1 : 0] m_axis_cic_tdata;
@@ -175,6 +199,36 @@ reg                             FIFO_out_tvalid;
 
 wire [IN_DW - 1 : 0] in_data = SEPARATE_IQ_IN ? {s_axis_in_Q_tdata, s_axis_in_I_tdata} : s_axis_in_tdata;
 wire reset_ni = reset_n; // port was renamed from reset_ni to reset_n so that Vivado infers correct polarity
+wire fs_state;
+
+receiver_regmap #(
+    .ID(0),
+    .ADDRESS_WIDTH(AXI_ADDRESS_WIDTH)
+)
+receiver_regmap_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+
+    .fs_state_i(fs_state),
+
+    .s_axi_if_awaddr(s_axi_rx_awaddr),
+    .s_axi_if_awvalid(s_axi_rx_awvalid),
+    .s_axi_if_awready(s_axi_rx_awready),
+    .s_axi_if_wdata(s_axi_rx_wdata),
+    .s_axi_if_wstrb(s_axi_rx_wstrb),
+    .s_axi_if_wvalid(s_axi_rx_wvalid),
+    .s_axi_if_wready(s_axi_rx_wready),
+    .s_axi_if_bresp(s_axi_rx_bresp),
+    .s_axi_if_bvalid(s_axi_rx_bvalid),
+    .s_axi_if_bready(s_axi_rx_bready),
+    .s_axi_if_araddr(s_axi_rx_araddr),
+    .s_axi_if_arvalid(s_axi_rx_arvalid),
+    .s_axi_if_arready(s_axi_rx_arready),
+    .s_axi_if_rdata(s_axi_rx_rdata),
+    .s_axi_if_rresp(s_axi_rx_rresp),
+    .s_axi_if_rvalid(s_axi_rx_rvalid),
+    .s_axi_if_rready(s_axi_rx_rready)
+);
 
 // reset CDC from clk_i to sample_clk_i
 reg reset_f, reset_ff;
@@ -521,7 +575,8 @@ frame_sync_i
     .m_axis_out_tlast(fs_out_tlast),
     .m_axis_out_tvalid(fs_out_tvalid),
     .symbol_start_o(fs_out_symbol_start),
-    .SSB_start_o(fs_out_SSB_start)
+    .SSB_start_o(fs_out_SSB_start),
+    .state_o(fs_state)
 );
 
 wire [SAMPLE_ID_WIDTH - 1 : 0] sample_id_fifo_out_data;
@@ -772,7 +827,25 @@ axil_interconnect_wrap_1x4_i(
     .m01_axil_rdata(s_axi_pss_rdata),
     .m01_axil_rresp(s_axi_pss_rresp),
     .m01_axil_rvalid(s_axi_pss_rvalid),
-    .m01_axil_rready(s_axi_pss_rready)
+    .m01_axil_rready(s_axi_pss_rready),
+
+    .m02_axil_awaddr(s_axi_rx_awaddr),
+    .m02_axil_awvalid(s_axi_rx_awvalid),
+    .m02_axil_awready(s_axi_rx_awready),
+    .m02_axil_wdata(s_axi_rx_wdata),
+    .m02_axil_wstrb(s_axi_rx_wstrb),
+    .m02_axil_wvalid(s_axi_rx_wvalid),
+    .m02_axil_wready(s_axi_rx_wready),
+    .m02_axil_bresp(s_axi_rx_bresp),
+    .m02_axil_bvalid(s_axi_rx_bvalid),
+    .m02_axil_bready(s_axi_rx_bready),
+    .m02_axil_araddr(s_axi_rx_araddr),
+    .m02_axil_arvalid(s_axi_rx_arvalid),
+    .m02_axil_arready(s_axi_rx_arready),
+    .m02_axil_rdata(s_axi_rx_rdata),
+    .m02_axil_rresp(s_axi_rx_rresp),
+    .m02_axil_rvalid(s_axi_rx_rvalid),
+    .m02_axil_rready(s_axi_rx_rready)
 );
 
 endmodule

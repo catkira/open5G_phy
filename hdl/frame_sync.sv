@@ -41,7 +41,10 @@ module frame_sync #(
     output  reg                                     m_axis_out_tlast,
     output  reg                                     m_axis_out_tvalid,
     output  reg                                     symbol_start_o,
-    output  reg                                     SSB_start_o
+    output  reg                                     SSB_start_o,
+
+    // output to regmap
+    output  wire                                    state_o
 );
 
 reg [$clog2(MAX_CP_LEN) - 1: 0] CP_len;
@@ -137,6 +140,7 @@ localparam SYMS_BTWN_SSB = SUBFRAMES_PER_FRAME * SYM_PER_SF;
 reg [$clog2(SYMS_BTWN_SSB + 100) - 1 : 0] syms_since_last_SSB;
 
 reg [1 : 0] state;
+assign state_o = state;
 localparam [1 : 0] WAIT_FOR_SSB = 0;
 localparam [1 : 0] WAIT_FOR_IBAR = 1;
 localparam [1 : 0] SYNCED = 2;
