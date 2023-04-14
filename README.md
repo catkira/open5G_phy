@@ -7,7 +7,7 @@ The FFT size can easily be increased by a parameter in the code, but it will nee
 Cell search is limited to 1 frequency offset range. Within this frequency offset range, the PSS correlator works up to a CFO of about += 10 kHz.
 Each PSS correlator only detects one of the possible three different PSS sequences. If a general cell search for all 3 possible N_id_2's is needed, 3 PSS correlators need to be instanciated in parallel. If CFOs larger than the detection range of the PSS correlator are expected, the different CFO possibilities can be tried sequentially by configuring the receiver via its AXI-lite interface.
 <br>
-Interface to upper layers is currently implemented via AXI-lite for configuration and register access and AXI-MM for data transfer. Since the lower phy split chosen in this design is identical with the O-RAN 7.2x option, it should be possible to implement a [eCPRI](http://www.cpri.info/downloads/eCPRI_v_2.0_2019_05_10c.pdf) interface for this core.
+Interface to upper layers is currently implemented via AXI-lite for configuration and register access and AXI-MM for data transfer. Since the lower phy split chosen in this design is identical with the O-RAN 7.2x option, it should be possible to implement a [eCPRI](http://www.cpri.info/downloads/eCPRI_v_2.0_2019_05_10c.pdf) interface which is [O-RAN FH](https://www.etsi.org/deliver/etsi_ts/103800_103899/103859/07.00.02_60/ts_103859v070002p.pdf) compatible for this core.
 
 Implemented so far:<br>
 * Decimator [detailed description below](https://github.com/catkira/open5G_rx#decimator)
