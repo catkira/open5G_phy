@@ -182,4 +182,4 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
     )
 
 if __name__ == '__main__':
-    pass
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, ALGO = 0)

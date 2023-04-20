@@ -4,7 +4,7 @@ module Peak_detector
 #(
     parameter IN_DW = 32,              // input data width
     parameter WINDOW_LEN = 8,          // length of average window, should be power of 2
-    parameter VARIABLE_NOISE_LIMIT = 1,
+    parameter VARIABLE_NOISE_LIMIT = 0,
 
     localparam FIXED_NOISE_LIMIT = 2**(IN_DW/2),
     localparam DETECTION_FACTOR = 16
