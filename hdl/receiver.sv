@@ -210,6 +210,7 @@ receiver_regmap_i(
     .reset_ni(reset_ni),
 
     .fs_state_i(fs_state),
+    .rx_signal_i(in_data),
 
     .s_axi_if_awaddr(s_axi_rx_awaddr),
     .s_axi_if_awvalid(s_axi_rx_awvalid),
