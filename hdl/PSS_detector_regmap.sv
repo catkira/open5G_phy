@@ -54,7 +54,11 @@ module PSS_detector_regmap #(
     // mapped registers
     input           [1 : 0]                     mode_i,
     input  signed   [31 : 0]                    CFO_angle_i,
-    output reg                                  cfo_mode_o
+    output reg                                  cfo_mode_o,
+    input           [31 : 0]                    peak_counter_0_i,
+    input           [31 : 0]                    peak_counter_1_i,
+    input           [31 : 0]                    peak_counter_2_i,
+    output reg      [15 : 0]                    noise_limit_o
 );
 
 localparam PCORE_VERSION = 'h00040069;
@@ -82,6 +86,9 @@ always @(posedge clk_i) begin
                 9'h005: rdata <= mode_i;
                 9'h006: rdata <= CFO_angle_i;
                 9'h007: rdata <= cfo_mode_o;
+                9'h008: rdata <= peak_counter_0_i;
+                9'h009: rdata <= peak_counter_1_i;
+                9'h00A: rdata <= peak_counter_2_i;
                 default: rdata <= '0;
             endcase
         end
@@ -101,10 +108,12 @@ end
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         cfo_mode_o <= '0;
+        noise_limit_o <= '0;
     end else begin
         if (wreq) begin
             case (waddr)
                 9'h007: cfo_mode_o <= wdata;
+                9'h00B: noise_limit_o <= wdata;
                 default: begin end
             endcase
         end

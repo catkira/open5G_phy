@@ -20,6 +20,7 @@ module PSS_detector
     parameter CFO_DW = 24,
     parameter DDS_DW = 20,
     parameter MULT_REUSE = 1,
+    parameter PEAK_COUNTER = 1,
 
     localparam SAMPLE_RATE = 1920000,
     localparam AXI_ADDRESS_WIDTH = 11
@@ -89,6 +90,27 @@ reg [IN_DW-1:0] score [0 : 2];
 wire cfo_mode;
 localparam CFO_MODE_AUTO = 1'b0;
 localparam CFO_MODE_MANUAL = 1'b1;
+
+reg [31 : 0] peak_counter_0;
+reg [31 : 0] peak_counter_1;
+reg [31 : 0] peak_counter_2;
+if (PEAK_COUNTER) begin
+    always @(posedge clk_i) begin
+        if (!reset_ni) begin
+            peak_counter_0 <= '0;
+            peak_counter_1 <= '0;
+            peak_counter_2 <= '0;
+        end else begin
+            peak_counter_0 <= peak_detected[0] ? peak_counter_0 + 1 : peak_counter_0;
+            peak_counter_1 <= peak_detected[1] ? peak_counter_1 + 1 : peak_counter_1;
+            peak_counter_2 <= peak_detected[2] ? peak_counter_2 + 1 : peak_counter_2;
+        end
+    end
+end else begin
+    initial peak_counter_0 <= '0;
+    initial peak_counter_1 <= '0;
+    initial peak_counter_2 <= '0;
+end
 
 if (MULT_REUSE == 0) begin
     PSS_correlator #(
@@ -234,39 +256,45 @@ end
 
 Peak_detector #(
     .IN_DW(OUT_DW),
-    .WINDOW_LEN(WINDOW_LEN)
+    .WINDOW_LEN(WINDOW_LEN),
+    .VARIABLE_NOISE_LIMIT(0)
 )
 peak_detector_0_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
     .s_axis_in_tdata(correlator_0_tdata),
     .s_axis_in_tvalid(correlator_0_tvalid),
+    .noise_limit_i(),
     .peak_detected_o(peak_detected[0]),
     .score_o(score[0])    
 );
 
 Peak_detector #(
     .IN_DW(OUT_DW),
-    .WINDOW_LEN(WINDOW_LEN)
+    .WINDOW_LEN(WINDOW_LEN),
+    .VARIABLE_NOISE_LIMIT(0)
 )
 peak_detector_1_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
     .s_axis_in_tdata(correlator_1_tdata),
     .s_axis_in_tvalid(correlator_1_tvalid),
+    .noise_limit_i(),
     .peak_detected_o(peak_detected[1]),
     .score_o(score[1])
 );
 
 Peak_detector #(
     .IN_DW(OUT_DW),
-    .WINDOW_LEN(WINDOW_LEN)
+    .WINDOW_LEN(WINDOW_LEN),
+    .VARIABLE_NOISE_LIMIT(0)
 )
 peak_detector_2_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
     .s_axis_in_tdata(correlator_2_tdata),
     .s_axis_in_tvalid(correlator_2_tvalid),
+    .noise_limit_i(),
     .peak_detected_o(peak_detected[2]),
     .score_o(score[2])    
 );
@@ -434,6 +462,10 @@ PSS_detector_regmap_i(
     .mode_i(mode_i),
     .CFO_angle_i(CFO_angle_o),
     .cfo_mode_o(cfo_mode),
+    .peak_counter_0_i(peak_counter_0),
+    .peak_counter_1_i(peak_counter_1),
+    .peak_counter_2_i(peak_counter_2),
+    .noise_limit_o(),
 
     .s_axi_if_awaddr(s_axi_awaddr),
     .s_axi_if_awvalid(s_axi_awvalid),
