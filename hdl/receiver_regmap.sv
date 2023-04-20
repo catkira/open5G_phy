@@ -75,7 +75,7 @@ always @(posedge clk_i) begin
                 9'h000: rdata <= PCORE_VERSION;
                 9'h001: rdata <= ID;
                 9'h002: rdata <= '0;
-                9'h003: rdata <= 32'h50535344; // "PSSD"
+                9'h003: rdata <= 32'h52587E7E; // "RX~~"
                 9'h004: rdata <= 32'h69696969;
                 9'h005: rdata <= fs_state_i;
                 default: rdata <= '0;
