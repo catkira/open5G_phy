@@ -17,7 +17,9 @@
 
 module receiver_regmap #(
     parameter ID = 0,
-    parameter ADDRESS_WIDTH = 11
+    parameter ADDRESS_WIDTH = 11,
+
+    localparam N_id_MAX = 1007   
 )
 (
     input clk_i,
@@ -53,7 +55,9 @@ module receiver_regmap #(
 
     // mapped registers
     input           [1 : 0]                     fs_state_i,
-    input           [31 : 0]                    rx_signal_i
+    input           [31 : 0]                    rx_signal_i,
+    input           [1 : 0]                     N_id_2_i,
+    input           [$clog2(N_id_MAX) - 1 : 0]  N_id_i
 );
 
 localparam PCORE_VERSION = 'h00040069;
@@ -80,6 +84,8 @@ always @(posedge clk_i) begin
                 9'h004: rdata <= 32'h69696969;
                 9'h005: rdata <= fs_state_i;
                 9'h006: rdata <= rx_signal_i;
+                9'h007: rdata <= N_id_2_i;
+                9'h008: rdata <= N_id_i;
                 default: rdata <= '0;
             endcase
         end

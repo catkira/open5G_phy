@@ -202,6 +202,8 @@ wire [IN_DW - 1 : 0] in_data = SEPARATE_IQ_IN ? {s_axis_in_Q_tdata, s_axis_in_I_
 wire reset_ni = reset_n; // port was renamed from reset_ni to reset_n so that Vivado infers correct polarity
 wire fs_state;
 
+wire CFO_mode;
+
 always @(posedge clk_i) begin
     if (!reset_ni)  FIFO_out_f <= '0;
     else if (FIFO_out_tvalid) FIFO_out_f <= FIFO_out_tdata;
@@ -217,6 +219,8 @@ receiver_regmap_i(
 
     .fs_state_i(fs_state),
     .rx_signal_i(FIFO_out_f),
+    .N_id_2_i(N_id_2_f),
+    .N_id_i(N_id_f),
 
     .s_axi_if_awaddr(s_axi_rx_awaddr),
     .s_axi_if_awvalid(s_axi_rx_awvalid),
@@ -320,12 +324,18 @@ always @(posedge clk_i) begin
         DDS_phase_valid <= 1;
     end 
     else begin
-        if (CFO_valid) begin
-            // CFO_DDS_inc_f <= '0; // deactive CFO correction for debugging
-            CFO_DDS_inc_f <= CFO_DDS_inc_f - CFO_DDS_inc;  // incoming CFO_DDS_inc are relative to last one !
-        end
-        if(FIFO_out_tvalid) begin
-            DDS_phase <= DDS_phase + CFO_DDS_inc_f;
+        if (CFO_mode == 0) begin
+            if (CFO_valid) begin
+                // CFO_DDS_inc_f <= '0; // deactive CFO correction for debugging
+                CFO_DDS_inc_f <= CFO_DDS_inc_f - CFO_DDS_inc;  // incoming CFO_DDS_inc are relative to last one !
+            end
+            if(FIFO_out_tvalid) begin
+                DDS_phase <= DDS_phase + CFO_DDS_inc_f;
+            end
+        end else begin
+            // manual CFO mode
+            CFO_DDS_inc_f <= '0;
+            DDS_phase <= '0;
         end
     end
 end
@@ -458,6 +468,7 @@ PSS_detector_i(
     .CFO_DDS_inc_o(CFO_DDS_inc),
     .CFO_angle_o(),
     .CFO_valid_o(CFO_valid),
+    .CFO_mode_o(CFO_mode),
 
     .s_axi_awaddr(s_axi_pss_awaddr),
     .s_axi_awvalid(s_axi_pss_awvalid),
@@ -477,6 +488,19 @@ PSS_detector_i(
     .s_axi_rvalid(s_axi_pss_rvalid),
     .s_axi_rready(s_axi_pss_rready)    
 );
+
+reg [1 : 0] N_id_2_f;
+always @(posedge clk_i) begin
+    if (!reset_ni) N_id_2_f <= '0;
+    else N_id_2_f <= N_id_2_valid ? N_id_2 : N_id_2_f;
+end
+
+localparam N_id_MAX = 1007;
+reg [$clog2(N_id_MAX) - 1 : 0] N_id_f;
+always @(posedge clk_i) begin
+    if (!reset_ni) N_id_f <= '0;
+    else N_id_f <= N_id_valid ? N_id : N_id_f;
+end
 
 assign peak_detected_debug_o = N_id_2_valid;
 

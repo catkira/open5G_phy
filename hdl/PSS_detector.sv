@@ -39,6 +39,7 @@ module PSS_detector
     output  reg signed     [CFO_DW - 1 : 0]     CFO_angle_o,
     output  reg signed     [DDS_DW - 1 : 0]     CFO_DDS_inc_o,
     output  reg                                 CFO_valid_o,
+    output                                      CFO_mode_o,
 
     // AXI lite interface
     // write address channel
@@ -88,6 +89,7 @@ reg [2 : 0] peak_detected;
 reg correlator_en;
 reg [IN_DW-1:0] score [0 : 2];
 wire cfo_mode;
+assign CFO_mode_o = cfo_mode;
 localparam CFO_MODE_AUTO = 1'b0;
 localparam CFO_MODE_MANUAL = 1'b1;
 
@@ -390,8 +392,8 @@ always @(posedge clk_i) begin
                     $display("PSS_detector: detected CFO frequency is %f Hz", $itor(CFO_angle) * SAMPLE_RATE / 64 / (2**(CFO_DW - 1) - 1));
                     $display("PSS detector: detected CFO DDS_inc is %d", CFO_DDS_inc);
                     CFO_state <= WAIT_FOR_PEAK;
-                    CFO_angle_o <= CFO_angle;
-                    CFO_DDS_inc_o <= CFO_DDS_inc;
+                    CFO_angle_o <= cfo_mode == CFO_MODE_AUTO ? CFO_angle : '0;
+                    CFO_DDS_inc_o <= cfo_mode == CFO_MODE_AUTO ? CFO_DDS_inc : '0;
                     CFO_valid_o <= 1 && (cfo_mode == CFO_MODE_AUTO);
                 end
             end
