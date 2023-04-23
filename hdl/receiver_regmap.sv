@@ -84,7 +84,7 @@ always @(posedge clk_i) begin
                 9'h004: rdata <= 32'h69696969;
                 9'h005: rdata <= fs_state_i;
                 9'h006: rdata <= rx_signal_i;
-                9'h007: rdata <= N_id_2_i;
+                9'h007: rdata <= {30'd0, N_id_2_i};
                 9'h008: rdata <= N_id_i;
                 default: rdata <= '0;
             endcase
