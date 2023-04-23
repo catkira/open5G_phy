@@ -424,7 +424,7 @@ always @(posedge clk_i) begin
                 correlator_en <= 1;
                 if ((peak_detected == 1) || (peak_detected == 2) || (peak_detected == 4)) begin
                     case (peak_detected)
-                        0 : N_id_2_o <= 0;
+                        1 : N_id_2_o <= 0;
                         2 : N_id_2_o <= 1;
                         4 : N_id_2_o <= 2;
                     endcase
