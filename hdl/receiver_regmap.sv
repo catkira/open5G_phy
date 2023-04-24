@@ -19,7 +19,7 @@ module receiver_regmap #(
     parameter ID = 0,
     parameter ADDRESS_WIDTH = 11,
 
-    localparam N_id_MAX = 1007   
+    localparam N_id_MAX = 1007
 )
 (
     input clk_i,

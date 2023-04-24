@@ -17,7 +17,13 @@
 
 module PSS_detector_regmap #(
     parameter ID = 0,
-    parameter ADDRESS_WIDTH = 11
+    parameter ADDRESS_WIDTH = 11,
+    parameter CORR_DW = 32,
+    parameter VARIABLE_NOISE_LIMIT = 0,
+    parameter VARIABLE_DETECTION_FACTOR = 0,
+
+    localparam INITIAL_NOISE_LIMIT = 2**(CORR_DW/2),
+    localparam INITIAL_DETECTION_SHIFT = 4
 )
 (
     input clk_i,
@@ -58,7 +64,8 @@ module PSS_detector_regmap #(
     input           [31 : 0]                    peak_counter_0_i,
     input           [31 : 0]                    peak_counter_1_i,
     input           [31 : 0]                    peak_counter_2_i,
-    output reg      [15 : 0]                    noise_limit_o
+    output reg      [CORR_DW - 1 : 0]           noise_limit_o,
+    output reg      [7 : 0]                     detection_shift_o
 );
 
 localparam PCORE_VERSION = 'h00040069;
@@ -89,6 +96,8 @@ always @(posedge clk_i) begin
                 9'h008: rdata <= peak_counter_0_i;
                 9'h009: rdata <= peak_counter_1_i;
                 9'h00A: rdata <= peak_counter_2_i;
+                9'h00B: rdata <= noise_limit_o;
+                9'h00C: rdata <= detection_shift_o;
                 default: rdata <= '0;
             endcase
         end
@@ -105,15 +114,32 @@ always @(posedge clk_i) begin
     else            wack <= wreq;   // ack immediately after req
 end
 
+
+if (VARIABLE_NOISE_LIMIT) begin
+    always @(posedge clk_i) begin
+        if (!reset_ni)  noise_limit_o <= INITIAL_NOISE_LIMIT;
+        else if (wreq && (waddr == 9'h00B)) noise_limit_o <= wdata;
+    end
+end else begin
+    assign noise_limit_o = INITIAL_NOISE_LIMIT;
+end
+
+if (VARIABLE_DETECTION_FACTOR) begin
+    always @(posedge clk_i) begin
+        if (!reset_ni) detection_shift_o <= INITIAL_DETECTION_SHIFT;
+        else if (wreq && (waddr == 9'h00C)) detection_shift_o <= wdata;
+    end
+end else begin
+    assign detection_shift_o = INITIAL_DETECTION_SHIFT;
+end
+
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         cfo_mode_o <= '0;
-        noise_limit_o <= '0;
     end else begin
         if (wreq) begin
             case (waddr)
                 9'h007: cfo_mode_o <= wdata;
-                9'h00B: noise_limit_o <= wdata;
                 default: begin end
             endcase
         end

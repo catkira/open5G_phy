@@ -23,6 +23,8 @@ module receiver
     parameter MULT_REUSE = 0,
     parameter CLK_FREQ = 3840000,
     parameter SEPARATE_IQ_IN = 0,
+    parameter VARIABLE_DETECTION_FACTOR = 1,
+    parameter VARIABLE_NOISE_LIMIT = 1,
 
     localparam BLK_EXP_LEN = 8,
     localparam FFT_LEN = 2 ** NFFT,
@@ -452,7 +454,9 @@ PSS_detector #(
     .TAP_FILE_1(TAP_FILE_1),
     .TAP_FILE_2(TAP_FILE_2),
     .TAP_FILE_PATH(TAP_FILE_PATH),
-    .MULT_REUSE(MULT_REUSE)
+    .MULT_REUSE(MULT_REUSE),
+    .VARIABLE_DETECTION_FACTOR(VARIABLE_DETECTION_FACTOR),
+    .VARIABLE_NOISE_LIMIT(VARIABLE_NOISE_LIMIT)
 )
 PSS_detector_i(
     .clk_i(clk_i),

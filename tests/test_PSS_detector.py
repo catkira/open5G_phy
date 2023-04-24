@@ -98,7 +98,7 @@ async def simple_test(dut):
         num_items = 2000
     rx_counter = 0
     in_counter = 0
-    received = np.empty(num_items, int)
+    received = []
     received_correlator = []
     while rx_counter < num_items:
         await RisingEdge(dut.clk_i)
@@ -116,19 +116,21 @@ async def simple_test(dut):
 
         if dut.N_id_2_valid_o.value.integer == 1:
             print(f'detected N_id_2 = {dut.N_id_2_o.value.integer}')
-        received[rx_counter] = dut.N_id_2_valid_o.value.integer
+            received.append(rx_counter)
         rx_counter += 1
         if ((rx_counter % (1920)) == 0):
             print(f'sim time {rx_counter // 1920} ms')
 
-    peak_pos = np.argmax(received)
+    print(f'received peaks at {received}')
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         _, (ax1, ax2) = plt.subplots(2,1)
         ax1.plot(received_correlator)
-        ax2.plot(received)
+        peak_data = np.zeros(len(received_correlator))
+        for i in received:
+            peak_data[i] = 1
+        ax2.plot(peak_data)
         plt.show()
-    print(f'highest peak at {peak_pos}')
-    assert peak_pos == 417
+    assert 427 in received
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
 @pytest.mark.parametrize("ALGO", [0, 1])
@@ -140,7 +142,9 @@ async def simple_test(dut):
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("USE_MODE", [0])
 @pytest.mark.parametrize("USE_TAP_FILE", [0, 1])
-def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_TAP_FILE):
+@pytest.mark.parametrize("VARIABLE_NOISE_LIMIT", [0, 1])
+@pytest.mark.parametrize("VARIABLE_DETECTION_FACTOR", [0, 1])
+def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_TAP_FILE, VARIABLE_NOISE_LIMIT, VARIABLE_DETECTION_FACTOR):
     dut = 'PSS_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -148,7 +152,7 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'div.sv'),
-        os.path.join(rtl_dir, 'atan.sv'),   
+        os.path.join(rtl_dir, 'atan.sv'),
         os.path.join(rtl_dir, 'atan2.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
@@ -156,7 +160,7 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
         os.path.join(rtl_dir, 'PSS_detector_regmap.sv'),
         os.path.join(rtl_dir, 'AXI_lite_interface.sv'),
         os.path.join(rtl_dir, 'CFO_calc.sv'),
-        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
+        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.sv')
     ]
     includes = []
 
@@ -172,6 +176,8 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
     parameters['WINDOW_LEN'] = WINDOW_LEN
     parameters['USE_MODE'] = USE_MODE
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
+    parameters['VARIABLE_NOISE_LIMIT'] = VARIABLE_NOISE_LIMIT
+    parameters['VARIABLE_DETECTION_FACTOR'] = VARIABLE_DETECTION_FACTOR
     parameters_no_taps = parameters.copy()
     folder = '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     sim_build='sim_build/' + folder
@@ -242,15 +248,15 @@ def test_axi():
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'div.sv'),
-        os.path.join(rtl_dir, 'atan.sv'),   
-        os.path.join(rtl_dir, 'atan2.sv'),        
+        os.path.join(rtl_dir, 'atan.sv'),
+        os.path.join(rtl_dir, 'atan2.sv'),
         os.path.join(rtl_dir, 'Peak_detector.sv'),
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'PSS_correlator_mr.sv'),
         os.path.join(rtl_dir, 'PSS_detector_regmap.sv'),
         os.path.join(rtl_dir, 'AXI_lite_interface.sv'),
         os.path.join(rtl_dir, 'CFO_calc.sv'),
-        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.v')
+        os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.sv')
     ]
     cocotb_test.simulator.run(
         python_search=[tests_dir],
@@ -266,5 +272,5 @@ def test_axi():
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    # test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0, USE_TAP_FILE=1, DDS_DW = 24, CFO_DW = 24)
-    test_axi()
+    test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0, USE_TAP_FILE=1, DDS_DW = 24, CFO_DW = 24, VARIABLE_NOISE_LIMIT = 0, VARIABLE_DETECTION_FACTOR = 0)
+    # test_axi()

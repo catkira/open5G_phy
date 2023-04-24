@@ -21,6 +21,8 @@ module PSS_detector
     parameter DDS_DW = 20,
     parameter MULT_REUSE = 1,
     parameter PEAK_COUNTER = 1,
+    parameter VARIABLE_NOISE_LIMIT = 0,
+    parameter VARIABLE_DETECTION_FACTOR = 0,
 
     localparam SAMPLE_RATE = 1920000,
     localparam AXI_ADDRESS_WIDTH = 11
@@ -88,6 +90,8 @@ assign m_axis_correlator_debug_tvalid = correlator_2_tvalid;
 reg [2 : 0] peak_detected; 
 reg correlator_en;
 reg [IN_DW-1:0] score [0 : 2];
+wire [OUT_DW - 1 : 0] noise_limit;
+wire [7 : 0] detection_shift;
 wire cfo_mode;
 assign CFO_mode_o = cfo_mode;
 localparam CFO_MODE_AUTO = 1'b0;
@@ -258,45 +262,45 @@ end
 
 Peak_detector #(
     .IN_DW(OUT_DW),
-    .WINDOW_LEN(WINDOW_LEN),
-    .VARIABLE_NOISE_LIMIT(0)
+    .WINDOW_LEN(WINDOW_LEN)
 )
 peak_detector_0_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
     .s_axis_in_tdata(correlator_0_tdata),
     .s_axis_in_tvalid(correlator_0_tvalid),
-    .noise_limit_i(),
+    .noise_limit_i(noise_limit),
+    .detection_shift_i(detection_shift),
     .peak_detected_o(peak_detected[0]),
     .score_o(score[0])    
 );
 
 Peak_detector #(
     .IN_DW(OUT_DW),
-    .WINDOW_LEN(WINDOW_LEN),
-    .VARIABLE_NOISE_LIMIT(0)
+    .WINDOW_LEN(WINDOW_LEN)
 )
 peak_detector_1_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
     .s_axis_in_tdata(correlator_1_tdata),
     .s_axis_in_tvalid(correlator_1_tvalid),
-    .noise_limit_i(),
+    .noise_limit_i(noise_limit),
+    .detection_shift_i(detection_shift),
     .peak_detected_o(peak_detected[1]),
     .score_o(score[1])
 );
 
 Peak_detector #(
     .IN_DW(OUT_DW),
-    .WINDOW_LEN(WINDOW_LEN),
-    .VARIABLE_NOISE_LIMIT(0)
+    .WINDOW_LEN(WINDOW_LEN)
 )
 peak_detector_2_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
     .s_axis_in_tdata(correlator_2_tdata),
     .s_axis_in_tvalid(correlator_2_tvalid),
-    .noise_limit_i(),
+    .noise_limit_i(noise_limit),
+    .detection_shift_i(detection_shift),
     .peak_detected_o(peak_detected[2]),
     .score_o(score[2])    
 );
@@ -455,7 +459,10 @@ assign N_id_2_valid_o = peak_valid;
 
 PSS_detector_regmap #(
     .ID(0),
-    .ADDRESS_WIDTH(AXI_ADDRESS_WIDTH)
+    .ADDRESS_WIDTH(AXI_ADDRESS_WIDTH),
+    .CORR_DW(OUT_DW),
+    .VARIABLE_NOISE_LIMIT(VARIABLE_NOISE_LIMIT),
+    .VARIABLE_DETECTION_FACTOR(VARIABLE_DETECTION_FACTOR)
 )
 PSS_detector_regmap_i(
     .clk_i(clk_i),
@@ -467,7 +474,8 @@ PSS_detector_regmap_i(
     .peak_counter_0_i(peak_counter_0),
     .peak_counter_1_i(peak_counter_1),
     .peak_counter_2_i(peak_counter_2),
-    .noise_limit_o(),
+    .noise_limit_o(noise_limit),
+    .detection_shift_o(detection_shift),
 
     .s_axi_if_awaddr(s_axi_awaddr),
     .s_axi_if_awvalid(s_axi_awvalid),
