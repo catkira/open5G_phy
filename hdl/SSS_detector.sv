@@ -37,7 +37,7 @@ reg [$clog2(SSS_LEN - 1) - 1 : 0] acc_max;
 reg signed [$clog2(SSS_LEN - 1) : 0] acc;
 wire signed [$clog2(SSS_LEN - 1) : 0] abs_acc = acc[$clog2(SSS_LEN - 1)] ? ~acc + 1 : acc;
 localparam SHIFT_MAX = 112;
-reg [$clog2(SHIFT_MAX) - 1 : 0] shift_cur, shift_max;
+reg [$clog2(SHIFT_MAX) - 1 : 0] shift_cur;
 
 reg [$clog2(N_id_1_MAX) - 1 : 0] N_id_1, N_id_1_det;
 
@@ -112,6 +112,7 @@ always @(posedge clk_i) begin
         if (state == 0) begin   
             m_axis_out_tvalid <= '0;
             N_id_valid_o <= '0;
+            acc_max <= '0;            
             // copy SSS into internal buffer and create m_seq_0 and m_seq_1
             // m_0 = 15 * int((N_id_1 / 112)) + 5 * N_id_2
             // m_1 = N_id_1 % 112
@@ -144,8 +145,6 @@ always @(posedge clk_i) begin
             end
         end else if (state == 1) begin // compare input to single SSS sequence
             if (compare_counter == 0) begin
-                // acc = '0;  // this is not needed
-                shift_max = '0;
                 // $display("N_id_1 = %d  shift_cur = %d", N_id_1, shift_cur);
                 // $display("m_0 = %d  m_1 = %d  mod = %d", m_seq_0_pos, m_seq_1_pos, div_112);
             end
@@ -175,7 +174,6 @@ always @(posedge clk_i) begin
                     N_id_valid_o <= 1;
                     shift_cur <= '0;
                     div_112 <= '0;
-                    acc_max <= '0;
                     N_id_1 <= '0;
                     $display("detected N_id = %d", N_id_o);
                     state <= 0; // back to init state
