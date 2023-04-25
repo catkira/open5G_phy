@@ -94,6 +94,8 @@ peak_detector(
     .reset_ni(reset_ni),
     .s_axis_in_tdata(correlator_tdata),
     .s_axis_in_tvalid(correlator_tvalid),
+    .noise_limit_i(0),
+    .detection_shift_i(4),
     .peak_detected_o(peak_detected_o)
 );
 
