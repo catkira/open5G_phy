@@ -8,7 +8,8 @@ module PSS_correlator_with_peak_detector
     parameter PSS_LEN = 128,
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL = {(PSS_LEN * TAP_DW){1'b0}},
     parameter ALGO = 1,
-    parameter WINDOW_LEN = 8
+    parameter WINDOW_LEN = 8,
+    parameter DETECTION_SHIFT = 4
 )
 (
     input                                       clk_i,
@@ -48,7 +49,7 @@ peak_detector(
     .s_axis_in_tdata(correlator_tdata),
     .s_axis_in_tvalid(correlator_tvalid),
     .noise_limit_i('0),
-    .detection_shift_i(4),
+    .detection_shift_i(DETECTION_SHIFT),
     .peak_detected_o(peak_detected_o)
 );
 

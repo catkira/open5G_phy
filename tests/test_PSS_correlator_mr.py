@@ -72,21 +72,32 @@ class TB(object):
 @cocotb.test()
 async def simple_test(dut):
     tb = TB(dut)
-    handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
+    FILE = '../../tests/' + os.environ['TEST_FILE'] + '.sigmf-data'
+    handle = sigmf.sigmffile.fromfile(FILE)
     waveform = handle.read_samples()
     fs = 30720000
     CFO = int(os.getenv('CFO'))
     print(f'CFO = {CFO} Hz')
     waveform *= np.exp(np.arange(len(waveform))*1j*2*np.pi*CFO/fs)
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    decimation_factor = 16
-    waveform = scipy.signal.decimate(waveform, decimation_factor, ftype='fir')
+    fs = handle.get_global_field(sigmf.SigMFFile.SAMPLE_RATE_KEY)
+    dec_factor = int(fs / 1920000)
+    print(f'test_file = {FILE}')
+    print(f'sample_rate = {fs}, decimation_factor = {dec_factor}')
+    waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform *= 2 ** (tb.IN_DW // 2 - 1) - 1
     waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
     await tb.cycle_reset()
 
-    num_items = 500
+    if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
+        num_items = 500
+        N_id_2 = 2
+        expected_SSB_start = 284
+    else:
+        num_items = 1200
+        N_id_2 = 0
+        expected_SSB_start = 1065
     rx_cnt = 0
     rx_cnt_model = 0
     tx_cnt = 0
@@ -147,25 +158,25 @@ async def simple_test(dut):
     prod = C0[ssb_start+128] * np.conj(C1[ssb_start+128])
     # detectedCFO = np.arctan2(prod.imag, prod.real)
     detectedCFO = np.angle(prod)
-    detectedCFO_Hz = detectedCFO / (2*np.pi) * (fs/decimation_factor) / 64
+    detectedCFO_Hz = detectedCFO / (2*np.pi) * (fs/dec_factor) / 64
     print(f'detected CFO = {detectedCFO_Hz} Hz')
 
     PSS = np.zeros(128, 'complex')
-    PSS[:-1] = py3gpp.nrPSS(2)
+    PSS[:-1] = py3gpp.nrPSS(N_id_2)
     taps = np.fft.ifft(np.fft.fftshift(PSS))
     C0 = np.vdot(waveform[ssb_start:][:64], taps[:64])
     C1 = np.vdot(waveform[ssb_start+64:][:64], taps[64:][:64])
     prod = C0 * np.conj(C1)
     # detectedCFO = np.arctan2(prod.imag, prod.real)
     detectedCFO = np.angle(prod)
-    detectedCFO_Hz_model = detectedCFO / (2*np.pi) * (fs/decimation_factor) / 64
+    detectedCFO_Hz_model = detectedCFO / (2*np.pi) * (fs/dec_factor) / 64
     print(f'detected CFO (model) = {detectedCFO_Hz_model} Hz')
     if CFO != 0:
         assert (np.abs(detectedCFO_Hz - detectedCFO_Hz_model)/np.abs(CFO)) < 0.05
     else:
         assert np.abs(detectedCFO_Hz - detectedCFO_Hz_model) < 20
 
-    assert ssb_start == 284
+    assert ssb_start == expected_SSB_start
     assert len(received) == num_items - 128
 
 
@@ -183,7 +194,7 @@ def test_CFO(IN_DW, OUT_DW, TAP_DW, CFO, MULT_REUSE):
 @pytest.mark.parametrize("TAP_DW", [18, 32])
 @pytest.mark.parametrize("CFO", [1000])
 @pytest.mark.parametrize("MULT_REUSE", [1, 15, 16])
-def test(IN_DW, OUT_DW, TAP_DW, CFO, MULT_REUSE):
+def test(IN_DW, OUT_DW, TAP_DW, CFO, MULT_REUSE, FILE = '30720KSPS_dl_signal'):
     dut = 'PSS_correlator_mr'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -201,10 +212,16 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO, MULT_REUSE):
     parameters['TAP_DW'] = TAP_DW
     parameters['PSS_LEN'] = PSS_LEN
     parameters['MULT_REUSE'] = MULT_REUSE
+    os.environ['TEST_FILE'] = FILE
+
+    if FILE == '30720KSPS_dl_signal':
+        N_id_2 = 2
+    else:
+        N_id_2 = 0
 
     # imaginary part is in upper 16 Bit
     PSS = np.zeros(PSS_LEN, 'complex')
-    PSS[0:-1] = py3gpp.nrPSS(2)
+    PSS[0:-1] = py3gpp.nrPSS(N_id_2)
     taps = np.fft.ifft(np.fft.fftshift(PSS))
     taps /= max(taps.real.max(), taps.imag.max())
     taps *= 2 ** (TAP_DW // 2 - 1) - 1
@@ -236,4 +253,5 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO, MULT_REUSE):
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
-    test(IN_DW = 32, OUT_DW = 45, TAP_DW = 18, CFO = 2000, MULT_REUSE = 16)
+    test(IN_DW = 32, OUT_DW = 45, TAP_DW = 18, CFO = 2000, MULT_REUSE = 16, FILE = '772850KHz_3840KSPS_low_gain')
+    # test(IN_DW = 32, OUT_DW = 45, TAP_DW = 18, CFO = 2000, MULT_REUSE = 16)

@@ -76,22 +76,30 @@ class TB(object):
 @cocotb.test()
 async def simple_test(dut):
     tb = TB(dut)
-    handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
+    FILE = '../../tests/' + os.environ['TEST_FILE'] + '.sigmf-data'
+    handle = sigmf.sigmffile.fromfile(FILE)
+    fs = handle.get_global_field(sigmf.SigMFFile.SAMPLE_RATE_KEY)
     waveform = handle.read_samples()
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    waveform = scipy.signal.decimate(waveform, 16, ftype='fir')
+    dec_factor = int(fs / 1920000)
+    print(f'test_file = {FILE}')
+    print(f'sample_rate = {fs}, decimation_factor = {dec_factor}')
+    waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform *= 2 ** (tb.IN_DW // 2 - 1)
     waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
 
     await tb.cycle_reset()
 
-    num_items = 500
+    if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
+        num_items = 500
+        expected_peak_pos = 416
+    else:
+        num_items = 1500
+        expected_peak_pos = 1197
     rx_counter = 0
-    rx_counter_model = 0
     in_counter = 0
     received = np.empty(num_items, int)
-    received_model = np.empty(num_items, int)
     while rx_counter < num_items:
         await RisingEdge(dut.clk_i)
         data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
@@ -110,10 +118,6 @@ async def simple_test(dut):
         rx_counter += 1
         # print(dut.peak_detected_o.value.integer)
 
-        # if tb.model.data_valid() and rx_counter_model < num_items:
-        #     received_model[rx_counter_model] = tb.model.get_data()
-        #     # print(f'rx mod {received_model[rx_counter_model]}')
-        #     rx_counter_model += 1
 
     peak_pos = np.argmax(received)
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
@@ -126,14 +130,14 @@ async def simple_test(dut):
     print(f'highest peak at {peak_pos}')
     assert peak_pos == 416
 
-
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
 @pytest.mark.parametrize("ALGO", [0, 1])
 @pytest.mark.parametrize("IN_DW", [32])
 @pytest.mark.parametrize("OUT_DW", [32])
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
+@pytest.mark.parametrize("DETECTION_SHIFT", [4])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, DETECTION_SHIFT, WINDOW_LEN, FILE = '30720KSPS_dl_signal'):
     dut = 'PSS_correlator_with_peak_detector'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -153,10 +157,17 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
     parameters['PSS_LEN'] = PSS_LEN
     parameters['ALGO'] = ALGO
     parameters['WINDOW_LEN'] = WINDOW_LEN
+    parameters['DETECTION_SHIFT'] = DETECTION_SHIFT
+    os.environ['TEST_FILE'] = FILE
+
+    if FILE == '30720KSPS_dl_signal':
+        N_id_2 = 2
+    else:
+        N_id_2 = 0
 
     # imaginary part is in upper 16 Bit
     PSS = np.zeros(PSS_LEN, 'complex')
-    PSS[0:-1] = py3gpp.nrPSS(2)
+    PSS[0:-1] = py3gpp.nrPSS(N_id_2)
     taps = np.fft.ifft(np.fft.fftshift(PSS))
     taps /= max(taps.real.max(), taps.imag.max())
     taps *= 2 ** (TAP_DW // 2 - 1)
@@ -177,10 +188,16 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN):
         parameters=parameters,
         sim_build=sim_build,
         extra_env=extra_env,
+        waves=True,
         testcase='simple_test',
         force_compile=True
     )
 
+@pytest.mark.parametrize("FILE", ["772850KHz_3840KSPS_low_gain"])
+def test_recording(FILE):
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, ALGO = 0, DETECTION_SHIFT = 4, FILE = FILE)
+
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, ALGO = 0)
+    test_recording("772850KHz_3840KSPS_low_gain")
+    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, DETECTION_SHIFT = 4, ALGO = 0)
