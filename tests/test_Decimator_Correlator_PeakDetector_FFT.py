@@ -63,12 +63,18 @@ class TB(object):
 @cocotb.test()
 async def simple_test(dut):
     tb = TB(dut)
-    handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
+    FILE = '../../tests/' + os.environ['TEST_FILE'] + '.sigmf-data'
+    handle = sigmf.sigmffile.fromfile(FILE)
     waveform = handle.read_samples()
+    fs = handle.get_global_field(sigmf.SigMFFile.SAMPLE_RATE_KEY)
     waveform /= max(waveform.real.max(), waveform.imag.max())
-    dec_factor = 2048 // (2 ** tb.NFFT)
-    fs = 30720000 // dec_factor
-    waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')  # decimate to 3.840 MSPS
+    dec_factor = int((2048 * fs // 30720000) // (2 ** tb.NFFT))
+    assert dec_factor != 0, f'NFFT = {tb.NFFT} and fs = {fs} is not possible!'
+    print(f'test_file = {FILE} with {len(waveform)} samples')
+    print(f'sample_rate = {fs}, decimation_factor = {dec_factor}')
+    if dec_factor > 1:
+        fs = fs // dec_factor
+        waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')  # decimate to 3.840 MSPS (if NFFT = 8)
     waveform /= max(waveform.real.max(), waveform.imag.max())
     waveform *= (2 ** (tb.IN_DW // 2 - 1) - 1)
     waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
@@ -130,7 +136,7 @@ async def simple_test(dut):
     PBCH_START = FFT_LEN // 2 - (PBCH_LEN + 1) // 2
     SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
     clk_div = 0
-    MAX_CLK_CNT = 3000 * FFT_LEN // 256 * SAMPLE_CLK_DECIMATION
+    MAX_CLK_CNT = 10000 * FFT_LEN // 256 * SAMPLE_CLK_DECIMATION
     rx_start_pos = 0
 
     tx_cnt = 0
@@ -184,6 +190,7 @@ async def simple_test(dut):
             received_fft_demod.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
+    assert clk_cnt < MAX_CLK_CNT, "timeout, did not receive enough data"
     assert len(received_SSS) == SSS_LEN
     received_SSS_sym = received_SSS
     received_SSS = received_SSS_sym
@@ -191,12 +198,15 @@ async def simple_test(dut):
     # for i in range(SSS_LEN):
     #     print(f'SSS[{i}] = {int(received_SSS[i].real > 0)}')
 
+    print(f'rx_start_pos = {rx_start_pos}')
     rx_ADC_data = waveform[rx_start_pos:]
+    print(rx_ADC_data.shape)
     CP_ADVANCE = CP_LEN // 2 if HALF_CP_ADVANCE else CP_LEN
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_LEN + CP_ADVANCE:][:FFT_LEN]))
     scaling_factor = 2 ** (tb.IN_DW / 2 + NFFT - FFT_OUT_DW / 2) # FFT core is in truncation mode
     ideal_SSS_sym = ideal_SSS_sym.real / scaling_factor + 1j * ideal_SSS_sym.imag / scaling_factor
     ideal_SSS_sym = tb.fft_dbs(ideal_SSS_sym, FFT_OUT_DW / 2)
+    print(ideal_SSS_sym.shape)
     ideal_SSS_sym *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_LEN * np.arange(FFT_LEN) + np.pi * (CP_LEN - CP_ADVANCE)))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
@@ -284,7 +294,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("NFFT", [8, 9])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
 @pytest.mark.parametrize("MULT_REUSE", [0, 1, 4, 8, 16, 32])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP_FILE, MULT_REUSE):
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP_FILE, MULT_REUSE, FILE = '30720KSPS_dl_signal'):
     dut = 'Decimator_Correlator_PeakDetector_FFT'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -346,6 +356,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
     parameters_no_taps = parameters.copy()
     folder = 'Decimator_to_FFT_' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     sim_build= os.path.join('sim_build', folder)
+    os.environ['TEST_FILE'] = FILE    
 
     if USE_TAP_FILE:
         FFT_LEN = 2 ** NFFT
@@ -391,7 +402,12 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
         waves=True
     )
 
+@pytest.mark.parametrize("FILE", ["772850KHz_3840KSPS_low_gain"])
+def test_recording(FILE):
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, FILE = FILE)
+
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 4)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, FILE = '772850KHz_3840KSPS_low_gain')
+    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 4)
