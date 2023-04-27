@@ -89,6 +89,11 @@ async def simple_test(dut):
     received_PBCH = []
     received_SSS = []
 
+    if os.environ['TEST_FILE'] == '':
+        expected_N_id_1 = 209
+    else:
+        expected_N_id_1 = 291
+
     NFFT = tb.NFFT
     FFT_LEN = 2 ** NFFT
     MAX_CLK_CNT = 3000 * FFT_LEN // 256
@@ -200,13 +205,11 @@ async def simple_test(dut):
 
     print(f'rx_start_pos = {rx_start_pos}')
     rx_ADC_data = waveform[rx_start_pos:]
-    print(rx_ADC_data.shape)
     CP_ADVANCE = CP_LEN // 2 if HALF_CP_ADVANCE else CP_LEN
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_LEN + CP_ADVANCE:][:FFT_LEN]))
     scaling_factor = 2 ** (tb.IN_DW / 2 + NFFT - FFT_OUT_DW / 2) # FFT core is in truncation mode
     ideal_SSS_sym = ideal_SSS_sym.real / scaling_factor + 1j * ideal_SSS_sym.imag / scaling_factor
     ideal_SSS_sym = tb.fft_dbs(ideal_SSS_sym, FFT_OUT_DW / 2)
-    print(ideal_SSS_sym.shape)
     ideal_SSS_sym *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_LEN * np.arange(FFT_LEN) + np.pi * (CP_LEN - CP_ADVANCE)))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
@@ -265,23 +268,26 @@ async def simple_test(dut):
         assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.04  # TODO: why does this need more tolerance?
 
     # this test is not ideal, because the maximum peak could be any of the 4 SSBs within one burst
-    if NFFT == 8:
-        if tb.MULT_REUSE < 8:
-            assert peak_pos == DETECTOR_LATENCY + 823
-        elif tb.MULT_REUSE == 8:
-            assert peak_pos == 3333  # TODO: why is this a different formula?
-    elif NFFT == 9:
-        if tb.MULT_REUSE < 8:
-            assert peak_pos == DETECTOR_LATENCY + 1647
-        elif tb.MULT_REUSE == 8:
-            assert peak_pos == 6637  # TODO: why is this a different formula?
+    if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
+        if NFFT == 8:
+            if tb.MULT_REUSE < 8:
+                assert peak_pos == DETECTOR_LATENCY + 823
+            elif tb.MULT_REUSE == 8:
+                assert peak_pos == 3333  # TODO: why is this a different formula?
+        elif NFFT == 9:
+            if tb.MULT_REUSE < 8:
+                assert peak_pos == DETECTOR_LATENCY + 1647
+            elif tb.MULT_REUSE == 8:
+                assert peak_pos == 6637  # TODO: why is this a different formula?
+    else:
+        assert peak_pos == 2403
 
     corr = np.zeros(335)
     for i in range(335):
         sss = py3gpp.nrSSS(i)
         corr[i] = np.abs(np.vdot(sss, received_SSS))
     detected_NID1 = np.argmax(corr)
-    assert detected_NID1 == 209
+    assert detected_NID1 == expected_N_id_1
 
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
