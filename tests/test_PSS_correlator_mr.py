@@ -253,7 +253,7 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO, MULT_REUSE, FILE = '30720KSPS_dl_signal'):
 
 @pytest.mark.parametrize("FILE", ["772850KHz_3840KSPS_low_gain"])
 def test_recording(FILE):
-    test(IN_DW = 32, OUT_DW = 45, TAP_DW = 32, CFO = 1000, MULT_REUSE = 16, FILE = FILE)
+    test(IN_DW = 32, OUT_DW = 45, TAP_DW = 32, CFO = 2000, MULT_REUSE = 16, FILE = FILE)
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
