@@ -128,7 +128,7 @@ async def simple_test(dut):
         # ax.axvline(x = ssb_start, color = 'y', linestyle = '--', label = 'axvline - full height')
         plt.show()
     print(f'highest peak at {peak_pos}')
-    assert peak_pos == 416
+    assert peak_pos == expected_peak_pos
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
 @pytest.mark.parametrize("ALGO", [0, 1])
@@ -195,7 +195,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, DETECTION_SHIFT, WINDOW_LEN, FILE = '30720
 
 @pytest.mark.parametrize("FILE", ["772850KHz_3840KSPS_low_gain"])
 def test_recording(FILE):
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, ALGO = 0, DETECTION_SHIFT = 4, FILE = FILE)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, ALGO = 0, DETECTION_SHIFT = 3, FILE = FILE)
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
