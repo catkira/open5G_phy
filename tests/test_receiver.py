@@ -72,17 +72,38 @@ class TB(object):
 @cocotb.test()
 async def simple_test(dut):
     tb = TB(dut)
+    FILE = '../../tests/' + os.environ['TEST_FILE'] + '.sigmf-data'
+    handle = sigmf.sigmffile.fromfile(FILE)
+    waveform = handle.read_samples()
+    fs = handle.get_global_field(sigmf.SigMFFile.SAMPLE_RATE_KEY)
     NFFT = tb.NFFT
     FFT_LEN = 2 ** NFFT
+
+    if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
+        expected_N_id_1 = 69
+        expected_N_id_2 = 2
+    elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
+        expected_N_id_1 = 291
+        expected_N_id_2 = 0
+        delta_f = -4e3
+        waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs*np.arange(waveform.shape[0])))
+    else:
+        file_string = os.environ['TEST_FILE']
+        assert False, f'test file {file_string} is not supported'
+    expected_N_id = expected_N_id_1 * 3 + expected_N_id_2
+
     CFO = int(os.getenv('CFO'))
-    handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
-    waveform = handle.read_samples()
-    fs = 30720000
     print(f'CFO = {CFO} Hz')
     waveform *= np.exp(np.arange(len(waveform)) * 1j * 2 * np.pi * CFO / fs)
-    dec_factor = 2048 // FFT_LEN
-    waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')  # decimate to 3.840 MSPS
-    fs = fs // dec_factor
+
+    dec_factor = int((2048 * fs // 30720000) // (2 ** tb.NFFT))
+    assert dec_factor != 0, f'NFFT = {tb.NFFT} and fs = {fs} is not possible!'
+    print(f'test_file = {FILE} with {len(waveform)} samples')
+    print(f'sample_rate = {fs}, decimation_factor = {dec_factor}')
+    if dec_factor > 1:
+        fs = fs // dec_factor
+        waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')  # decimate to 3.840 MSPS (if NFFT = 8)
+
     waveform /= max(np.abs(waveform.real.max()), np.abs(waveform.imag.max()))
     MAX_AMPLITUDE = (2 ** (tb.IN_DW // 2 - 1) - 1)
     waveform *= MAX_AMPLITUDE * 0.8  # need this 0.8 because rounding errors caused overflows, nasty bug!
@@ -345,7 +366,7 @@ async def simple_test(dut):
         sss = py3gpp.nrSSS(i)
         corr[i] = np.abs(np.vdot(sss, received_SSS[:SSS_LEN]))
     detected_NID = np.argmax(corr)
-    assert detected_NID == 209
+    assert detected_NID == expected_N_id
     
     # verify received ressource_grid_subscriber
     def extract_timestamp(packet):
@@ -406,7 +427,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("LLR_DW", [8])
 @pytest.mark.parametrize("NFFT", [8])
 @pytest.mark.parametrize("MULT_REUSE", [0, 2, 4])
-def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT, MULT_REUSE):
+@pytest.mark.parametrize("INITIAL_DETECTION_SHIFT", [4])
+def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT, MULT_REUSE, INITIAL_DETECTION_SHIFT, FILE = '30720KSPS_dl_signal'):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -483,11 +505,13 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     parameters['NFFT'] = NFFT
     parameters['MULT_REUSE'] = MULT_REUSE
     parameters['CLK_FREQ'] = CLK_FREQ
+    parameters['INITIAL_DETECTION_SHIFT'] = INITIAL_DETECTION_SHIFT
     os.environ['CFO'] = str(CFO)
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
-    folder = 'receiver_' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
+    folder = 'receiver_' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items())) + '_' + FILE
     sim_build = os.path.join('sim_build/', folder)
+    os.environ['TEST_FILE'] = FILE
 
     # prepare FFT_demod taps
     FFT_LEN = 2 ** NFFT
@@ -533,7 +557,15 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
         compile_args = compile_args
     )
 
+@pytest.mark.parametrize("FILE", ["772850KHz_3840KSPS_low_gain"])
+def test_recording(FILE):
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO=0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
+        NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, FILE = FILE)
+
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8, NFFT = 8, MULT_REUSE = 4)
+    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
+    #     NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')    
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
+        NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4)
