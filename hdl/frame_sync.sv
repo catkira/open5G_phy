@@ -44,7 +44,7 @@ module frame_sync #(
     output  reg                                     SSB_start_o,
 
     // output to regmap
-    output  wire                                    state_o
+    output  wire       [1 : 0]                      state_o
 );
 
 reg [$clog2(MAX_CP_LEN) - 1: 0] CP_len;
