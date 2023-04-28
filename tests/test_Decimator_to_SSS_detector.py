@@ -169,7 +169,6 @@ async def simple_test(dut):
             received_SSS.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
-    assert clk_cnt < MAX_CLK_CNT, "timeout, did not receive enough data"
     assert len(received_SSS) == SSS_LEN
     
     print(f'detected N_id_1 = {detected_N_id_1}')

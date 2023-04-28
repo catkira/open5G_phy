@@ -204,9 +204,10 @@ reg                             FIFO_out_tvalid;
 
 wire [IN_DW - 1 : 0] in_data = SEPARATE_IQ_IN ? {s_axis_in_Q_tdata, s_axis_in_I_tdata} : s_axis_in_tdata;
 wire reset_ni = reset_n; // port was renamed from reset_ni to reset_n so that Vivado infers correct polarity
-wire fs_state;
+wire [1 : 0] fs_state;
 
 wire CFO_mode;
+wire signed [7 : 0] sample_cnt_mismatch;
 
 always @(posedge clk_i) begin
     if (!reset_ni)  FIFO_out_f <= '0;
@@ -225,6 +226,7 @@ receiver_regmap_i(
     .rx_signal_i(FIFO_out_f),
     .N_id_2_i(N_id_2_f),
     .N_id_i(N_id_f),
+    .sample_cnt_mismatch_i(sample_cnt_mismatch),
 
     .s_axi_if_awaddr(s_axi_rx_awaddr),
     .s_axi_if_awvalid(s_axi_rx_awvalid),
@@ -615,7 +617,8 @@ frame_sync_i
     .m_axis_out_tvalid(fs_out_tvalid),
     .symbol_start_o(fs_out_symbol_start),
     .SSB_start_o(fs_out_SSB_start),
-    .state_o(fs_state)
+    .state_o(fs_state),
+    .sample_cnt_mismatch_o(sample_cnt_mismatch)
 );
 
 wire [SAMPLE_ID_WIDTH - 1 : 0] sample_id_fifo_out_data;

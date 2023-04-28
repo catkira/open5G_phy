@@ -44,7 +44,8 @@ module frame_sync #(
     output  reg                                     SSB_start_o,
 
     // output to regmap
-    output  wire       [1 : 0]                      state_o
+    output  wire       [1 : 0]                      state_o,
+    output  wire signed   [7 : 0]                   sample_cnt_mismatch_o
 );
 
 reg [$clog2(MAX_CP_LEN) - 1: 0] CP_len;
@@ -145,6 +146,9 @@ localparam [1 : 0] WAIT_FOR_SSB = 0;
 localparam [1 : 0] WAIT_FOR_IBAR = 1;
 localparam [1 : 0] SYNCED = 2;
 reg [SYMBOL_NUMBER_WIDTH - 1 : 0] sym_cnt_next;
+localparam FIND_EARLY_SAMPLES = 4;
+reg signed [7 : 0] sample_cnt_mismatch;
+assign sample_cnt_mismatch_o = sample_cnt_mismatch;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -160,6 +164,7 @@ always @(posedge clk_i) begin
         syms_since_last_SSB <= '0;
         m_axis_out_tvalid <= '0;
         m_axis_out_tlast <= '0;
+        sample_cnt_mismatch <= '0;
     end else begin
         case (state)
             WAIT_FOR_SSB: begin
@@ -268,16 +273,19 @@ always @(posedge clk_i) begin
                     if (N_id_2_valid_i) begin
                         // expected sample_cnt is 0, if actual sample_cnt deviates +-1, perform realignment
                         if (sample_cnt == 0) begin
+                            sample_cnt_mismatch <= 0;
                             // SSB arrives as expected, no STO correction needed
                             $display("SSB is on time");
                         end else if (sample_cnt < 2) begin
+                            sample_cnt_mismatch <= sample_cnt;
                             // SSB arrives too late
                             // correct this STO by outputting symbol_start and SSB_start a bit later
-                            $display("SSB is late");
-                        end else if (sample_cnt > (FFT_LEN + current_CP_len - 2)) begin
+                            $display("SSB is %d samples too late", sample_cnt);
+                        end else if (sample_cnt > (FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES)) begin
+                            sample_cnt_mismatch <= sample_cnt - (FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES);
                             // SSB arrives too early
                             // correct this STO by outputting symbol_start and SSB_start a bit earlier
-                            $display("SSB is early");
+                            $display("SSB is %d samples too early", sample_cnt - (FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES));
                         end
                         find_SSB <= '0;
                     end
@@ -305,7 +313,7 @@ always @(posedge clk_i) begin
                     else                                                    m_axis_out_tvalid <= '0;
                 end else begin
                     if (s_axis_in_tvalid) begin
-                        if ((sample_cnt == FFT_LEN + current_CP_len - 2) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
+                        if ((sample_cnt == FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
                             find_SSB <= 1;  // go into find state one SC before the symbol ends
                             $display("find SSB ...");
                         end
@@ -335,8 +343,8 @@ always @(posedge clk_i) begin
                         end
 
                         sample_cnt <= '0;
-                        if ((sym_cnt_next == 0) || (sym_cnt_next == 7))   current_CP_len <= CP1_LEN;
-                        else                                    current_CP_len <= CP2_LEN;
+                        if ((sym_cnt_next == 0) || (sym_cnt_next == 7))     current_CP_len <= CP1_LEN;
+                        else                                                current_CP_len <= CP2_LEN;
                         
                         if (N_id_2_valid_i) syms_since_last_SSB <= '0;
                         else                syms_since_last_SSB <= syms_since_last_SSB + 1;
