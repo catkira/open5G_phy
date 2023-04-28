@@ -22,6 +22,7 @@ module PSS_detector_regmap #(
     parameter VARIABLE_NOISE_LIMIT = 0,
     parameter VARIABLE_DETECTION_FACTOR = 0,
     parameter INITIAL_DETECTION_SHIFT = 3,
+    parameter INITIAL_CFO_MODE = 0,
 
     localparam INITIAL_NOISE_LIMIT = 2**(CORR_DW/2)
 )
@@ -135,7 +136,7 @@ end
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
-        cfo_mode_o <= '0;
+        cfo_mode_o <= INITIAL_CFO_MODE;
     end else begin
         if (wreq) begin
             case (waddr)

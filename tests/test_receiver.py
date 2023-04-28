@@ -82,9 +82,11 @@ async def simple_test(dut):
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
         expected_N_id_1 = 69
         expected_N_id_2 = 2
+        MAX_TX = int(0.045 * fs) # simulate 45ms tx data
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
         expected_N_id_1 = 291
         expected_N_id_2 = 0
+        MAX_TX = int(0.047 * fs) # simulate 47ms tx data
         delta_f = -4e3
         waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs*np.arange(waveform.shape[0])))
     else:
@@ -181,7 +183,6 @@ async def simple_test(dut):
     else:
         assert False, print("Error: only NFFT 8 is supported for now!")
     DETECTOR_LATENCY += 9 # for CFO correction complex_multiplier
-    MAX_TX = int(0.045 * fs) # simulate 45ms tx data
     SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
     MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
     clk_div = 0
@@ -363,7 +364,7 @@ async def simple_test(dut):
     # verify received SSS sequence
     corr = np.zeros(335)
     for i in range(335):
-        sss = py3gpp.nrSSS(i)
+        sss = py3gpp.nrSSS(i * 3 + expected_N_id_2)
         corr[i] = np.abs(np.vdot(sss, received_SSS[:SSS_LEN]))
     detected_NID = np.argmax(corr)
     assert detected_NID == expected_N_id
@@ -428,7 +429,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("NFFT", [8])
 @pytest.mark.parametrize("MULT_REUSE", [0, 2, 4])
 @pytest.mark.parametrize("INITIAL_DETECTION_SHIFT", [4])
-def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT, MULT_REUSE, INITIAL_DETECTION_SHIFT, FILE = '30720KSPS_dl_signal'):
+@pytest.mark.parametrize("INITIAL_CFO_MODE", [0])
+def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT, MULT_REUSE, INITIAL_DETECTION_SHIFT, INITIAL_CFO_MODE, FILE = '30720KSPS_dl_signal'):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -506,6 +508,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     parameters['MULT_REUSE'] = MULT_REUSE
     parameters['CLK_FREQ'] = CLK_FREQ
     parameters['INITIAL_DETECTION_SHIFT'] = INITIAL_DETECTION_SHIFT
+    parameters['INITIAL_CFO_MODE'] = INITIAL_CFO_MODE
     os.environ['CFO'] = str(CFO)
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
@@ -560,12 +563,14 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 @pytest.mark.parametrize("FILE", ["772850KHz_3840KSPS_low_gain"])
 def test_recording(FILE):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO=0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-        NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, FILE = FILE)
+        NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = FILE)
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-    #     NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')    
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-        NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4)
+    if True:
+        test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
+            NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
+    else:
+        test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
+            NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 0)
