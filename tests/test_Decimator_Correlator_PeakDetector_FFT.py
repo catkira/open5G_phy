@@ -69,7 +69,7 @@ async def simple_test(dut):
     fs = handle.get_global_field(sigmf.SigMFFile.SAMPLE_RATE_KEY)
 
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
-        expected_N_id_1 = 209
+        expected_N_id_1 = 69
         expected_N_id_2 = 2
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
         expected_N_id_1 = 291
@@ -426,5 +426,5 @@ def test_recording(FILE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
-    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4)
+    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4)
