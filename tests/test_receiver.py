@@ -78,17 +78,29 @@ async def simple_test(dut):
     fs = handle.get_global_field(sigmf.SigMFFile.SAMPLE_RATE_KEY)
     NFFT = tb.NFFT
     FFT_LEN = 2 ** NFFT
+    dec_factor = int((2048 * fs // 30720000) // (2 ** tb.NFFT))
+    assert dec_factor != 0, f'NFFT = {tb.NFFT} and fs = {fs} is not possible!'
+    print(f'test_file = {FILE} with {len(waveform)} samples')
+    print(f'sample_rate = {fs}, decimation_factor = {dec_factor}')
+    if dec_factor > 1:
+        fs_dec = fs // dec_factor
+        waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')  # decimate to 3.840 MSPS (if NFFT = 8)
+    else:
+        fs_dec = fs
 
+    SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
         expected_N_id_1 = 69
         expected_N_id_2 = 2
-        MAX_TX = int(0.045 * fs) # simulate 45ms tx data
+        MAX_TX = int(0.045 * fs_dec) # simulate 45ms tx data
+        MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
         expected_N_id_1 = 291
         expected_N_id_2 = 0
-        MAX_TX = int(0.047 * fs) # simulate 47ms tx data
+        MAX_TX = int(0.055 * fs_dec) # simulate 45ms tx data
+        MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 50000        
         delta_f = -4e3
-        waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs*np.arange(waveform.shape[0])))
+        waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
     else:
         file_string = os.environ['TEST_FILE']
         assert False, f'test file {file_string} is not supported'
@@ -96,21 +108,13 @@ async def simple_test(dut):
 
     CFO = int(os.getenv('CFO'))
     print(f'CFO = {CFO} Hz')
-    waveform *= np.exp(np.arange(len(waveform)) * 1j * 2 * np.pi * CFO / fs)
-
-    dec_factor = int((2048 * fs // 30720000) // (2 ** tb.NFFT))
-    assert dec_factor != 0, f'NFFT = {tb.NFFT} and fs = {fs} is not possible!'
-    print(f'test_file = {FILE} with {len(waveform)} samples')
-    print(f'sample_rate = {fs}, decimation_factor = {dec_factor}')
-    if dec_factor > 1:
-        fs = fs // dec_factor
-        waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')  # decimate to 3.840 MSPS (if NFFT = 8)
+    waveform *= np.exp(np.arange(len(waveform)) * 1j * 2 * np.pi * CFO / fs_dec)
 
     waveform /= max(np.abs(waveform.real.max()), np.abs(waveform.imag.max()))
     MAX_AMPLITUDE = (2 ** (tb.IN_DW // 2 - 1) - 1)
     waveform *= MAX_AMPLITUDE * 0.8  # need this 0.8 because rounding errors caused overflows, nasty bug!
-    assert np.abs(waveform.real).max().astype(int) <= MAX_AMPLITUDE, "Error: input data overflow!"
-    assert np.abs(waveform.imag).max().astype(int) <= MAX_AMPLITUDE, "Error: input data overflow!"
+    assert np.abs(waveform.real).max().astype(int) <= MAX_AMPLITUDE, 'Error: input data overflow!'
+    assert np.abs(waveform.imag).max().astype(int) <= MAX_AMPLITUDE, 'Error: input data overflow!'
     waveform = waveform.real.astype(int) + 1j * waveform.imag.astype(int)
 
     await tb.cycle_reset()
@@ -119,7 +123,7 @@ async def simple_test(dut):
     if USE_COCOTB_AXI:
         # cocotbext-axi hangs with Verilator -> https://github.com/verilator/verilator/issues/3919
         # case_insensitive=False is a workaround https://github.com/alexforencich/verilog-axi/issues/48
-        axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi_if", case_insensitive=False), dut.clk_i, dut.reset_n, reset_active_level = False)
+        axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, 's_axi_if', case_insensitive=False), dut.clk_i, dut.reset_n, reset_active_level = False)
         addr = 0
         data = await axi_master.read_dword(4 * addr)
         data = int(data)
@@ -134,7 +138,7 @@ async def simple_test(dut):
         data = await axi_master.read_dword(addr + (1 << OFFSET_ADDR_WIDTH))
         data = int(data)
         assert data == 0x00040069
-    
+
     else:
         data = await tb.read_axil(0)
         print(f'axi-lite fifo: id = {data:x}')
@@ -181,7 +185,7 @@ async def simple_test(dut):
         elif tb.MULT_REUSE == 8:
             DETECTOR_LATENCY = 40 + 826
     else:
-        assert False, print("Error: only NFFT 8 is supported for now!")
+        assert False, print('Error: only NFFT 8 is supported for now!')
     DETECTOR_LATENCY += 9 # for CFO correction complex_multiplier
     SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
     MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
@@ -213,6 +217,7 @@ async def simple_test(dut):
             print(f'peak pos = {clk_cnt}')
             if rx_start_pos == 0:
                 rx_start_pos = clk_cnt - DETECTOR_LATENCY
+                print(f'rx_start_pos = {rx_start_pos}')
 
         # if dut.m_axis_SSS_tvalid.value.integer == 1:
         #     print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
@@ -254,6 +259,7 @@ async def simple_test(dut):
             received_fft_demod.append(_twos_comp(dut.m_axis_demod_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
+    assert clk_cnt < MAX_CLK_CNT, 'timeout, did not receive enough data'
     print(f'received {len(corrected_PBCH)} PBCH IQ samples')
     print(f'received {len(received_PBCH_LLR)} PBCH LLRs samples')
     assert len(received_SSS) == 3 * SSS_LEN
@@ -319,7 +325,7 @@ async def simple_test(dut):
         ax.set_title('hdl used SCs I/Q constellation')
         ax.plot(np.real(received_SSS[:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'r.')
         ax.plot(np.real(received_SSS[SSS_LEN:][:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'b.')
-        
+
         # ax = plt.subplot(2, 4, 8)
         # ax.plot(np.real(corrected_PBCH[:180]), np.imag(corrected_PBCH[:180]), 'r.')
         # ax.plot(np.real(corrected_PBCH[180:][:72]), np.imag(corrected_PBCH[180:][:72]), 'g.')
@@ -366,9 +372,9 @@ async def simple_test(dut):
     for i in range(335):
         sss = py3gpp.nrSSS(i * 3 + expected_N_id_2)
         corr[i] = np.abs(np.vdot(sss, received_SSS[:SSS_LEN]))
-    detected_NID = np.argmax(corr)
-    assert detected_NID == expected_N_id
-    
+    detected_N_id_2 = np.argmax(corr)
+    assert detected_N_id_2 == expected_N_id_2
+
     # verify received ressource_grid_subscriber
     def extract_timestamp(packet):
         ts = 0
@@ -376,7 +382,7 @@ async def simple_test(dut):
         for i in range(NUM_TIMESTAMP_SAMPLES):
             ts += int(samples[i].real) << int(FFT_OUT_DW * i)
         return ts
-    
+
     timestamp = extract_timestamp(received_rgs[0, :])
     for i in range(1, num_rgs_symbols):
         delta_samples = extract_timestamp(received_rgs[i, :]) - timestamp
@@ -413,24 +419,25 @@ async def simple_test(dut):
         print(decoded)
         _, crc_result = py3gpp.nrCRCDecode(decoded, '24C')
         if crc_result == 0:
-            print("nrPolarDecode: PBCH CRC ok")
+            print('nrPolarDecode: PBCH CRC ok')
         else:
-            print("nrPolarDecode: PBCH CRC failed")
+            print('nrPolarDecode: PBCH CRC failed')
         assert crc_result == 0
 
-@pytest.mark.parametrize("IN_DW", [32])
-@pytest.mark.parametrize("OUT_DW", [32])
-@pytest.mark.parametrize("TAP_DW", [32])
-@pytest.mark.parametrize("WINDOW_LEN", [8])
-@pytest.mark.parametrize("CFO", [0, 1200])
-@pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
-@pytest.mark.parametrize("USE_TAP_FILE", [1])
-@pytest.mark.parametrize("LLR_DW", [8])
-@pytest.mark.parametrize("NFFT", [8])
-@pytest.mark.parametrize("MULT_REUSE", [0, 2, 4])
-@pytest.mark.parametrize("INITIAL_DETECTION_SHIFT", [4])
-@pytest.mark.parametrize("INITIAL_CFO_MODE", [0])
-def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT, MULT_REUSE, INITIAL_DETECTION_SHIFT, INITIAL_CFO_MODE, FILE = '30720KSPS_dl_signal'):
+@pytest.mark.parametrize('IN_DW', [32])
+@pytest.mark.parametrize('OUT_DW', [32])
+@pytest.mark.parametrize('TAP_DW', [32])
+@pytest.mark.parametrize('WINDOW_LEN', [8])
+@pytest.mark.parametrize('CFO', [0, 1200])
+@pytest.mark.parametrize('HALF_CP_ADVANCE', [0, 1])
+@pytest.mark.parametrize('USE_TAP_FILE', [1])
+@pytest.mark.parametrize('LLR_DW', [8])
+@pytest.mark.parametrize('NFFT', [8])
+@pytest.mark.parametrize('MULT_REUSE', [0, 2, 4])
+@pytest.mark.parametrize('INITIAL_DETECTION_SHIFT', [4])
+@pytest.mark.parametrize('INITIAL_CFO_MODE', [0])
+def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT, MULT_REUSE,
+         INITIAL_DETECTION_SHIFT, INITIAL_CFO_MODE, FILE = '30720KSPS_dl_signal'):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -560,17 +567,17 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
         compile_args = compile_args
     )
 
-@pytest.mark.parametrize("FILE", ["772850KHz_3840KSPS_low_gain"])
+@pytest.mark.parametrize('FILE', ['772850KHz_3840KSPS_low_gain'])
 def test_recording(FILE):
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO=0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-        NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = FILE)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
+         NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = FILE)
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
     if True:
-        test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-            NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
+        test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
+             NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-            NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 0)
+             NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 0)
