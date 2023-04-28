@@ -70,8 +70,10 @@ async def simple_test(dut):
 
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
         expected_N_id_1 = 209
+        expected_N_id_2 = 2
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
         expected_N_id_1 = 291
+        expected_N_id_2 = 0
         delta_f = -4e3
         waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs*np.arange(waveform.shape[0])))
     else:
@@ -290,12 +292,8 @@ async def simple_test(dut):
 
     corr = np.zeros(335)
     for i in range(335):
-        sss = py3gpp.nrSSS(i)
-        corr[i] = np.abs(np.vdot(sss, received_SSS))
-
-    if os.environ['PLOTS'] == "1":
-        plt.plot(corr)
-        plt.show()
+        sss = py3gpp.nrSSS(i*3 + expected_N_id_2)
+        corr[i] = np.abs(np.vdot(sss, ideal_SSS))
 
     detected_NID1 = np.argmax(corr)
     assert detected_NID1 == expected_N_id_1
