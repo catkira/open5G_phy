@@ -67,6 +67,17 @@ async def simple_test(dut):
     handle = sigmf.sigmffile.fromfile(FILE)
     waveform = handle.read_samples()
     fs = handle.get_global_field(sigmf.SigMFFile.SAMPLE_RATE_KEY)
+
+    if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
+        expected_N_id_1 = 209
+    elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
+        expected_N_id_1 = 291
+        delta_f = -4e3
+        waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs*np.arange(waveform.shape[0])))
+    else:
+        file_string = os.environ['TEST_FILE']
+        assert False, f'test file {file_string} is not supported'
+
     waveform /= max(waveform.real.max(), waveform.imag.max())
     dec_factor = int((2048 * fs // 30720000) // (2 ** tb.NFFT))
     assert dec_factor != 0, f'NFFT = {tb.NFFT} and fs = {fs} is not possible!'
@@ -88,11 +99,6 @@ async def simple_test(dut):
     rx_ADC_data = []
     received_PBCH = []
     received_SSS = []
-
-    if os.environ['TEST_FILE'] == '':
-        expected_N_id_1 = 209
-    else:
-        expected_N_id_1 = 291
 
     NFFT = tb.NFFT
     FFT_LEN = 2 ** NFFT
