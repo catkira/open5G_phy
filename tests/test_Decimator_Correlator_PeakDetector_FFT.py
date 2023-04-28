@@ -371,7 +371,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
     parameters['MULT_REUSE'] = MULT_REUSE
     parameters['INITIAL_DETECTION_SHIFT'] = INITIAL_DETECTION_SHIFT
     parameters_no_taps = parameters.copy()
-    folder = 'Decimator_to_FFT_' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
+    folder = 'Decimator_to_FFT_' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items())) + '_' + FILE
     sim_build= os.path.join('sim_build', folder)
     os.environ['TEST_FILE'] = FILE
 
