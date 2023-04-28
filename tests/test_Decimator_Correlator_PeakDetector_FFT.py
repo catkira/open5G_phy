@@ -292,6 +292,11 @@ async def simple_test(dut):
     for i in range(335):
         sss = py3gpp.nrSSS(i)
         corr[i] = np.abs(np.vdot(sss, received_SSS))
+
+    if os.environ['PLOTS'] == "1":
+        plt.plot(corr)
+        plt.show()
+
     detected_NID1 = np.argmax(corr)
     assert detected_NID1 == expected_N_id_1
 
@@ -306,7 +311,8 @@ async def simple_test(dut):
 @pytest.mark.parametrize("NFFT", [8, 9])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
 @pytest.mark.parametrize("MULT_REUSE", [0, 1, 4, 8, 16, 32])
-def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP_FILE, MULT_REUSE, FILE = '30720KSPS_dl_signal'):
+@pytest.mark.parametrize("INITIAL_DETECTION_SHIFT", [4])
+def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP_FILE, MULT_REUSE, INITIAL_DETECTION_SHIFT, FILE = '30720KSPS_dl_signal'):
     dut = 'Decimator_Correlator_PeakDetector_FFT'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -324,7 +330,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
         os.path.join(rtl_dir, 'PSS_correlator.sv'),
         os.path.join(rtl_dir, 'PSS_correlator_mr.sv'),
         os.path.join(rtl_dir, 'CFO_calc.sv'),
-        os.path.join(rtl_dir, 'AXIS_FIFO.sv'),        
+        os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
         os.path.join(rtl_dir, 'FFT_demod.sv'),
         os.path.join(rtl_dir, 'frame_sync.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.sv'),
@@ -365,10 +371,11 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
     parameters['NFFT'] = NFFT
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
     parameters['MULT_REUSE'] = MULT_REUSE
+    parameters['INITIAL_DETECTION_SHIFT'] = INITIAL_DETECTION_SHIFT
     parameters_no_taps = parameters.copy()
     folder = 'Decimator_to_FFT_' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     sim_build= os.path.join('sim_build', folder)
-    os.environ['TEST_FILE'] = FILE    
+    os.environ['TEST_FILE'] = FILE
 
     if USE_TAP_FILE:
         FFT_LEN = 2 ** NFFT
@@ -416,10 +423,10 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
 
 @pytest.mark.parametrize("FILE", ["772850KHz_3840KSPS_low_gain"])
 def test_recording(FILE):
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, FILE = FILE)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = FILE)
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, FILE = '772850KHz_3840KSPS_low_gain')
-    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 4)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
+    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4)

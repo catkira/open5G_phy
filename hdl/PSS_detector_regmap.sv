@@ -21,9 +21,9 @@ module PSS_detector_regmap #(
     parameter CORR_DW = 32,
     parameter VARIABLE_NOISE_LIMIT = 0,
     parameter VARIABLE_DETECTION_FACTOR = 0,
+    parameter INITIAL_DETECTION_SHIFT = 3,
 
-    localparam INITIAL_NOISE_LIMIT = 2**(CORR_DW/2),
-    localparam INITIAL_DETECTION_SHIFT = 3
+    localparam INITIAL_NOISE_LIMIT = 2**(CORR_DW/2)
 )
 (
     input clk_i,
