@@ -72,22 +72,49 @@ class TB(object):
 @cocotb.test()
 async def simple_test(dut):
     tb = TB(dut)
+    FILE = '../../tests/' + os.environ['TEST_FILE'] + '.sigmf-data'
+    handle = sigmf.sigmffile.fromfile(FILE)
+    waveform = handle.read_samples()
+    fs = handle.get_global_field(sigmf.SigMFFile.SAMPLE_RATE_KEY)
     NFFT = tb.NFFT
     FFT_LEN = 2 ** NFFT
+    dec_factor = int((2048 * fs // 30720000) // (2 ** tb.NFFT))
+    assert dec_factor != 0, f'NFFT = {tb.NFFT} and fs = {fs} is not possible!'
+    print(f'test_file = {FILE} with {len(waveform)} samples')
+    print(f'sample_rate = {fs}, decimation_factor = {dec_factor}')
+    if dec_factor > 1:
+        fs_dec = fs // dec_factor
+        waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')  # decimate to 3.840 MSPS (if NFFT = 8)
+    else:
+        fs_dec = fs
+
+    SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
+    if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
+        expected_N_id_1 = 69
+        expected_N_id_2 = 2
+        MAX_TX = int(0.045 * fs_dec) # simulate 45ms tx data
+        MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
+    elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
+        expected_N_id_1 = 291
+        expected_N_id_2 = 0
+        MAX_TX = int(0.050 * fs_dec) # simulate 45ms tx data
+        MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000   
+        delta_f = -4e3
+        waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
+    else:
+        file_string = os.environ['TEST_FILE']
+        assert False, f'test file {file_string} is not supported'
+    expected_N_id = expected_N_id_1 * 3 + expected_N_id_2
+
     CFO = int(os.getenv('CFO'))
-    handle = sigmf.sigmffile.fromfile('../../tests/30720KSPS_dl_signal.sigmf-data')
-    waveform = handle.read_samples()
-    fs = 30720000
     print(f'CFO = {CFO} Hz')
-    waveform *= np.exp(np.arange(len(waveform)) * 1j * 2 * np.pi * CFO / fs)
-    dec_factor = 2048 // FFT_LEN
-    waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')  # decimate to 3.840 MSPS
-    fs = fs // dec_factor
+    waveform *= np.exp(np.arange(len(waveform)) * 1j * 2 * np.pi * CFO / fs_dec)
+
     waveform /= max(np.abs(waveform.real.max()), np.abs(waveform.imag.max()))
     MAX_AMPLITUDE = (2 ** (tb.IN_DW // 2 - 1) - 1)
     waveform *= MAX_AMPLITUDE * 0.8  # need this 0.8 because rounding errors caused overflows, nasty bug!
-    assert np.abs(waveform.real).max().astype(int) <= MAX_AMPLITUDE, "Error: input data overflow!"
-    assert np.abs(waveform.imag).max().astype(int) <= MAX_AMPLITUDE, "Error: input data overflow!"
+    assert np.abs(waveform.real).max().astype(int) <= MAX_AMPLITUDE, 'Error: input data overflow!'
+    assert np.abs(waveform.imag).max().astype(int) <= MAX_AMPLITUDE, 'Error: input data overflow!'
     waveform = waveform.real.astype(int) + 1j * waveform.imag.astype(int)
 
     await tb.cycle_reset()
@@ -96,7 +123,7 @@ async def simple_test(dut):
     if USE_COCOTB_AXI:
         # cocotbext-axi hangs with Verilator -> https://github.com/verilator/verilator/issues/3919
         # case_insensitive=False is a workaround https://github.com/alexforencich/verilog-axi/issues/48
-        axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axi_if", case_insensitive=False), dut.clk_i, dut.reset_n, reset_active_level = False)
+        axi_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, 's_axi_if', case_insensitive=False), dut.clk_i, dut.reset_n, reset_active_level = False)
         addr = 0
         data = await axi_master.read_dword(4 * addr)
         data = int(data)
@@ -111,7 +138,7 @@ async def simple_test(dut):
         data = await axi_master.read_dword(addr + (1 << OFFSET_ADDR_WIDTH))
         data = int(data)
         assert data == 0x00040069
-    
+
     else:
         data = await tb.read_axil(0)
         print(f'axi-lite fifo: id = {data:x}')
@@ -124,7 +151,6 @@ async def simple_test(dut):
         print(f'PSS detector: id = {data:x}')
         assert data == 0x00040069
 
-    rx_counter = 0
     clk_cnt = 0
     received = []
     received_fft_demod = []
@@ -144,28 +170,21 @@ async def simple_test(dut):
     CP2_LEN = 18 * FFT_LEN // 256
     SSS_LEN = 127
     SSS_START = FFT_LEN // 2 - (SSS_LEN + 1) // 2
-    # that's a nice bunch of magic numbers
-    # TODO: make this nicer / more systematic
     if NFFT == 8:
-        if tb.MULT_REUSE == 0:
-            DETECTOR_LATENCY = 20
-        elif tb.MULT_REUSE == 1:
-            DETECTOR_LATENCY = 30
+        if tb.MULT_REUSE == 0:    # uses PSS_correlator
+            DETECTOR_LATENCY = 20  # peak at 853
+        elif tb.MULT_REUSE == 1:  # uses PSS_correlator_mr
+            DETECTOR_LATENCY = 30  # peak at 863
         elif tb.MULT_REUSE == 2:
-            DETECTOR_LATENCY = 31
+            DETECTOR_LATENCY = 31  # peak at 864
         elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 32 + 826
-        elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 40 + 826
+            DETECTOR_LATENCY = 12  # peak at 845
     else:
-        assert False, print("Error: only NFFT 8 is supported for now!")
+        assert False, print('Error: only NFFT 8 is supported for now!')
     DETECTOR_LATENCY += 9 # for CFO correction complex_multiplier
-    MAX_TX = int(0.045 * fs) # simulate 45ms tx data
-    SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
-    MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
+    print(f'DETECTOR_LATENCY = {DETECTOR_LATENCY}')
     clk_div = 0
     tx_cnt = 0
-    rx_start_pos = 0
     while clk_cnt < MAX_CLK_CNT:
         await RisingEdge(dut.clk_i)
         if (tx_cnt < MAX_TX) and (clk_div == 0 or SAMPLE_CLK_DECIMATION == 1):
@@ -184,13 +203,12 @@ async def simple_test(dut):
 
         clk_cnt += 1
 
-        received.append(dut.peak_detected_debug_o.value.integer)
-        rx_counter += 1
+        sample_cnt = clk_cnt // SAMPLE_CLK_DECIMATION if SAMPLE_CLK_DECIMATION > 1 else clk_cnt
+        if dut.peak_detected_debug_o.value.integer:
+            received.append(sample_cnt)
 
         if dut.peak_detected_debug_o.value.integer == 1:
-            print(f'peak pos = {clk_cnt}')
-            if rx_start_pos == 0:
-                rx_start_pos = clk_cnt - DETECTOR_LATENCY
+            print(f'peak pos = {sample_cnt}')
 
         # if dut.m_axis_SSS_tvalid.value.integer == 1:
         #     print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
@@ -228,7 +246,6 @@ async def simple_test(dut):
 
         if dut.m_axis_demod_out_tvalid.value.integer == 1:
             # this is not used anymore, can be deleted in the future
-            # print(f'{rx_counter}: fft_demod {dut.m_axis_out_tdata.value}')
             received_fft_demod.append(_twos_comp(dut.m_axis_demod_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
@@ -263,7 +280,7 @@ async def simple_test(dut):
     assert not np.array_equal(np.array(fifo_data), np.zeros(len(fifo_data)))
     assert np.array_equal(np.array(received_PBCH_LLR), np.array(fifo_data))
 
-    rx_ADC_data = waveform[rx_start_pos:][:MAX_TX]
+    rx_ADC_data = waveform[received[0] - DETECTOR_LATENCY:][:MAX_TX]
     CP_ADVANCE = CP2_LEN // 2 if HALF_CP_ADVANCE else CP2_LEN
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_LEN + CP_ADVANCE:][:FFT_LEN]))
     ideal_SSS_sym *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_LEN * np.arange(FFT_LEN) + np.pi * (CP2_LEN - CP_ADVANCE)))
@@ -297,7 +314,7 @@ async def simple_test(dut):
         ax.set_title('hdl used SCs I/Q constellation')
         ax.plot(np.real(received_SSS[:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'r.')
         ax.plot(np.real(received_SSS[SSS_LEN:][:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'b.')
-        
+
         # ax = plt.subplot(2, 4, 8)
         # ax.plot(np.real(corrected_PBCH[:180]), np.imag(corrected_PBCH[:180]), 'r.')
         # ax.plot(np.real(corrected_PBCH[180:][:72]), np.imag(corrected_PBCH[180:][:72]), 'g.')
@@ -326,27 +343,34 @@ async def simple_test(dut):
         axs[2].plot(np.real(corrected_PBCH[180 + 72:][:180]), np.imag(corrected_PBCH[180 + 72:][:180]), 'b.')
         plt.show()
 
-    peak_pos = np.argmax(received[:np.round(fs * 0.02).astype(int)]) # max peak within first 20 ms
-    print(f'highest peak at {peak_pos}')
+    print(f'first peak at {received[0]}')
 
     scaling_factor = 2 ** (tb.IN_DW + NFFT - tb.OUT_DW) # FFT core is in truncation mode
     ideal_SSS = ideal_SSS.real / scaling_factor + 1j * ideal_SSS.imag / scaling_factor
 
-    # verift PSS_detector
-    if NFFT == 8:
-        if tb.MULT_REUSE < 8:
-            assert peak_pos == DETECTOR_LATENCY + 823
-        elif tb.MULT_REUSE == 8:
-            assert peak_pos == 3344  # TODO: why is this a different formula?
+    # verify PSS_detector
+    if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
+        expect_exact_timing = True
+        if NFFT == 8:
+            assert received[0] == 824 + DETECTOR_LATENCY
+        else:
+            assert False
+    elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
+        expect_exact_timing = False
+        if NFFT == 8:
+            assert received[0] == 2386 + DETECTOR_LATENCY
+    else:
+        assert False
 
     # verify received SSS sequence
     corr = np.zeros(335)
     for i in range(335):
-        sss = py3gpp.nrSSS(i)
+        sss = py3gpp.nrSSS(i * 3 + expected_N_id_2)
         corr[i] = np.abs(np.vdot(sss, received_SSS[:SSS_LEN]))
-    detected_NID = np.argmax(corr)
-    assert detected_NID == 209
-    
+    detected_N_id_1 = np.argmax(corr)
+    assert detected_N_id_1 == expected_N_id_1
+    detected_N_id = detected_N_id_1 * 3 + expected_N_id_2
+
     # verify received ressource_grid_subscriber
     def extract_timestamp(packet):
         ts = 0
@@ -354,12 +378,16 @@ async def simple_test(dut):
         for i in range(NUM_TIMESTAMP_SAMPLES):
             ts += int(samples[i].real) << int(FFT_OUT_DW * i)
         return ts
-    
+
     timestamp = extract_timestamp(received_rgs[0, :])
     for i in range(1, num_rgs_symbols):
         delta_samples = extract_timestamp(received_rgs[i, :]) - timestamp
         print(f'delta_samples = {delta_samples}')
-        assert delta_samples in [274, 276], print('Error: symbols have wrong spacing!') # depending on cp1 or cp2
+        if expect_exact_timing:
+            assert delta_samples in [274, 276], print('Error: symbol timestamps don\'t align!') # depending on cp1 or cp2
+        else:
+            if delta_samples not in [274, 276]:
+                print(f'timing deviation: delta_samples = {delta_samples}')
         timestamp = extract_timestamp(received_rgs[i, :])
 
     # verify channel_estimator and demap
@@ -376,7 +404,7 @@ async def simple_test(dut):
 
         E = 864
         v = ibar_SSB
-        scrambling_seq = py3gpp.nrPBCHPRBS(detected_NID, v, E)
+        scrambling_seq = py3gpp.nrPBCHPRBS(detected_N_id, v, E)
         scrambling_seq_bpsk = (-1) * scrambling_seq * 2 + 1
         pbchBits_descrambled = pbchBits * scrambling_seq_bpsk
 
@@ -391,22 +419,27 @@ async def simple_test(dut):
         print(decoded)
         _, crc_result = py3gpp.nrCRCDecode(decoded, '24C')
         if crc_result == 0:
-            print("nrPolarDecode: PBCH CRC ok")
+            print('nrPolarDecode: PBCH CRC ok')
         else:
-            print("nrPolarDecode: PBCH CRC failed")
-        assert crc_result == 0
+            print('nrPolarDecode: PBCH CRC failed')
+        # disable crc assert for recorded data, until list aided polar decoder is implemented
+        # decoder performance without list aided is too bad for low SNR recordings
+        assert (crc_result == 0) or (expect_exact_timing is False)
 
-@pytest.mark.parametrize("IN_DW", [32])
-@pytest.mark.parametrize("OUT_DW", [32])
-@pytest.mark.parametrize("TAP_DW", [32])
-@pytest.mark.parametrize("WINDOW_LEN", [8])
-@pytest.mark.parametrize("CFO", [0, 1200])
-@pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
-@pytest.mark.parametrize("USE_TAP_FILE", [1])
-@pytest.mark.parametrize("LLR_DW", [8])
-@pytest.mark.parametrize("NFFT", [8])
-@pytest.mark.parametrize("MULT_REUSE", [0, 2, 4])
-def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT, MULT_REUSE):
+@pytest.mark.parametrize('IN_DW', [32])
+@pytest.mark.parametrize('OUT_DW', [32])
+@pytest.mark.parametrize('TAP_DW', [32])
+@pytest.mark.parametrize('WINDOW_LEN', [8])
+@pytest.mark.parametrize('CFO', [0, 1200])
+@pytest.mark.parametrize('HALF_CP_ADVANCE', [0, 1])
+@pytest.mark.parametrize('USE_TAP_FILE', [1])
+@pytest.mark.parametrize('LLR_DW', [8])
+@pytest.mark.parametrize('NFFT', [8])
+@pytest.mark.parametrize('MULT_REUSE', [0, 2, 4])
+@pytest.mark.parametrize('INITIAL_DETECTION_SHIFT', [4])
+@pytest.mark.parametrize('INITIAL_CFO_MODE', [0])
+def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT, MULT_REUSE,
+         INITIAL_DETECTION_SHIFT, INITIAL_CFO_MODE, FILE = '30720KSPS_dl_signal'):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -483,11 +516,14 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     parameters['NFFT'] = NFFT
     parameters['MULT_REUSE'] = MULT_REUSE
     parameters['CLK_FREQ'] = CLK_FREQ
+    parameters['INITIAL_DETECTION_SHIFT'] = INITIAL_DETECTION_SHIFT
+    parameters['INITIAL_CFO_MODE'] = INITIAL_CFO_MODE
     os.environ['CFO'] = str(CFO)
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
-    folder = 'receiver_' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items()))
+    folder = 'receiver_' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items())) + '_' + FILE
     sim_build = os.path.join('sim_build/', folder)
+    os.environ['TEST_FILE'] = FILE
 
     # prepare FFT_demod taps
     FFT_LEN = 2 ** NFFT
@@ -511,7 +547,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
         generate_PSS_tap_file.main(['--PSS_LEN', str(PSS_LEN),'--TAP_DW', str(TAP_DW), '--N_id_2', str(N_id_2), '--path', sim_build])
 
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
- 
+
     compile_args = []
     if os.environ.get('SIM') == 'verilator':
         compile_args = ['--no-timing', '-Wno-fatal', '-Wno-width', '-Wno-PINMISSING', '-y', tests_dir + '/../submodules/verilator-unisims']
@@ -533,7 +569,19 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
         compile_args = compile_args
     )
 
+@pytest.mark.parametrize('FILE', ['772850KHz_3840KSPS_low_gain'])
+@pytest.mark.parametrize('HALF_CP_ADVANCE', [0, 1])
+@pytest.mark.parametrize('MULT_REUSE', [0])
+def test_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE):
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
+         NFFT = 8, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = FILE)
+
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8, NFFT = 8, MULT_REUSE = 4)
+    if False:
+        test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
+             NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
+    else:
+        test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
+             NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 0)
