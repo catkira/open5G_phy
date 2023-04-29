@@ -113,34 +113,35 @@ async def simple_test(dut):
         if tb.MULT_REUSE == 0:
             DETECTOR_LATENCY = 18
         elif tb.MULT_REUSE == 1:
-            DETECTOR_LATENCY = 28  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 28   # peak_pos = 
         elif tb.MULT_REUSE == 2:
-            DETECTOR_LATENCY = 29  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 29   # peak_pos = 853
         elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 29 + 827  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 16   # peak_pos = 840
         elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 37 + 827  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 9    # peak_pos = 833
         elif tb.MULT_REUSE == 16:
-            DETECTOR_LATENCY = 37 + 827 * 5  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 6    # peak_pos = 830
         elif tb.MULT_REUSE == 32:
-            DETECTOR_LATENCY = 37 + 827 * 13  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 4    # peak_pos = 828
     elif NFFT == 9:
         if tb.MULT_REUSE == 0:
             DETECTOR_LATENCY = 20
         elif tb.MULT_REUSE == 1:
-            DETECTOR_LATENCY = 30  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 30  # peak_pos = 
         elif tb.MULT_REUSE == 2:
-            DETECTOR_LATENCY = 31  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 31  # peak_pos = 1679
         elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 32 + 826 * 2  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 18  # peak_pos = 1666
         elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 46 + 826 * 2  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 11  # peak_pos = 1659
         elif tb.MULT_REUSE == 16:
-            DETECTOR_LATENCY = 50 + 826 * 10  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 8   # peak_pos = 1656
         elif tb.MULT_REUSE == 32:
-            DETECTOR_LATENCY = 58 + 826 * 26  # ok with new PSS_correlator_mr
+            DETECTOR_LATENCY = 6   # peak_pos = 1654
     else:
         assert False, print("Error: only NFFT 8 and 9 are supported for now!")
+    print(f'DETECTOR_LATENCY = {DETECTOR_LATENCY}')
     FFT_OUT_DW = 32
 
     SSS_LEN = 127
@@ -151,6 +152,7 @@ async def simple_test(dut):
     clk_div = 0
     MAX_CLK_CNT = 10000 * FFT_LEN // 256 * SAMPLE_CLK_DECIMATION
     rx_start_pos = 0
+    peaks = []
 
     tx_cnt = 0
     while (len(received_SSS) < SSS_LEN) and (clk_cnt < MAX_CLK_CNT):
@@ -172,6 +174,7 @@ async def simple_test(dut):
         #print(f"data[{in_counter}] = {(int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x} {(int(waveform[in_counter].real)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x}")
         clk_cnt += 1
 
+        sample_cnt = clk_cnt // SAMPLE_CLK_DECIMATION if SAMPLE_CLK_DECIMATION > 1 else clk_cnt
         received.append(dut.peak_detected_debug_o.value.integer)
         rx_counter += 1
         # if dut.peak_detected_debug_o.value.integer == 1:
@@ -183,10 +186,10 @@ async def simple_test(dut):
         # print(f'{dut.m_axis_out_tvalid.value.binstr}  {dut.m_axis_out_tdata.value.binstr}')
 
         if dut.peak_detected_debug_o.value.integer == 1:
-            print(f'peak pos = {clk_cnt}')
+            peaks.append(sample_cnt)
+            print(f'peak pos = {sample_cnt}')
             if rx_start_pos == 0:
-                rx_start_pos = clk_cnt - DETECTOR_LATENCY
-                print(f'peak pos = {rx_start_pos}')
+                rx_start_pos = sample_cnt - DETECTOR_LATENCY
 
         if dut.PBCH_valid_o.value.integer == 1:
             # print(f"rx PBCH[{len(received_PBCH):3d}] re = {dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1):4x} " \
@@ -212,8 +215,8 @@ async def simple_test(dut):
     # for i in range(SSS_LEN):
     #     print(f'SSS[{i}] = {int(received_SSS[i].real > 0)}')
 
-    print(f'rx_start_pos = {rx_start_pos}')
-    rx_ADC_data = waveform[rx_start_pos:]
+    print(f'first peak at = {peaks[0]}')
+    rx_ADC_data = waveform[peaks[0] - DETECTOR_LATENCY:]
     CP_ADVANCE = CP_LEN // 2 if HALF_CP_ADVANCE else CP_LEN
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_LEN + CP_ADVANCE:][:FFT_LEN]))
     scaling_factor = 2 ** (tb.IN_DW / 2 + NFFT - FFT_OUT_DW / 2) # FFT core is in truncation mode
@@ -265,8 +268,9 @@ async def simple_test(dut):
         axs[1, 1].set_title('model PBCH')
         plt.show()
 
-    peak_pos = np.argmax(received[:np.round(fs * 0.02).astype(int)]) # max peak within first 20 ms
-    print(f'highest peak at {peak_pos}')
+    # peak_pos = np.argmax(received[:np.round(fs * 0.02).astype(int)]) # max peak within first 20 ms
+    peak_pos = peaks[0]
+    print(f'first peak at {peak_pos}')
 
     assert len(received_SSS) == 127
 
@@ -279,25 +283,20 @@ async def simple_test(dut):
     # this test is not ideal, because the maximum peak could be any of the 4 SSBs within one burst
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
         if NFFT == 8:
-            if tb.MULT_REUSE < 8:
-                assert peak_pos == DETECTOR_LATENCY + 823
-            elif tb.MULT_REUSE == 8:
-                assert peak_pos == 3333  # TODO: why is this a different formula?
+            assert peak_pos == DETECTOR_LATENCY + 824
         elif NFFT == 9:
-            if tb.MULT_REUSE < 8:
-                assert peak_pos == DETECTOR_LATENCY + 1647
-            elif tb.MULT_REUSE == 8:
-                assert peak_pos == 6637  # TODO: why is this a different formula?
+            assert peak_pos == DETECTOR_LATENCY + 1648
     else:
-        assert peak_pos == 2403
+        if NFFT == 8:
+            assert peak_pos == DETECTOR_LATENCY + 2386
 
     corr = np.zeros(335)
     for i in range(335):
         sss = py3gpp.nrSSS(i*3 + expected_N_id_2)
         corr[i] = np.abs(np.vdot(sss, ideal_SSS))
 
-    detected_NID1 = np.argmax(corr)
-    assert detected_NID1 == expected_N_id_1
+    detected_N_id_1 = np.argmax(corr)
+    assert detected_N_id_1 == expected_N_id_1
 
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
@@ -427,5 +426,5 @@ def test_recording(FILE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
-    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4)
+    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4)
