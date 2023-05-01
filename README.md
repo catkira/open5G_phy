@@ -23,8 +23,8 @@ Implemented so far:<br>
 
 <b>Limitation:</b> The current design is not yet fully 5G NR compliant, because it assumes that the SSB is always in the center of the ressource grid bandwidth (see [this](https://github.com/catkira/open5G_rx/issues/10) issue). 
 This design implements only the lower phy. It can be used in combination with a CPU that runs the higher layers to implement full 5G functionality, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project).
-<br>
-<b>Note:<\b> 3GPP Rel 18 introduced RedCap with 5 MHz channnels and there are discussions about reducing the required channel bandwidth even more (see [RP-222645](https://www.3gpp.org/ftp/tsg_ran/TSG_RAN/TSGR_97e/Docs/RP-222645.zip)).
+<br><br>
+<b>Note:</b> 3GPP Rel 18 introduced RedCap with 5 MHz channnels and there are discussions about reducing the required channel bandwidth even more (see [RP-222645](https://www.3gpp.org/ftp/tsg_ran/TSG_RAN/TSGR_97e/Docs/RP-222645.zip)).
 
 <br>
 <b>Disclaimer:</b> This design is not intended for very high data rate applications, like 400 MHz massive MIMO channels or so. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication or HAM radio. The main goal of this design is to achieve a digital data link with fairly high data rates while using minimal ressources so that it can be used in portable battery powered devices. </b>
