@@ -58,7 +58,8 @@ module receiver_regmap #(
     input           [31 : 0]                    rx_signal_i,
     input           [1 : 0]                     N_id_2_i,
     input           [$clog2(N_id_MAX) - 1 : 0]  N_id_i,
-    input   signed  [7 : 0]                     sample_cnt_mismatch_i
+    input   signed  [7 : 0]                     sample_cnt_mismatch_i,
+    input           [15 : 0]                    missed_SSBs_i
 );
 
 localparam PCORE_VERSION = 'h00040069;
@@ -83,11 +84,12 @@ always @(posedge clk_i) begin
                 9'h002: rdata <= '0;
                 9'h003: rdata <= 32'h52587E7E; // "RX~~"
                 9'h004: rdata <= 32'h69696969;
-                9'h005: rdata <= fs_state_i;
+                9'h005: rdata <= {30'd0, fs_state_i};
                 9'h006: rdata <= rx_signal_i;
                 9'h007: rdata <= {30'd0, N_id_2_i};
-                9'h008: rdata <= N_id_i;
-                9'h009: rdata <= sample_cnt_mismatch_i;
+                9'h008: rdata <= {22'd0, N_id_i};
+                9'h009: rdata <= {24'd0, sample_cnt_mismatch_i};
+                9'h00A: rdata <= {16'd0, missed_SSBs_i};
                 default: rdata <= '0;
             endcase
         end
