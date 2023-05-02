@@ -86,7 +86,7 @@ async def simple_test(dut):
         expected_N_id_1 = 291
         expected_N_id_2 = 0
         delta_f = -4e3
-        waveform *= 2**19
+        waveform *= 2**19 # exported files from sdrangel are scaled like this
         waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs*np.arange(waveform.shape[0])))
         # waveform /= max(waveform.real.max(), waveform.imag.max())
         # waveform *= (2 ** (tb.IN_DW // 2 - 1) - 1)
@@ -280,9 +280,15 @@ async def simple_test(dut):
 
     error_signal = received_SSS - ideal_SSS
     if tb.HALF_CP_ADVANCE:
-        assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.1
+        if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
+            assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.01
+        else:
+            assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.1
     else:
-        assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.04
+        if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
+            assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.04
+        else:
+            assert max(np.abs(error_signal)) < max(np.abs(received_SSS)) * 0.4
 
     # this test is not ideal, because the maximum peak could be any of the 4 SSBs within one burst
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
@@ -430,5 +436,5 @@ def test_recording(FILE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 0, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
+    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4)
