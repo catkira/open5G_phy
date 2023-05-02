@@ -10,7 +10,7 @@ module receiver
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_1 = {(PSS_LEN * TAP_DW){1'b0}},
     parameter [TAP_DW * PSS_LEN - 1 : 0] PSS_LOCAL_2 = {(PSS_LEN * TAP_DW){1'b0}},
     parameter WINDOW_LEN = 8,
-    parameter HALF_CP_ADVANCE = 9,
+    parameter HALF_CP_ADVANCE = 1,
     parameter USE_TAP_FILE = 1,
     parameter TAP_FILE_0 = "",
     parameter TAP_FILE_1 = "",
