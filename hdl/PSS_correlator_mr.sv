@@ -12,7 +12,7 @@ module PSS_correlator_mr
     parameter TAP_FILE_PATH = "",
     parameter N_ID_2 = 0, // not used when PSS_LOCAL is used !
     parameter MULT_REUSE = 4,
-    parameter START_DELAY = 0,
+    parameter START_DELAY = 1,
 
     localparam C_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN)
 )
