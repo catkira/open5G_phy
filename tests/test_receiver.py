@@ -98,7 +98,7 @@ async def simple_test(dut):
         expected_N_id_1 = 291
         expected_N_id_2 = 0
         MAX_TX = int(0.050 * fs_dec) # simulate 45ms tx data
-        MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000   
+        MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
         delta_f = -4e3
         waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
     else:
@@ -172,16 +172,21 @@ async def simple_test(dut):
     SSS_START = FFT_LEN // 2 - (SSS_LEN + 1) // 2
     if NFFT == 8:
         if tb.MULT_REUSE == 0:    # uses PSS_correlator
-            DETECTOR_LATENCY = 20  # peak at 853
+            DETECTOR_LATENCY = 29  # peak at 853
         elif tb.MULT_REUSE == 1:  # uses PSS_correlator_mr
-            DETECTOR_LATENCY = 30  # peak at 863
+            DETECTOR_LATENCY = 39  # peak at 863
         elif tb.MULT_REUSE == 2:
-            DETECTOR_LATENCY = 31  # peak at 864
+            DETECTOR_LATENCY = 40  # peak at 864
         elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 12  # peak at 845
+            DETECTOR_LATENCY = 21  # peak at 845
+        elif tb.MULT_REUSE == 8:
+            DETECTOR_LATENCY = 12  # peak at 836
+        elif tb.MULT_REUSE == 16:
+            DETECTOR_LATENCY = 7  # peak at 831
+        elif tb.MULT_REUSE == 32:
+            DETECTOR_LATENCY = 5  # peak at 829
     else:
         assert False, print('Error: only NFFT 8 is supported for now!')
-    DETECTOR_LATENCY += 9 # for CFO correction complex_multiplier
     print(f'DETECTOR_LATENCY = {DETECTOR_LATENCY}')
     clk_div = 0
     tx_cnt = 0
@@ -581,7 +586,7 @@ if __name__ == '__main__':
     os.environ['SIM'] = 'verilator'
     if False:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
+             NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 0)
+             NFFT = 8, MULT_REUSE = 32, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 0)
