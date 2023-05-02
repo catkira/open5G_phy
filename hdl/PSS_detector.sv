@@ -434,6 +434,7 @@ always @(posedge clk_i) begin
                         2 : N_id_2_o <= 1;
                         4 : N_id_2_o <= 2;
                     endcase
+                    $display("PSS detector: detected N_id_2 is %d", peak_detected == 1 ? 0 : (peak_detected == 2 ? 1 : 2));                    
                     peak_valid <= 1;
                 end else begin
                     peak_valid <= 0;
@@ -444,6 +445,7 @@ always @(posedge clk_i) begin
                 if (peak_detected[requested_N_id_2_i] && 
                     ((peak_detected == 1) || (peak_detected == 2) || (peak_detected == 4))) begin
                     N_id_2_o <= requested_N_id_2_i;
+                    $display("PSS detector: detected N_id_2 is %d (find mode)", requested_N_id_2_i);                    
                     peak_valid <= 1;
                 end else begin
                     peak_valid <= 0;

@@ -12,6 +12,7 @@ module PSS_correlator_mr
     parameter TAP_FILE_PATH = "",
     parameter N_ID_2 = 0, // not used when PSS_LOCAL is used !
     parameter MULT_REUSE = 4,
+    parameter START_DELAY = 0,
 
     localparam C_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN)
 )
@@ -117,16 +118,21 @@ endfunction
 
 localparam OUTPUT_PAD_BITS = REQUIRED_OUT_DW >= OUT_DW ? 0 : OUT_DW - REQUIRED_OUT_DW;
 
-reg start, start_f;
-always @(posedge clk_i) begin
-    if (!reset_ni) begin
-        start <= '0;
-        start_f <= '0;
-    end else if (wr_ptr == 127) begin
-        start <= 1;
+reg start_f;
+if (START_DELAY) begin
+    reg start;
+    always @(posedge clk_i) begin
+        if (!reset_ni) begin
+            start <= 1;
+            start_f <= 1;
+        end else if (wr_ptr == 127) begin
+            start <= 1;
+        end
+        if (start && s_axis_in_tvalid)
+            start_f <= 1;
     end
-    if (start && s_axis_in_tvalid)
-        start_f <= 1;
+end else begin
+    initial start_f = 1;
 end
 
 for (genvar i_g = 0; i_g < REQ_MULTS; i_g++) begin : mult
