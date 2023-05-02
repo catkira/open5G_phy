@@ -123,8 +123,8 @@ if (START_DELAY) begin
     reg start;
     always @(posedge clk_i) begin
         if (!reset_ni) begin
-            start <= 1;
-            start_f <= 1;
+            start <= '0;
+            start_f <= '0;
         end else if (wr_ptr == 127) begin
             start <= 1;
         end
