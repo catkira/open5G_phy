@@ -100,6 +100,7 @@ always @(posedge clk_i) begin
         div_112 <= '0;
         N_id_1 <= '0;
         N_id_1_det <= '0;
+        N_id_2 <= '0;
         m_0_start <= '0;
         acc_max <= '0;
         acc <= '0;
