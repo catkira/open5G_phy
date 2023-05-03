@@ -591,6 +591,7 @@ localparam N_ID_MAX = 1007;
 reg [$clog2(N_ID_MAX) - 1 : 0] N_id;
 reg N_id_valid;
 wire sample_id_fifo_valid_in;
+wire reset_fft_n;
 
 frame_sync #(
     .IN_DW(IN_DW),
@@ -619,6 +620,7 @@ frame_sync_i
     .m_axis_out_tvalid(fs_out_tvalid),
     .symbol_start_o(fs_out_symbol_start),
     .SSB_start_o(fs_out_SSB_start),
+    .reset_fft_no(reset_fft_n),
     .state_o(fs_state),
     .sample_cnt_mismatch_o(sample_cnt_mismatch),
     .missed_SSBs_o(missed_SSBs)
@@ -675,6 +677,7 @@ FFT_demod #(
 FFT_demod_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
+    .reset_2_ni(reset_fft_n),
     .SSB_start_i(fs_out_SSB_start),
     .s_axis_in_tdata(fs_out_tdata),
     .s_axis_in_tlast(fs_out_tlast),
