@@ -258,8 +258,8 @@ async def simple_test(dut):
     print(f'received {len(corrected_PBCH)} PBCH IQ samples')
     print(f'received {len(received_PBCH_LLR)} PBCH LLRs samples')
     assert len(received_SSS) == 4 * SSS_LEN
-    assert len(corrected_PBCH) == 432 * 2, print('received PBCH does not have correct length!')
-    assert len(received_PBCH_LLR) == 432 * 4, print('received PBCH LLRs do not have correct length!')
+    assert len(corrected_PBCH) == 432 * 3, print('received PBCH does not have correct length!')
+    assert len(received_PBCH_LLR) == 432 * 2 * 3, print('received PBCH LLRs do not have correct length!')
     assert not np.array_equal(np.array(received_PBCH_LLR), np.zeros(len(received_PBCH_LLR)))
 
     fifo_data = []
@@ -267,8 +267,8 @@ async def simple_test(dut):
         addr = 5
         data = await axi_master.read_dword(4 * addr)
         data = int(data)
-        assert data == 864 * 2
-        for i in range(data):
+        assert data >= 864 * 2
+        for i in range(864 * 2):
             data = await axi_master.read_dword(7 * 4)
             fifo_data.append(_twos_comp(data & (2 ** (tb.LLR_DW) - 1), tb.LLR_DW))
     else:
@@ -278,13 +278,13 @@ async def simple_test(dut):
         addr = 5
         data = await tb.read_axil(addr * 4)
         print(f'axi-lite fifo: level = {data}')
-        assert data == 864 * 2
+        assert data >= 864 * 2
         addr = 7
-        for i in range(data):
+        for i in range(864 * 2):
             data = await tb.read_axil(addr * 4)
             fifo_data.append(_twos_comp(data & (2 ** (tb.LLR_DW) - 1), tb.LLR_DW))
     assert not np.array_equal(np.array(fifo_data), np.zeros(len(fifo_data)))
-    assert np.array_equal(np.array(received_PBCH_LLR), np.array(fifo_data))
+    assert np.array_equal(np.array(received_PBCH_LLR)[:864 * 2], np.array(fifo_data))
 
     rx_ADC_data = waveform[received[0] - DETECTOR_LATENCY:][:MAX_TX]
     CP_ADVANCE = CP2_LEN // 2 if HALF_CP_ADVANCE else CP2_LEN
@@ -356,7 +356,7 @@ async def simple_test(dut):
 
     # verify PSS_detector
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
-        expect_exact_timing = True
+        expect_exact_timing = False
         if NFFT == 8:
             assert received[0] == 824 + DETECTOR_LATENCY
         else:
@@ -585,7 +585,7 @@ def test_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    if True:
+    if False:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
              NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
     else:

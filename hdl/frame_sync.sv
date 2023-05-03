@@ -321,6 +321,12 @@ always @(posedge clk_i) begin
                     if (N_id_2_valid_i) begin
                         $display("ignoring SSB");
                     end
+                    if (s_axis_in_tvalid) begin
+                        if ((sample_cnt == FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
+                            find_SSB <= 1;  // go into find state one SC before the symbol ends
+                            $display("find SSB ...");
+                        end
+                    end                    
                 end
 
                 if (N_id_2_valid_i && find_SSB) SSB_start_o <= '1;
@@ -328,21 +334,10 @@ always @(posedge clk_i) begin
 
                 m_axis_out_tvalid <= s_axis_in_tvalid;
 
-                // set m_axis_out_tvalid
-                if (find_SSB) begin
-                end else begin
-                    if (s_axis_in_tvalid) begin
-                        if ((sample_cnt == FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
-                            find_SSB <= 1;  // go into find state one SC before the symbol ends
-                            $display("find SSB ...");
-                        end
-                    end
-                end
-
                 // set sfn, subfram_number, sym_cnt, sample_cnt
                 // set m_axis_out_tlast
                 if (s_axis_in_tvalid) begin
-                    if ((sample_cnt == (FFT_LEN + current_CP_len - 1)) || ((sample_cnt < (FFT_LEN + current_CP_len - 1)) && find_SSB && N_id_2_i)) begin
+                    if ((sample_cnt == (FFT_LEN + current_CP_len - 1)) || ((sample_cnt < (FFT_LEN + current_CP_len - 1)) && find_SSB && N_id_2_valid_i)) begin
                         m_axis_out_tlast <= 1;
                         if (sym_cnt == SYM_PER_SF - 1) begin
                             sym_cnt <= 0;
