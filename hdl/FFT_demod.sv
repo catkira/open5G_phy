@@ -190,10 +190,11 @@ always @(posedge clk_i) begin
 end
 
 wire [OUT_DW - 1 : 0] fft_result;
-wire [IN_DW / 2 - 1 : 0] fft_result_re_long, fft_result_im_long;
+localparam FORMAT = 1; // use FFT without truncation, this is needed for low gain input signals!
+wire [IN_DW / 2 + FORMAT * NFFT - 1 : 0] fft_result_re_long, fft_result_im_long;
 wire [OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
-assign fft_result_re = fft_result_re_long[IN_DW / 2 - 1 -: OUT_DW / 2];
-assign fft_result_im = fft_result_im_long[IN_DW / 2 - 1 -: OUT_DW / 2];
+assign fft_result_re = fft_result_re_long[IN_DW / 2  + FORMAT * NFFT - 1 -: OUT_DW / 2];
+assign fft_result_im = fft_result_im_long[IN_DW / 2  + FORMAT * NFFT - 1 -: OUT_DW / 2];
 
 wire fft_sync = fft_val && (out_cnt == 0);
 
@@ -201,7 +202,7 @@ wire fft_in_en = in_valid_f && (state_in == STATE_IN_PROCESS_SYMBOL);
 
 fft #(
     .NFFT(NFFT),
-    .FORMAT(0),
+    .FORMAT(FORMAT),
     .DATA_WIDTH(IN_DW / 2),
     .TWDL_WIDTH(IN_DW / 2),
     .XSERIES(XSERIES),

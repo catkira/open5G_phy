@@ -89,11 +89,14 @@ async def simple_test(dut):
         fs_dec = fs
 
     SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
+    MAX_AMPLITUDE = (2 ** (tb.IN_DW // 2 - 1) - 1)
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
         expected_N_id_1 = 69
         expected_N_id_2 = 2
         MAX_TX = int(0.045 * fs_dec) # simulate 45ms tx data
         MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
+        waveform /= max(np.abs(waveform.real.max()), np.abs(waveform.imag.max()))
+        waveform *= MAX_AMPLITUDE * 0.8  # need this 0.8 because rounding errors caused overflows, nasty bug!
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
         expected_N_id_1 = 291
         expected_N_id_2 = 0
@@ -101,6 +104,7 @@ async def simple_test(dut):
         MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
         delta_f = -4e3
         waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
+        waveform *= 2**19
     else:
         file_string = os.environ['TEST_FILE']
         assert False, f'test file {file_string} is not supported'
@@ -110,9 +114,6 @@ async def simple_test(dut):
     print(f'CFO = {CFO} Hz')
     waveform *= np.exp(np.arange(len(waveform)) * 1j * 2 * np.pi * CFO / fs_dec)
 
-    waveform /= max(np.abs(waveform.real.max()), np.abs(waveform.imag.max()))
-    MAX_AMPLITUDE = (2 ** (tb.IN_DW // 2 - 1) - 1)
-    waveform *= MAX_AMPLITUDE * 0.8  # need this 0.8 because rounding errors caused overflows, nasty bug!
     assert np.abs(waveform.real).max().astype(int) <= MAX_AMPLITUDE, 'Error: input data overflow!'
     assert np.abs(waveform.imag).max().astype(int) <= MAX_AMPLITUDE, 'Error: input data overflow!'
     waveform = waveform.real.astype(int) + 1j * waveform.imag.astype(int)
@@ -586,7 +587,7 @@ if __name__ == '__main__':
     os.environ['SIM'] = 'verilator'
     if True:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 1, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
+             NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
              NFFT = 8, MULT_REUSE = 32, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 0)
