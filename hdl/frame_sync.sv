@@ -42,11 +42,14 @@ module frame_sync #(
     output  reg                                     m_axis_out_tvalid,
     output  reg                                     symbol_start_o,
     output  reg                                     SSB_start_o,
+    output  reg                                     reset_fft_no,
+    output  reg        [1 : 0]                      N_id_2_o,
+    output  reg                                     N_id_2_valid_o,
 
     // output to regmap
     output  wire       [1 : 0]                      state_o,
     output  wire signed   [7 : 0]                   sample_cnt_mismatch_o,
-    output  wire       [15 : 0]                      missed_SSBs_o
+    output  wire       [15 : 0]                     missed_SSBs_o
 );
 
 reg [$clog2(MAX_CP_LEN) - 1: 0] CP_len;
@@ -70,6 +73,12 @@ end
 always @(posedge clk_i) begin
     if (!reset_ni)  requested_N_id_2_o <= '0;
     else if (N_id_2_valid_i)  requested_N_id_2_o <= N_id_2_i;
+end
+
+// process that forwards N_id_2
+always @(posedge clk_i) begin
+    N_id_2_o <= reset_ni ? N_id_2_i : '0;
+    N_id_2_valid_o <= reset_ni ? N_id_2_valid_i : '0;
 end
 
 
@@ -171,6 +180,7 @@ always @(posedge clk_i) begin
         m_axis_out_tvalid <= '0;
         m_axis_out_tlast <= '0;
         sample_cnt_mismatch <= '0;
+        reset_fft_no <= '0;
     end else begin
         case (state)
             WAIT_FOR_SSB: begin
@@ -186,9 +196,11 @@ always @(posedge clk_i) begin
                     state <= WAIT_FOR_IBAR;
                     syms_since_last_SSB <= '0;
                     SSB_start_o <= 1;
+                    reset_fft_no <= 1;
                 end else begin
                     SSB_start_o <= '0;
                     m_axis_out_tvalid <= '0;
+                    reset_fft_no <= '0;
                 end
             end
             WAIT_FOR_IBAR: begin

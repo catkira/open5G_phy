@@ -591,6 +591,9 @@ localparam N_ID_MAX = 1007;
 reg [$clog2(N_ID_MAX) - 1 : 0] N_id;
 reg N_id_valid;
 wire sample_id_fifo_valid_in;
+wire reset_fft_n;
+wire [1 : 0] fs_N_id_2;
+wire fs_N_id_2_valid;
 
 frame_sync #(
     .IN_DW(IN_DW),
@@ -619,9 +622,12 @@ frame_sync_i
     .m_axis_out_tvalid(fs_out_tvalid),
     .symbol_start_o(fs_out_symbol_start),
     .SSB_start_o(fs_out_SSB_start),
+    .reset_fft_no(reset_fft_n),
     .state_o(fs_state),
     .sample_cnt_mismatch_o(sample_cnt_mismatch),
-    .missed_SSBs_o(missed_SSBs)
+    .missed_SSBs_o(missed_SSBs),
+    .N_id_2_o(fs_N_id_2),
+    .N_id_2_valid_o(fs_N_id_2_valid)
 );
 
 wire [SAMPLE_ID_WIDTH - 1 : 0] sample_id_fifo_out_data;
@@ -661,6 +667,7 @@ wire                                        fft_demod_out_tvalid;
 wire                                        fft_demod_out_tlast;
 assign m_axis_demod_out_tdata = fft_demod_out_tdata;
 assign m_axis_demod_out_tvalid = fft_demod_out_tvalid;
+wire reset_fft_demod_n = reset_fft_n && reset_ni;
 FFT_demod #(
     .IN_DW(IN_DW),
     .OUT_DW(FFT_OUT_DW),
@@ -674,7 +681,7 @@ FFT_demod #(
 )
 FFT_demod_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .reset_ni(reset_fft_demod_n),
     .SSB_start_i(fs_out_SSB_start),
     .s_axis_in_tdata(fs_out_tdata),
     .s_axis_in_tlast(fs_out_tlast),
@@ -695,7 +702,7 @@ ressource_grid_subscriber #(
 )
 ressource_grid_subscriber_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .reset_ni(reset_fft_demod_n),
 
     .s_axis_iq_tdata(fft_demod_out_tdata),
     .s_axis_iq_tuser(fft_demod_out_tuser),
@@ -715,9 +722,9 @@ ressource_grid_subscriber_i(
 SSS_detector
 SSS_detector_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
-    .N_id_2_i(N_id_2),
-    .N_id_2_valid_i(N_id_2_valid),
+    .reset_ni(reset_fft_demod_n),
+    .N_id_2_i(fs_N_id_2),
+    .N_id_2_valid_i(fs_N_id_2_valid),
     .s_axis_in_tdata(~fft_demod_out_tdata[FFT_OUT_DW / 2 - 1]), // BPSK demod by just taking the MSB of the real part
     .s_axis_in_tvalid(SSS_valid_o),
     .m_axis_out_tdata(m_axis_SSS_tdata),
@@ -753,7 +760,7 @@ demap #(
 )
 demap_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .reset_ni(reset_fft_demod_n),
 
     .s_axis_in_tdata(m_axis_cest_out_tdata),
     .s_axis_in_tuser(m_axis_cest_out_tuser),
