@@ -183,7 +183,7 @@ else begin : GEN_SYNC
 
     assign m_axis_out_tlevel = wr_ptr - rd_ptr + data_in_pipeline;
     assign m_axis_out_tempty = empty && (!data_in_pipeline);
-    assign s_axis_in_tfull = ptr_equal && (!ptr_msb_equal);
+    assign s_axis_in_tfull = (m_axis_out_tlevel == FIFO_LEN - 1);
 end
 
 endmodule
