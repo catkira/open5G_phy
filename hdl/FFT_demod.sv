@@ -26,7 +26,6 @@ module FFT_demod #(
 (
     input                                       clk_i,
     input                                       reset_ni,
-    input                                       reset_2_ni,
     input   wire       [IN_DW - 1 : 0]          s_axis_in_tdata,
     input   wire       [USER_WIDTH_IN - 1 : 0]  s_axis_in_tuser,    
     input                                       s_axis_in_tlast,
@@ -200,7 +199,6 @@ assign fft_result_im = fft_result_im_long[IN_DW / 2  + FORMAT * NFFT - 1 -: OUT_
 wire fft_sync = fft_val && (out_cnt == 0);
 
 wire fft_in_en = in_valid_f && (state_in == STATE_IN_PROCESS_SYMBOL);
-wire reset_fft = (!reset_ni) || (!reset_2_ni);
 
 fft #(
     .NFFT(NFFT),
@@ -214,7 +212,7 @@ fft #(
 )
 fft(
     .clk(clk_i),
-    .rst(reset_fft),
+    .rst(!reset_ni),
     .di_im(in_data_f[IN_DW - 1 : IN_DW / 2]),
     .di_re(in_data_f[IN_DW / 2 - 1 : 0]),
     .di_en(fft_in_en),
