@@ -93,14 +93,16 @@ async def simple_test(dut):
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
         expected_N_id_1 = 69
         expected_N_id_2 = 2
-        MAX_TX = int(0.065 * fs_dec) # simulate 45 ms tx data
+        N_SSBs = 4
+        MAX_TX = int((0.005 + 0.02 * (N_SSBs - 1)) * fs_dec)
         MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
         waveform /= max(np.abs(waveform.real.max()), np.abs(waveform.imag.max()))
         waveform *= MAX_AMPLITUDE * 0.8  # need this 0.8 because rounding errors caused overflows, nasty bug!
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
         expected_N_id_1 = 291
         expected_N_id_2 = 0
-        MAX_TX = int(0.070 * fs_dec) # simulate 70 ms tx data
+        N_SSBs = 5
+        MAX_TX = int((0.01 + 0.02 * (N_SSBs - 1)) * fs_dec)
         MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
         delta_f = -4e3
         waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
@@ -257,9 +259,9 @@ async def simple_test(dut):
 
     print(f'received {len(corrected_PBCH)} PBCH IQ samples')
     print(f'received {len(received_PBCH_LLR)} PBCH LLRs samples')
-    assert len(received_SSS) == 4 * SSS_LEN
-    assert len(corrected_PBCH) == 432 * 3, print('received PBCH does not have correct length!')
-    assert len(received_PBCH_LLR) == 432 * 2 * 3, print('received PBCH LLRs do not have correct length!')
+    assert len(received_SSS) == N_SSBs * SSS_LEN
+    assert len(corrected_PBCH) == 432 * (N_SSBs - 1), print('received PBCH does not have correct length!')
+    assert len(received_PBCH_LLR) == 432 * 2 * (N_SSBs - 1), print('received PBCH LLRs do not have correct length!')
     assert not np.array_equal(np.array(received_PBCH_LLR), np.zeros(len(received_PBCH_LLR)))
 
     fifo_data = []
