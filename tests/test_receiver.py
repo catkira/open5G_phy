@@ -358,7 +358,7 @@ async def simple_test(dut):
 
     # verify PSS_detector
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
-        expect_exact_timing = False
+        expect_exact_timing = True
         if NFFT == 8:
             assert received[0] == 824 + DETECTOR_LATENCY
         else:

@@ -337,7 +337,7 @@ always @(posedge clk_i) begin
                 // set sfn, subfram_number, sym_cnt, sample_cnt
                 // set m_axis_out_tlast
                 if (s_axis_in_tvalid) begin
-                    if ((sample_cnt == (FFT_LEN + current_CP_len - 1)) || ((sample_cnt < (FFT_LEN + current_CP_len - 1)) && find_SSB && N_id_2_valid_i)) begin
+                    if (sample_cnt != 0 && ((sample_cnt == (FFT_LEN + current_CP_len - 1)) || ((sample_cnt < (FFT_LEN + current_CP_len - 1)) && find_SSB && N_id_2_valid_i))) begin
                         m_axis_out_tlast <= 1;
                         if (sym_cnt == SYM_PER_SF - 1) begin
                             sym_cnt <= 0;
