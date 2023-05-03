@@ -184,6 +184,7 @@ always @(posedge clk_i) begin
     end else begin
         case (state)
             WAIT_FOR_SSB: begin
+                SSB_start_o <= '0;                
                 if (N_id_2_valid_i) begin
                     sample_cnt <= 1;
                     m_axis_out_tvalid <= s_axis_in_tvalid;
@@ -195,15 +196,16 @@ always @(posedge clk_i) begin
                     sym_cnt <= 3;
                     state <= WAIT_FOR_IBAR;
                     syms_since_last_SSB <= '0;
-                    SSB_start_o <= 1;
+                    // SSB_start_o <= 1;
                     reset_fft_no <= 1;
                 end else begin
-                    SSB_start_o <= '0;
+                    // SSB_start_o <= '0;
                     m_axis_out_tvalid <= '0;
                     reset_fft_no <= '0;
                 end
             end
             WAIT_FOR_IBAR: begin
+                SSB_start_o <= '0;
                 if (ibar_SSB_valid_i) begin
                     $display("frame_sync: received ibar_SSB = %d", ibar_SSB_i);
                     if (ibar_SSB_i != 0) begin
@@ -263,7 +265,7 @@ always @(posedge clk_i) begin
 
                         sample_cnt <= '0;
                         if ((sym_cnt_next == 0) || (sym_cnt_next == 7))   current_CP_len <= CP1_LEN;
-                        else                                    current_CP_len <= CP2_LEN;
+                        else                                              current_CP_len <= CP2_LEN;
                         
                         if ((syms_since_last_SSB == SYMS_BTWN_SSB - 1) || N_id_2_valid_i)   syms_since_last_SSB <= 0;
                         else                                            syms_since_last_SSB <= syms_since_last_SSB + 1;                        
@@ -277,9 +279,9 @@ always @(posedge clk_i) begin
 
                 if (N_id_2_valid_i) begin
                     // output of SSB_start_o in WAIT_FOR_IBAR state is needed, because channel_estimator needs it to detect ibar_SSB
-                    SSB_start_o <= 1;
+                    // SSB_start_o <= 1;
                 end else begin
-                    SSB_start_o <= '0;
+                    // SSB_start_o <= '0;
                 end                
             end
             SYNCED: begin  // synced
@@ -299,11 +301,11 @@ always @(posedge clk_i) begin
                             // SSB arrives too late
                             // correct this STO by outputting symbol_start and SSB_start a bit later
                             $display("SSB is %d samples too late", sample_cnt);
-                        end else if (sample_cnt > (FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES)) begin
-                            sample_cnt_mismatch <= sample_cnt - (FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES);
+                        end else if (sample_cnt > (FFT_LEN + current_CP_len - 1 - FIND_EARLY_SAMPLES)) begin
+                            sample_cnt_mismatch <= sample_cnt - (FFT_LEN + current_CP_len - 1);
                             // SSB arrives too early
                             // correct this STO by outputting symbol_start and SSB_start a bit earlier
-                            $display("SSB is %d samples too early", sample_cnt - (FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES));
+                            $display("SSB is %d samples too early", (FFT_LEN + current_CP_len - 1) - sample_cnt);
                         end
                         find_SSB <= '0;
                     end
@@ -324,11 +326,10 @@ always @(posedge clk_i) begin
                 if (N_id_2_valid_i && find_SSB) SSB_start_o <= '1;
                 else                            SSB_start_o <= '0;
 
+                m_axis_out_tvalid <= s_axis_in_tvalid;
+
                 // set m_axis_out_tvalid
                 if (find_SSB) begin
-                    if (N_id_2_valid_i)                                     m_axis_out_tvalid <= s_axis_in_tvalid;
-                    else if (sample_cnt > (FFT_LEN + current_CP_len - 2))   m_axis_out_tvalid <= s_axis_in_tvalid;
-                    else                                                    m_axis_out_tvalid <= '0;
                 end else begin
                     if (s_axis_in_tvalid) begin
                         if ((sample_cnt == FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
@@ -336,13 +337,12 @@ always @(posedge clk_i) begin
                             $display("find SSB ...");
                         end
                     end
-                    m_axis_out_tvalid <= s_axis_in_tvalid;
                 end
 
                 // set sfn, subfram_number, sym_cnt, sample_cnt
                 // set m_axis_out_tlast
                 if (s_axis_in_tvalid) begin
-                    if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
+                    if ((sample_cnt == (FFT_LEN + current_CP_len - 1)) || ((sample_cnt < (FFT_LEN + current_CP_len - 1)) && find_SSB && N_id_2_i)) begin
                         m_axis_out_tlast <= 1;
                         if (sym_cnt == SYM_PER_SF - 1) begin
                             sym_cnt <= 0;
@@ -369,6 +369,7 @@ always @(posedge clk_i) begin
                     end else begin
                         sample_cnt <= sample_cnt + 1;
                         m_axis_out_tlast <= '0;
+                        if (N_id_2_valid_i) syms_since_last_SSB <= '0;
                     end
                 end else if (N_id_2_valid_i) begin
                     syms_since_last_SSB <= '0;
