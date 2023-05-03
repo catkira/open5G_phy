@@ -592,6 +592,8 @@ reg [$clog2(N_ID_MAX) - 1 : 0] N_id;
 reg N_id_valid;
 wire sample_id_fifo_valid_in;
 wire reset_fft_n;
+wire [1 : 0] fs_N_id_2;
+wire fs_N_id_2_valid;
 
 frame_sync #(
     .IN_DW(IN_DW),
@@ -623,7 +625,9 @@ frame_sync_i
     .reset_fft_no(reset_fft_n),
     .state_o(fs_state),
     .sample_cnt_mismatch_o(sample_cnt_mismatch),
-    .missed_SSBs_o(missed_SSBs)
+    .missed_SSBs_o(missed_SSBs),
+    .N_id_2_o(fs_N_id_2),
+    .N_id_2_valid_o(fs_N_id_2_valid)
 );
 
 wire [SAMPLE_ID_WIDTH - 1 : 0] sample_id_fifo_out_data;
@@ -719,8 +723,8 @@ SSS_detector
 SSS_detector_i(
     .clk_i(clk_i),
     .reset_ni(reset_fft_demod_n),
-    .N_id_2_i(N_id_2),
-    .N_id_2_valid_i(N_id_2_valid),
+    .N_id_2_i(fs_N_id_2),
+    .N_id_2_valid_i(fs_N_id_2_valid),
     .s_axis_in_tdata(~fft_demod_out_tdata[FFT_OUT_DW / 2 - 1]), // BPSK demod by just taking the MSB of the real part
     .s_axis_in_tvalid(SSS_valid_o),
     .m_axis_out_tdata(m_axis_SSS_tdata),
@@ -734,7 +738,7 @@ channel_estimator #(
 )
 channel_estimator_i(
     .clk_i(clk_i),
-    .reset_ni(reset_fft_demod_n),
+    .reset_ni(reset_ni),
     .N_id_i(N_id),
     .N_id_valid_i(N_id_valid),
     .s_axis_in_tdata(fft_demod_out_tdata),

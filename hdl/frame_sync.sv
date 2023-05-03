@@ -43,6 +43,8 @@ module frame_sync #(
     output  reg                                     symbol_start_o,
     output  reg                                     SSB_start_o,
     output  reg                                     reset_fft_no,
+    output  reg        [1 : 0]                      N_id_2_o,
+    output  reg                                     N_id_2_valid_o,
 
     // output to regmap
     output  wire       [1 : 0]                      state_o,
@@ -71,6 +73,12 @@ end
 always @(posedge clk_i) begin
     if (!reset_ni)  requested_N_id_2_o <= '0;
     else if (N_id_2_valid_i)  requested_N_id_2_o <= N_id_2_i;
+end
+
+// process that forwards N_id_2
+always @(posedge clk_i) begin
+    N_id_2_o <= reset_ni ? N_id_2_i : '0;
+    N_id_2_valid_o <= reset_ni ? N_id_2_valid_i : '0;
 end
 
 
