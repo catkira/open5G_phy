@@ -215,15 +215,15 @@ async def simple_test(dut):
 
         sample_cnt = clk_cnt // SAMPLE_CLK_DECIMATION if SAMPLE_CLK_DECIMATION > 1 else clk_cnt
 
-        if dut.peak_detected_debug_o.integer:
+        if dut.peak_detected_debug_o.value.integer:
             received.append(sample_cnt)
             print(f'peak pos = {sample_cnt}')
 
-        if dut.N_id_valid_o.value.integer == 1:
+        if dut.N_id_valid_o.value.integer:
             print(f'detected N_id = {dut.N_id_o.value.integer}')
             received_N_ids.append(dut.N_id_o.value.integer)
 
-        if dut.m_axis_SSS_tvalid.value.integer == 1:
+        if dut.m_axis_SSS_tvalid.value.integer:
             print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
 
         if dut.m_axis_llr_out_tvalid.value == 1 and dut.m_axis_llr_out_tuser.value == 1:
