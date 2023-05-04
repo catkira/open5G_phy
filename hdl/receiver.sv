@@ -34,6 +34,7 @@ module receiver
     localparam CIC_RATE = FFT_LEN / 128,    
     localparam FFT_OUT_DW = 16,
     localparam N_id_1_MAX = 335,
+    localparam N_id_MAX = 1007,
     localparam DDS_PHASE_DW = 20,
     localparam DDS_OUT_DW = 32,
     localparam CFO_DW = 20,
@@ -67,6 +68,8 @@ module receiver
     output                                          m_axis_demod_out_tvalid,
     output          [$clog2(N_id_1_MAX) - 1 : 0]    m_axis_SSS_tdata,
     output                                          m_axis_SSS_tvalid,
+    output          [$clog2(N_id_MAX) - 1 : 0]      N_id_o,
+    output                                          N_id_valid_o,
 
     // AXI stream interface to DMA core
     output          [FFT_OUT_DW - 1 : 0]            m_axis_out_tdata,
@@ -106,8 +109,8 @@ module receiver
     output  wire                                    m_axis_cic_debug_tvalid,
     output  wire    [OUT_DW - 1 : 0]                m_axis_correlator_debug_tdata,
     output  wire                                    m_axis_correlator_debug_tvalid,
-    output  reg                                     peak_detected_debug_o,
-    output  wire    [15:0]                          sync_wait_counter_debug_o
+    output  wire    [15:0]                          sync_wait_counter_debug_o,
+    output  wire                                    peak_detected_debug_o
 );
 
 localparam OFFSET_ADDR_WIDTH = ADDRESS_WIDTH - 2;
@@ -442,6 +445,7 @@ reg N_id_2_valid;
 wire [1 : 0] N_id_2;
 wire [1 : 0] PSS_detector_mode;
 wire [1 : 0] requested_N_id_2;
+assign peak_detected_debug_o = N_id_2_valid;
 
 PSS_detector #(
     .IN_DW(IN_DW),
@@ -507,14 +511,11 @@ always @(posedge clk_i) begin
     else N_id_2_f <= N_id_2_valid ? N_id_2 : N_id_2_f;
 end
 
-localparam N_id_MAX = 1007;
 reg [$clog2(N_id_MAX) - 1 : 0] N_id_f;
 always @(posedge clk_i) begin
     if (!reset_ni) N_id_f <= '0;
     else N_id_f <= N_id_valid ? N_id : N_id_f;
 end
-
-assign peak_detected_debug_o = N_id_2_valid;
 
 wire [FFT_OUT_DW - 1 : 0] fft_result, fft_result_demod;
 wire [FFT_OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
@@ -732,6 +733,9 @@ SSS_detector_i(
     .N_id_o(N_id),
     .N_id_valid_o(N_id_valid)
 );
+
+assign N_id_o = N_id;
+assign N_id_valid_o = N_id_valid;
 
 channel_estimator #(
     .IN_DW(FFT_OUT_DW)
