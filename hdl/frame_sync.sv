@@ -81,6 +81,11 @@ always @(posedge clk_i) begin
     N_id_2_valid_o <= reset_ni ? N_id_2_valid_i : '0;
 end
 
+reg              [2 : 0]                      ibar_SSB;
+always @(posedge clk_i) begin
+    if (!reset_ni) ibar_SSB <= '0;
+    else ibar_SSB <= ibar_SSB_valid_i ? ibar_SSB_i : ibar_SSB;
+end
 
 // ---------------------------------------------------------------------------------------------------//
 // FSM for controlling PSS detector
@@ -124,11 +129,11 @@ always @(posedge clk_i) begin
             end
             FIND_PSS : begin  // FIND PSS with same N_id_2 as last one
                 if (clks_since_SSB > (CLKS_20MS + CLKS_PSS_LATE_TOLERANCE)) begin
-                    $display("did not find PSS, going back to SEARCH mode!");
+                    $display("frame_sync: did not find PSS, going back to SEARCH mode!");
                     PSS_state <= SEARCH_PSS;
                     missed_SSBs <= missed_SSBs + 1;
                 end else if (N_id_2_valid_i) begin
-                    $display("found PSS in FIND mode, putting PSS detectore in PAUSE mode");
+                    $display("frame_sync: found PSS in FIND mode, putting PSS detectore in PAUSE mode");
                     PSS_state <= PAUSE_PSS;
                     clks_since_SSB <= 1;
                 end else begin
@@ -138,6 +143,38 @@ always @(posedge clk_i) begin
         endcase
     end
 end
+
+// This function is only used for debugging for now
+// assumes SSB pattern case A (TS 38.213)
+// N_id_2_valid arrives here 1 symbol late, therefore start with 3 instead of 2
+function is_SSB_location;
+    input [SFN_WIDTH - 1 : 0] sfn;
+    input [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe;
+    input [SYMBOL_NUMBER_WIDTH - 1 : 0] sym;
+    input [$clog2(FFT_LEN + MAX_CP_LEN) - 1 : 0] sample_cnt;
+    input [2 : 0] ibar_SSB;
+    input [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len;
+    input [3 : 0] sample_ahead;
+    begin
+        if ((sample_cnt + sample_ahead) % (FFT_LEN + current_CP_len) != 0) is_SSB_location = 0;
+        else begin
+            case (ibar_SSB)
+                0 : begin
+                    is_SSB_location = (sample_cnt == 0) && (sym == 3) && (subframe == 0);
+                end
+                1 : begin
+                    is_SSB_location = (sample_cnt == 0) && (sym == 9) && (subframe == 0);
+                end
+                2 : begin
+                    is_SSB_location = (sample_cnt == 0) && (sym == 3) && (subframe == 1);
+                end
+                3 : begin
+                    is_SSB_location = (sample_cnt == 0) && (sym == 9) && (subframe == 1);
+                end
+            endcase
+        end
+    end
+endfunction
 
 // ---------------------------------------------------------------------------------------------------//
 // FSM for keeping track of current subframe number and symbol number within a subframe 
@@ -184,26 +221,30 @@ always @(posedge clk_i) begin
     end else begin
         case (state)
             WAIT_FOR_SSB: begin
+                SSB_start_o <= '0;
+                find_SSB <= '0;                
                 if (N_id_2_valid_i) begin
                     sample_cnt <= 1;
                     m_axis_out_tvalid <= s_axis_in_tvalid;
                     // SSB_pattern for case A is [2, 8, 16, 22]
-                    // whether we are on symbol 3 or symbol 9 depends on ibar_SSB
-                    // assume for now that we are at symbol 3
+                    // whether we are on symbol 2 or symbol 8 depends on ibar_SSB
+                    // assume for now that we are at symbol 2
                     // it might have to be corrected once ibar_SSB arrives
+                    // N_id_2_valid arrives here 1 symbol late, therefore start with 3 instead of 2
                     current_CP_len <= CP2_LEN;
                     sym_cnt <= 3;
                     state <= WAIT_FOR_IBAR;
                     syms_since_last_SSB <= '0;
-                    SSB_start_o <= 1;
+                    // SSB_start_o <= 1;
                     reset_fft_no <= 1;
                 end else begin
-                    SSB_start_o <= '0;
+                    // SSB_start_o <= '0;
                     m_axis_out_tvalid <= '0;
                     reset_fft_no <= '0;
                 end
             end
             WAIT_FOR_IBAR: begin
+                SSB_start_o <= '0;
                 if (ibar_SSB_valid_i) begin
                     $display("frame_sync: received ibar_SSB = %d", ibar_SSB_i);
                     if (ibar_SSB_i != 0) begin
@@ -213,26 +254,26 @@ always @(posedge clk_i) begin
                                 // no adjustment needed here
                             end
                             1: begin
-                                sym_cnt <= sym_cnt + 6 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
+                                // sym_cnt <= sym_cnt + 6 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
                             end
                             2: begin
-                                sym_cnt <= sym_cnt + 14 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
-                                if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
-                                    subframe_number <= '0;
-                                    // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
-                                    sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
-                                end else begin
-                                    subframe_number <= subframe_number + 1;
-                                end                            end
+                                // sym_cnt <= sym_cnt + 14 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
+                                // if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
+                                //     subframe_number <= '0;
+                                //     // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
+                                //     sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
+                                // end else begin
+                                //     subframe_number <= subframe_number + 1;
+                                end       //                     end
                             3: begin
-                                sym_cnt <= sym_cnt + 20 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
-                                if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
-                                    subframe_number <= '0;
-                                    // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
-                                    sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
-                                end else begin
-                                    subframe_number <= subframe_number + 1;
-                                end
+                                // sym_cnt <= sym_cnt + 20 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
+                                // if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
+                                //     subframe_number <= '0;
+                                //     // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
+                                //     sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
+                                // end else begin
+                                //     subframe_number <= subframe_number + 1;
+                                // end
                             end
                         endcase
                     end
@@ -263,7 +304,7 @@ always @(posedge clk_i) begin
 
                         sample_cnt <= '0;
                         if ((sym_cnt_next == 0) || (sym_cnt_next == 7))   current_CP_len <= CP1_LEN;
-                        else                                    current_CP_len <= CP2_LEN;
+                        else                                              current_CP_len <= CP2_LEN;
                         
                         if ((syms_since_last_SSB == SYMS_BTWN_SSB - 1) || N_id_2_valid_i)   syms_since_last_SSB <= 0;
                         else                                            syms_since_last_SSB <= syms_since_last_SSB + 1;                        
@@ -277,12 +318,12 @@ always @(posedge clk_i) begin
 
                 if (N_id_2_valid_i) begin
                     // output of SSB_start_o in WAIT_FOR_IBAR state is needed, because channel_estimator needs it to detect ibar_SSB
-                    SSB_start_o <= 1;
+                    // SSB_start_o <= 1;
                 end else begin
-                    SSB_start_o <= '0;
+                    // SSB_start_o <= '0;
                 end                
             end
-            SYNCED: begin  // synced
+            SYNCED: begin
                 if (ibar_SSB_valid_i) begin
                     // TODO throw error if ibar_SSB does not match expected ibar_SSB
                 end
@@ -290,20 +331,22 @@ always @(posedge clk_i) begin
                 if (find_SSB) begin
                     if (N_id_2_valid_i) begin
                         // expected sample_cnt is 0, if actual sample_cnt deviates +-1, perform realignment
+                        $display("frame_sync: SSB at sfn = %d, subframe = %d, symbol = %d, sample = %d", sfn, subframe_number, sym_cnt, sample_cnt);
+                        $display("frame_sync: is_SSB_location = %d", is_SSB_location(sfn, subframe_number, sym_cnt, sample_cnt, 0, current_CP_len, 0));
                         if (sample_cnt == 0) begin
                             sample_cnt_mismatch <= 0;
                             // SSB arrives as expected, no STO correction needed
-                            $display("SSB is on time");
-                        end else if (sample_cnt < 2) begin
+                            $display("frame_sync: SSB is on time");
+                        end else if (sample_cnt < 3) begin
                             sample_cnt_mismatch <= sample_cnt;
                             // SSB arrives too late
                             // correct this STO by outputting symbol_start and SSB_start a bit later
-                            $display("SSB is %d samples too late", sample_cnt);
-                        end else if (sample_cnt > (FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES)) begin
-                            sample_cnt_mismatch <= sample_cnt - (FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES);
+                            $display("frame_sync: SSB is %d samples too late", sample_cnt);
+                        end else if (sample_cnt > (FFT_LEN + current_CP_len - 1 - FIND_EARLY_SAMPLES)) begin
+                            sample_cnt_mismatch <= sample_cnt - (FFT_LEN + current_CP_len);
                             // SSB arrives too early
                             // correct this STO by outputting symbol_start and SSB_start a bit earlier
-                            $display("SSB is %d samples too early", sample_cnt - (FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES));
+                            $display("frame_sync: SSB is %d samples too early", (FFT_LEN + current_CP_len) - sample_cnt);
                         end
                         find_SSB <= '0;
                     end
@@ -311,38 +354,30 @@ always @(posedge clk_i) begin
                     if (sample_cnt == 3) begin
                         // could not find SSB, connection is lost 
                         // go back to search mode (state 0)
-                        $display("could not find SSB, connection is lost!");
-                        find_SSB <= '0;
+                        $display("frame_sync: could not find SSB, connection is lost!");
                         state <= WAIT_FOR_SSB;
                     end
                 end else begin
                     if (N_id_2_valid_i) begin
-                        $display("ignoring SSB");
+                        $display("frame_sync: ignoring SSB outside FIND mode");
                     end
+                    if (s_axis_in_tvalid) begin
+                        if ((sample_cnt == FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
+                            find_SSB <= 1;  // go into find state one SC before the symbol ends
+                            // $display("find SSB ...");
+                        end
+                    end                    
                 end
 
                 if (N_id_2_valid_i && find_SSB) SSB_start_o <= '1;
                 else                            SSB_start_o <= '0;
 
-                // set m_axis_out_tvalid
-                if (find_SSB) begin
-                    if (N_id_2_valid_i)                                     m_axis_out_tvalid <= s_axis_in_tvalid;
-                    else if (sample_cnt > (FFT_LEN + current_CP_len - 2))   m_axis_out_tvalid <= s_axis_in_tvalid;
-                    else                                                    m_axis_out_tvalid <= '0;
-                end else begin
-                    if (s_axis_in_tvalid) begin
-                        if ((sample_cnt == FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
-                            find_SSB <= 1;  // go into find state one SC before the symbol ends
-                            $display("find SSB ...");
-                        end
-                    end
-                    m_axis_out_tvalid <= s_axis_in_tvalid;
-                end
+                m_axis_out_tvalid <= s_axis_in_tvalid;
 
-                // set sfn, subfram_number, sym_cnt, sample_cnt
+                // set sfn, subframe_number, sym_cnt, sample_cnt
                 // set m_axis_out_tlast
                 if (s_axis_in_tvalid) begin
-                    if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
+                    if (sample_cnt != 0 && ((sample_cnt == (FFT_LEN + current_CP_len - 1)) || ((sample_cnt < (FFT_LEN + current_CP_len - 1)) && find_SSB && N_id_2_valid_i))) begin
                         m_axis_out_tlast <= 1;
                         if (sym_cnt == SYM_PER_SF - 1) begin
                             sym_cnt <= 0;
@@ -364,13 +399,14 @@ always @(posedge clk_i) begin
                         if ((sym_cnt_next == 0) || (sym_cnt_next == 7))     current_CP_len <= CP1_LEN;
                         else                                                current_CP_len <= CP2_LEN;
                         
-                        if (N_id_2_valid_i) syms_since_last_SSB <= '0;
+                        if (find_SSB && N_id_2_valid_i) syms_since_last_SSB <= '0;
                         else                syms_since_last_SSB <= syms_since_last_SSB + 1;
                     end else begin
                         sample_cnt <= sample_cnt + 1;
                         m_axis_out_tlast <= '0;
+                        if (find_SSB && N_id_2_valid_i) syms_since_last_SSB <= '0;
                     end
-                end else if (N_id_2_valid_i) begin
+                end else if (find_SSB && N_id_2_valid_i) begin
                     syms_since_last_SSB <= '0;
                 end
             end
@@ -391,12 +427,16 @@ always @(posedge clk_i) begin
             0: begin
                 // first symbol of SSB can arrive a bit earlier or later,
                 // therefore need a special check for this case
-                if ((state != WAIT_FOR_SSB) && find_SSB && N_id_2_valid_i) begin
-                    symbol_state <= 1;
-                    symbol_start_o <= 1;
-                end else if ((state != WAIT_FOR_SSB) && (sample_cnt == 0) && (s_axis_in_tvalid)) begin
-                    symbol_state <= 1;
-                    symbol_start_o <= 1;
+                if (find_SSB) begin
+                    if ((state != WAIT_FOR_SSB)&& N_id_2_valid_i) begin
+                        symbol_state <= 1;
+                        symbol_start_o <= 1;
+                    end
+                end else begin
+                    if ((state != WAIT_FOR_SSB) && (sample_cnt == 0) && (s_axis_in_tvalid)) begin
+                        symbol_state <= 1;
+                        symbol_start_o <= 1;
+                    end
                 end
             end
             1: begin

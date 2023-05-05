@@ -176,7 +176,7 @@ always @(posedge clk_i) begin
                     shift_cur <= '0;
                     div_112 <= '0;
                     N_id_1 <= '0;
-                    $display("detected N_id = %d", N_id_o);
+                    $display("SSS_detector: detected N_id = %d (0x%x)", N_id_o, N_id_o);
                     state <= 0; // back to init state
                 end else begin
                     if (shift_cur == SHIFT_MAX - 1) begin

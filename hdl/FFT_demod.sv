@@ -87,34 +87,48 @@ always @(posedge clk_i) begin
         in_data_f <= '0;
         in_valid_f <= '0;
     end else begin
-        if (state_in == STATE_IN_SKIP_CP) begin // skip CP
-            if (s_axis_in_tvalid) begin
-                in_cnt <= '0;
-                if (CP_cnt == (current_CP_len - 1)) begin
-                    state_in <= STATE_IN_PROCESS_SYMBOL;
-                    CP_cnt <= '0;
-                end else begin
-                    CP_cnt <= CP_cnt + 1;
+        case (state_in)
+            STATE_IN_SKIP_CP: begin // skip CP
+                if (SSB_start_i) begin // jump backward if SSB arrives late
+                    // if (CP_cnt != (HALF_CP_ADVANCE ? current_CP_len >> 1 : 0)) $display("FFT_demod: jump backward");
+                    // else                          $display("FFT_demod: SSB_start on time");
+                    if (s_axis_in_tvalid)    CP_cnt <= HALF_CP_ADVANCE ? (current_CP_len >> 1) + 1 : 1;
+                    else                     CP_cnt <= HALF_CP_ADVANCE ? current_CP_len >> 1 : 0;
+                end else if (s_axis_in_tvalid) begin
+                    in_cnt <= '0;
+                    if (CP_cnt == (current_CP_len - 1)) begin
+                        state_in <= STATE_IN_PROCESS_SYMBOL;
+                        CP_cnt <= '0;
+                    end else begin
+                        CP_cnt <= CP_cnt + 1;
+                    end
                 end
             end
-        end else if (state_in == STATE_IN_PROCESS_SYMBOL) begin // process symbol
-            if (s_axis_in_tvalid && (in_cnt == FFT_LEN - 2))  meta_FIFO_valid_in <= 1;
-            else                                              meta_FIFO_valid_in <= '0;
+            STATE_IN_PROCESS_SYMBOL: begin // process symbol
+                if (s_axis_in_tvalid && (in_cnt == FFT_LEN - 2))  meta_FIFO_valid_in <= 1;
+                else                                              meta_FIFO_valid_in <= '0;
 
-            if (s_axis_in_tvalid) begin
-                if (in_cnt != (FFT_LEN - 1)) begin
-                    in_cnt <= in_cnt + 1;
-                end else if (s_axis_in_tlast) begin
-                    state_in <= STATE_IN_SKIP_CP;
-                    CP_cnt <= HALF_CP_ADVANCE ? current_CP_len >> 1 : 0;
-                end else begin
-                    state_in <= STATE_IN_SKIP_END;
-                    CP_cnt <= HALF_CP_ADVANCE ? current_CP_len >> 1 : 0;
+                if (s_axis_in_tvalid) begin
+                    if (in_cnt != (FFT_LEN - 1)) begin
+                        in_cnt <= in_cnt + 1;
+                    end else if (s_axis_in_tlast) begin
+                        state_in <= STATE_IN_SKIP_CP;
+                        CP_cnt <= HALF_CP_ADVANCE ? current_CP_len >> 1 : 0;
+                    end else begin
+                        state_in <= STATE_IN_SKIP_END;
+                        CP_cnt <= HALF_CP_ADVANCE ? current_CP_len >> 1 : 0;
+                    end
                 end
             end
-        end else if (state_in == STATE_IN_SKIP_END) begin // skip repetition at end of symbol
-            if (s_axis_in_tvalid && s_axis_in_tlast) state_in <= STATE_IN_SKIP_CP;
-        end
+            STATE_IN_SKIP_END: begin // skip repetition at end of symbol
+                if (s_axis_in_tvalid && s_axis_in_tlast) state_in <= STATE_IN_SKIP_CP;
+                else if (SSB_start_i) begin
+                    if (s_axis_in_tvalid)  CP_cnt <= CP_cnt + 1;
+                    state_in <= STATE_IN_SKIP_CP; // jump forward if SSB arrives early
+                    $display("FFT_demod: jump forward");
+                end
+            end
+        endcase
 
         if (s_axis_in_tvalid) begin
             current_CP_len <= s_axis_in_tuser[$clog2(MAX_CP_LEN) - 1 : 0];

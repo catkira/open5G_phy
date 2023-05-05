@@ -151,13 +151,15 @@ else begin : GEN_SYNC
 
     always @(posedge clk_i) begin
         if (!s_reset_ni) wr_ptr <= '0;
-        else if (s_axis_in_tvalid) wr_ptr <= wr_ptr + 1'b1;
+        else if (s_axis_in_tvalid && !s_axis_in_tfull) wr_ptr <= wr_ptr + 1'b1;
     end
 
     always @(posedge clk_i) begin
-        mem[wr_ptr_addr] <= s_axis_in_tdata;
-        mem_last[wr_ptr_addr] <= s_axis_in_tlast;
-        if (USER_WIDTH > 0) mem_user[wr_ptr_addr] <= s_axis_in_tuser;
+        if (s_axis_in_tvalid && !s_axis_in_tfull) begin
+            mem[wr_ptr_addr] <= s_axis_in_tdata;
+            mem_last[wr_ptr_addr] <= s_axis_in_tlast;
+            if (USER_WIDTH > 0) mem_user[wr_ptr_addr] <= s_axis_in_tuser;
+        end
     end
 
     wire data_in_pipeline = m_axis_out_tvalid && (!m_axis_out_tready);
@@ -181,7 +183,7 @@ else begin : GEN_SYNC
 
     assign m_axis_out_tlevel = wr_ptr - rd_ptr + data_in_pipeline;
     assign m_axis_out_tempty = empty && (!data_in_pipeline);
-    assign s_axis_in_tfull = ptr_equal && (!ptr_msb_equal);
+    assign s_axis_in_tfull = (m_axis_out_tlevel == FIFO_LEN - 1);
 end
 
 endmodule

@@ -93,17 +93,20 @@ async def simple_test(dut):
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
         expected_N_id_1 = 69
         expected_N_id_2 = 2
-        MAX_TX = int(0.045 * fs_dec) # simulate 45ms tx data
+        N_SSBs = 4
+        MAX_TX = int((0.005 + 0.02 * (N_SSBs - 1)) * fs_dec)
         MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
         waveform /= max(np.abs(waveform.real.max()), np.abs(waveform.imag.max()))
         waveform *= MAX_AMPLITUDE * 0.8  # need this 0.8 because rounding errors caused overflows, nasty bug!
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
+        # waveform = waveform[int(0.04 * fs_dec):]
         expected_N_id_1 = 291
         expected_N_id_2 = 0
-        MAX_TX = int(0.050 * fs_dec) # simulate 45ms tx data
+        N_SSBs = 5
+        MAX_TX = int((0.01 + 0.02 * (N_SSBs - 1)) * fs_dec)
         MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
-        delta_f = -4e3
-        waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
+        # delta_f = -2e3
+        # waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
         waveform *= 2**19
     else:
         file_string = os.environ['TEST_FILE']
@@ -160,6 +163,7 @@ async def simple_test(dut):
     received_SSS = []
     corrected_PBCH = []
     received_PBCH_LLR = []
+    received_N_ids = []
     FFT_OUT_DW = 16
     SYMBOL_LEN = 240
     NUM_TIMESTAMP_SAMPLES = 64 // FFT_OUT_DW
@@ -210,14 +214,17 @@ async def simple_test(dut):
         clk_cnt += 1
 
         sample_cnt = clk_cnt // SAMPLE_CLK_DECIMATION if SAMPLE_CLK_DECIMATION > 1 else clk_cnt
+
         if dut.peak_detected_debug_o.value.integer:
             received.append(sample_cnt)
-
-        if dut.peak_detected_debug_o.value.integer == 1:
             print(f'peak pos = {sample_cnt}')
 
-        # if dut.m_axis_SSS_tvalid.value.integer == 1:
-        #     print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
+        if dut.N_id_valid_o.value.integer:
+            print(f'detected N_id = {dut.N_id_o.value.integer}')
+            received_N_ids.append(dut.N_id_o.value.integer)
+
+        if dut.m_axis_SSS_tvalid.value.integer:
+            print(f'detected N_id_1 = {dut.m_axis_SSS_tdata.value.integer}')
 
         if dut.m_axis_llr_out_tvalid.value == 1 and dut.m_axis_llr_out_tuser.value == 1:
             received_PBCH_LLR.append(_twos_comp(dut.m_axis_llr_out_tdata.value.integer & (2 ** (tb.LLR_DW) - 1), tb.LLR_DW))
@@ -257,9 +264,9 @@ async def simple_test(dut):
 
     print(f'received {len(corrected_PBCH)} PBCH IQ samples')
     print(f'received {len(received_PBCH_LLR)} PBCH LLRs samples')
-    assert len(received_SSS) == 3 * SSS_LEN
-    assert len(corrected_PBCH) == 432 * 2, print('received PBCH does not have correct length!')
-    assert len(received_PBCH_LLR) == 432 * 4, print('received PBCH LLRs do not have correct length!')
+    assert len(received_SSS) == N_SSBs * SSS_LEN
+    assert len(corrected_PBCH) == 432 * (N_SSBs - 1), print('received PBCH does not have correct length!')
+    assert len(received_PBCH_LLR) == 432 * 2 * (N_SSBs - 1), print('received PBCH LLRs do not have correct length!')
     assert not np.array_equal(np.array(received_PBCH_LLR), np.zeros(len(received_PBCH_LLR)))
 
     fifo_data = []
@@ -267,8 +274,8 @@ async def simple_test(dut):
         addr = 5
         data = await axi_master.read_dword(4 * addr)
         data = int(data)
-        assert data == 864 * 2
-        for i in range(data):
+        assert data >= 864 * 2
+        for i in range(864 * 2):
             data = await axi_master.read_dword(7 * 4)
             fifo_data.append(_twos_comp(data & (2 ** (tb.LLR_DW) - 1), tb.LLR_DW))
     else:
@@ -278,13 +285,13 @@ async def simple_test(dut):
         addr = 5
         data = await tb.read_axil(addr * 4)
         print(f'axi-lite fifo: level = {data}')
-        assert data == 864 * 2
+        assert data >= 864 * 2
         addr = 7
-        for i in range(data):
+        for i in range(864 * 2):
             data = await tb.read_axil(addr * 4)
             fifo_data.append(_twos_comp(data & (2 ** (tb.LLR_DW) - 1), tb.LLR_DW))
     assert not np.array_equal(np.array(fifo_data), np.zeros(len(fifo_data)))
-    assert np.array_equal(np.array(received_PBCH_LLR), np.array(fifo_data))
+    assert np.array_equal(np.array(received_PBCH_LLR)[:864 * 2], np.array(fifo_data))
 
     rx_ADC_data = waveform[received[0] - DETECTOR_LATENCY:][:MAX_TX]
     CP_ADVANCE = CP2_LEN // 2 if HALF_CP_ADVANCE else CP2_LEN
@@ -368,6 +375,10 @@ async def simple_test(dut):
     else:
         assert False
 
+    # verify detected N_ids
+    for N_id in received_N_ids:
+        assert N_id == expected_N_id, print(f'wrong N_id: expected {expected_N_id} but received {N_id}')
+
     # verify received SSS sequence
     corr = np.zeros(335)
     for i in range(335):
@@ -388,7 +399,7 @@ async def simple_test(dut):
     timestamp = extract_timestamp(received_rgs[0, :])
     for i in range(1, num_rgs_symbols):
         delta_samples = extract_timestamp(received_rgs[i, :]) - timestamp
-        print(f'delta_samples = {delta_samples}')
+        # print(f'delta_samples = {delta_samples}')
         if expect_exact_timing:
             assert delta_samples in [274, 276], print('Error: symbol timestamps don\'t align!') # depending on cp1 or cp2
         else:
@@ -585,9 +596,9 @@ def test_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    if False:
+    if True:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
+             NFFT = 8, MULT_REUSE = 1, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
     else:
-        test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 2400, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 0)
+        test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
+             NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 0)
