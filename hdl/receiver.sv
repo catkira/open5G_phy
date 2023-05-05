@@ -720,13 +720,15 @@ ressource_grid_subscriber_i(
     .overflow_o(rgs_overflow)
 );
 
-SSS_detector
+SSS_detector #(
+    .IN_DW(FFT_OUT_DW)
+)
 SSS_detector_i(
     .clk_i(clk_i),
     .reset_ni(reset_fft_demod_n),
     .N_id_2_i(fs_N_id_2),
     .N_id_2_valid_i(fs_N_id_2_valid),
-    .s_axis_in_tdata(~fft_demod_out_tdata[FFT_OUT_DW / 2 - 1]), // BPSK demod by just taking the MSB of the real part
+    .s_axis_in_tdata(fft_demod_out_tdata),
     .s_axis_in_tvalid(SSS_valid_o),
     .m_axis_out_tdata(m_axis_SSS_tdata),
     .m_axis_out_tvalid(m_axis_SSS_tvalid),
