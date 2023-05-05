@@ -54,7 +54,7 @@ async def simple_test(dut):
 
     for i in range(SSS_len):
         dut.s_axis_in_tvalid.value = 1
-        dut.s_axis_in_tdata.value = int(SSS_seq[i])
+        dut.s_axis_in_tdata.value = int(SSS_seq[i]) * 2 - 1  # simple BPSK modulation
         await RisingEdge(dut.clk_i)
     dut.s_axis_in_tvalid.value = 0
     await RisingEdge(dut.clk_i)
@@ -90,6 +90,7 @@ def test(N_ID_1, N_ID_2):
     os.environ['N_ID_1'] = str(N_ID_1)
     os.environ['N_ID_2'] = str(N_ID_2)
     parameters = {}
+    parameters['IN_DW'] = 32
 
     sim_build='sim_build/' + '_'.join(('{}={}'.format(*i) for i in parameters.items()))
     cocotb_test.simulator.run(
