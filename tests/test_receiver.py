@@ -102,11 +102,11 @@ async def simple_test(dut):
         # waveform = waveform[int(0.04 * fs_dec):]
         expected_N_id_1 = 291
         expected_N_id_2 = 0
-        N_SSBs = 5
+        N_SSBs = 4
         MAX_TX = int((0.01 + 0.02 * (N_SSBs - 1)) * fs_dec)
         MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
-        # delta_f = -2e3
-        # waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
+        delta_f = -4e3
+        waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
         waveform *= 2**19
     else:
         file_string = os.environ['TEST_FILE']

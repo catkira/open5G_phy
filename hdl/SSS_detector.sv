@@ -2,13 +2,15 @@
 
 module SSS_detector
 #(
+    parameter  IN_DW = 16,
+
     localparam N_id_1_MAX = 335,
     localparam N_id_MAX = 1007
 )
 (
     input                                       clk_i,
     input                                       reset_ni,
-    input   wire                                s_axis_in_tdata,
+    input   wire   [IN_DW - 1 : 0]              s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
     input   wire   [1 : 0]                      N_id_2_i,
     input   wire                                N_id_2_valid_i,
@@ -26,7 +28,7 @@ localparam SSS_LEN = 127;
 reg [$clog2(10) - 1 : 0] times_5 [0 : 2];
 reg [$clog2(35) - 1 : 0] times_15 [0 : 2];
 
-reg [SSS_LEN - 1 : 0] sss_in;
+reg [SSS_LEN - 1 : 0] sss_in_I, sss_in_Q;
 reg [1 : 0]           N_id_2;
 
 localparam NUM_STATES = 5;
@@ -34,8 +36,9 @@ reg [$clog2(NUM_STATES) - 1 : 0] state= '0;
 reg [$clog2(SSS_LEN - 1) - 1 : 0] copy_counter, copy_counter_m_seq;
 reg [$clog2(SSS_LEN - 1) - 1 : 0] compare_counter;
 reg [$clog2(SSS_LEN - 1) - 1 : 0] acc_max;
-reg signed [$clog2(SSS_LEN - 1) : 0] acc;
-wire signed [$clog2(SSS_LEN - 1) : 0] abs_acc = acc[$clog2(SSS_LEN - 1)] ? ~acc + 1 : acc;
+reg signed [$clog2(SSS_LEN - 1) : 0] acc_I, acc_Q;
+wire signed [$clog2(SSS_LEN - 1) : 0] abs_acc_I = acc_I[$clog2(SSS_LEN - 1)] ? ~acc_I + 1 : acc_I;
+wire signed [$clog2(SSS_LEN - 1) : 0] abs_acc_Q = acc_Q[$clog2(SSS_LEN - 1)] ? ~acc_Q + 1 : acc_Q;
 localparam SHIFT_MAX = 112;
 reg [$clog2(SHIFT_MAX) - 1 : 0] shift_cur;
 
@@ -103,7 +106,8 @@ always @(posedge clk_i) begin
         N_id_2 <= '0;
         m_0_start <= '0;
         acc_max <= '0;
-        acc <= '0;
+        acc_I <= '0;
+        acc_Q <= '0;
         m_seq_0_wrap <= '0;
         m_seq_1_wrap <= '0;
         m_seq_0 <= '0;
@@ -135,7 +139,8 @@ always @(posedge clk_i) begin
                 m_1 <= 0;
             end
             if (s_axis_in_tvalid) begin
-                sss_in[copy_counter] <= s_axis_in_tdata;
+                sss_in_I[copy_counter] <= ~s_axis_in_tdata[IN_DW / 2 - 1]; // bpsk demod: take MSB of real part
+                sss_in_Q[copy_counter] <= ~s_axis_in_tdata[IN_DW - 1]; // bpsk demod: take MSB of imag part
                 // $display("ss_in[%d] = %d", copy_counter, s_axis_in_tdata);
                 if (copy_counter == SSS_LEN - 1) begin
                     state <= 1;
@@ -159,8 +164,8 @@ always @(posedge clk_i) begin
 
             if (compare_counter == SSS_LEN - 1) begin
                 // $display("correlation = %d", acc);
-                if (abs_acc > acc_max) begin
-                    acc_max <= abs_acc;
+                if ((abs_acc_I > acc_max) || (abs_acc_Q > acc_max)) begin
+                    acc_max <= abs_acc_I > abs_acc_Q ? abs_acc_I : abs_acc_Q;
                     m_axis_out_tdata <= N_id_1;
                     N_id_o <= N_id_1 + N_id_1 + N_id_1 + N_id_2;
                     // $display("best N_id_1 so far is %d", N_id_1);
@@ -168,7 +173,8 @@ always @(posedge clk_i) begin
                 compare_counter <= '0;
                 m_seq_0_wrap <= '0;
                 m_seq_1_wrap <= '0;            
-                acc <= '0;
+                acc_I <= '0;
+                acc_Q <= '0;
 
                 if (N_id_1 == N_id_1_MAX) begin
                     m_axis_out_tvalid <= 1;
@@ -196,8 +202,10 @@ always @(posedge clk_i) begin
                 // $display("pos0 = %d  pos1 = %d  seq0 = %d  seq1 = %d  wrap0 = %d  wrap1 = %d  acc = %d", m_seq_0_pos, m_seq_1_pos, m_seq_0[m_seq_0_pos], m_seq_1[m_seq_1_pos], m_seq_0_wrap, m_seq_1_wrap, acc);
                 // $display("cnt = %d   %d <-> %d", compare_counter, sss_in[compare_counter],  m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]);
 
-                if      (sss_in[compare_counter] == ~(m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]))     acc <= acc + 1;
-                else if (sss_in[compare_counter] ==  (m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]))     acc <= acc - 1;
+                if      (sss_in_I[compare_counter] == ~(m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]))     acc_I <= acc_I + 1;
+                else if (sss_in_I[compare_counter] ==  (m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]))     acc_I <= acc_I - 1;
+                if      (sss_in_Q[compare_counter] == ~(m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]))     acc_Q <= acc_Q + 1;
+                else if (sss_in_Q[compare_counter] ==  (m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]))     acc_Q <= acc_Q - 1;
                 compare_counter <= compare_counter + 1;
             end
         end else begin
