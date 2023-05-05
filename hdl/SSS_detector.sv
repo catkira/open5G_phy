@@ -38,6 +38,7 @@ reg [$clog2(SSS_LEN - 1) - 1 : 0] compare_counter;
 reg [$clog2(SSS_LEN - 1) - 1 : 0] acc_max;
 reg signed [$clog2(SSS_LEN - 1) : 0] acc_I, acc_Q;
 wire signed [$clog2(SSS_LEN - 1) : 0] abs_acc_I = acc_I[$clog2(SSS_LEN - 1)] ? ~acc_I + 1 : acc_I;
+wire signed [$clog2(SSS_LEN - 1) : 0] abs_acc_Q = acc_Q[$clog2(SSS_LEN - 1)] ? ~acc_Q + 1 : acc_Q;
 localparam SHIFT_MAX = 112;
 reg [$clog2(SHIFT_MAX) - 1 : 0] shift_cur;
 
@@ -139,6 +140,7 @@ always @(posedge clk_i) begin
             end
             if (s_axis_in_tvalid) begin
                 sss_in_I[copy_counter] <= ~s_axis_in_tdata[IN_DW / 2 - 1]; // bpsk demod: take MSB of real part
+                sss_in_Q[copy_counter] <= ~s_axis_in_tdata[IN_DW - 1]; // bpsk demod: take MSB of imag part
                 // $display("ss_in[%d] = %d", copy_counter, s_axis_in_tdata);
                 if (copy_counter == SSS_LEN - 1) begin
                     state <= 1;
@@ -162,8 +164,8 @@ always @(posedge clk_i) begin
 
             if (compare_counter == SSS_LEN - 1) begin
                 // $display("correlation = %d", acc);
-                if (abs_acc_I > acc_max) begin
-                    acc_max <= abs_acc_I;
+                if ((abs_acc_I > acc_max) || (abs_acc_Q > acc_max)) begin
+                    acc_max <= abs_acc_I > abs_acc_Q ? abs_acc_I : abs_acc_Q;
                     m_axis_out_tdata <= N_id_1;
                     N_id_o <= N_id_1 + N_id_1 + N_id_1 + N_id_2;
                     // $display("best N_id_1 so far is %d", N_id_1);
@@ -202,6 +204,8 @@ always @(posedge clk_i) begin
 
                 if      (sss_in_I[compare_counter] == ~(m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]))     acc_I <= acc_I + 1;
                 else if (sss_in_I[compare_counter] ==  (m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]))     acc_I <= acc_I - 1;
+                if      (sss_in_Q[compare_counter] == ~(m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]))     acc_Q <= acc_Q + 1;
+                else if (sss_in_Q[compare_counter] ==  (m_seq_0[m_seq_0_pos] ^ m_seq_1[m_seq_1_pos]))     acc_Q <= acc_Q - 1;
                 compare_counter <= compare_counter + 1;
             end
         end else begin
