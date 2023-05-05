@@ -22,7 +22,7 @@ Implemented so far:<br>
 * AXI-DMAC [detailed description below](https://github.com/catkira/open5G_rx#axi-dmac)
 
 <b>Limitation:</b> The current design is not yet fully 5G NR compliant, because it assumes that the SSB is always in the center of the ressource grid bandwidth (see [this](https://github.com/catkira/open5G_rx/issues/10) issue). 
-This design implements only the lower phy. It can be used in combination with a CPU that runs the higher layers to implement full 5G functionality, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project).
+This design implements only the lower phy. It can be used in combination with a CPU that runs the higher layers to implement full 5G functionality, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project). However one has to keep in mind that the srsRAN project does not include a UE anymore while this lower phy is intended to be used on the UE side.
 <br><br>
 <b>Note:</b> 3GPP Rel 18 introduced RedCap with 5 MHz channnels (see [Study on RedCap Phase 2](https://www.3gpp.org/ftp/Specs/archive/23_series/23.700-68/23700-68-i10.zip)) and there are discussions about reducing the required channel bandwidth even more (see [RP-222645](https://www.3gpp.org/ftp/tsg_ran/TSG_RAN/TSGR_97e/Docs/RP-222645.zip)).
 
