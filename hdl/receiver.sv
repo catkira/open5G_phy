@@ -746,7 +746,7 @@ channel_estimator #(
 )
 channel_estimator_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .reset_ni(reset_fft_demod_n),
     .N_id_i(N_id),
     .N_id_valid_i(N_id_valid),
     .s_axis_in_tdata(fft_demod_out_tdata),
@@ -795,6 +795,7 @@ axis_axil_fifo #(
 axis_axil_fifo_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
+    .clear_i(~reset_fft_demod_n),
 
     .s_axis_in_tdata(m_axis_llr_out_tdata),
     .s_axis_in_tuser(m_axis_llr_out_tuser[0]),

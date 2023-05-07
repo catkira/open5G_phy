@@ -8,6 +8,7 @@ module axis_axil_fifo #(
 (
     input                                               clk_i,
     input                                               reset_ni,
+    input                                               clear_i,
 
     input           [DATA_WIDTH - 1 : 0]                s_axis_in_tdata,
     input           [USER_WIDTH - 1 : 0]                s_axis_in_tuser,
@@ -54,6 +55,8 @@ reg                         fifo_valid;
 reg                         fifo_empty;
 reg                         fifo_last;
 
+wire reset_fifo_n = reset_ni && (~clear_i);
+
 AXIS_FIFO #(
     .DATA_WIDTH(DATA_WIDTH),
     .FIFO_LEN(FIFO_LEN),
@@ -62,7 +65,7 @@ AXIS_FIFO #(
 )
 AXIS_FIFO_i(
     .clk_i(clk_i),
-    .s_reset_ni(reset_ni),
+    .s_reset_ni(reset_fifo_n),
 
     .s_axis_in_tdata(s_axis_in_tdata),
     .s_axis_in_tuser(s_axis_in_tuser),
