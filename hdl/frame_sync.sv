@@ -204,10 +204,16 @@ assign sample_cnt_mismatch_o = sample_cnt_mismatch;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
+        sfn <= '0;
+        subframe_number <= '0;
+        sym_cnt <= '0;
+        sym_cnt_next = '0;
+        sample_cnt <= '0;
         state <= WAIT_FOR_SSB;
         current_CP_len <= CP2_LEN;
         find_SSB <= '0;
         SSB_start_o <= '0;
+        syms_since_last_SSB <= '0;
         m_axis_out_tvalid <= '0;
         m_axis_out_tlast <= '0;
         sample_cnt_mismatch <= '0;
@@ -218,6 +224,7 @@ always @(posedge clk_i) begin
                 SSB_start_o <= '0;
                 find_SSB <= '0;                
                 if (N_id_2_valid_i) begin
+                    sample_cnt <= 1;
                     m_axis_out_tvalid <= s_axis_in_tvalid;
                     // SSB_pattern for case A is [2, 8, 16, 22]
                     // whether we are on symbol 2 or symbol 8 depends on ibar_SSB
@@ -225,7 +232,9 @@ always @(posedge clk_i) begin
                     // it might have to be corrected once ibar_SSB arrives
                     // N_id_2_valid arrives here 1 symbol late, therefore start with 3 instead of 2
                     current_CP_len <= CP2_LEN;
-                    state <= SYNCED;
+                    sym_cnt <= 3;
+                    state <= WAIT_FOR_IBAR;
+                    syms_since_last_SSB <= '0;
                     // SSB_start_o <= 1;
                     reset_fft_no <= 1;
                 end else begin
@@ -234,51 +243,85 @@ always @(posedge clk_i) begin
                     reset_fft_no <= '0;
                 end
             end
-            WAIT_FOR_IBAR: begin  // this state is not used anymore
-                // SSB_start_o <= '0;
-                // if (ibar_SSB_valid_i) begin
-                //     $display("frame_sync: received ibar_SSB = %d", ibar_SSB_i);
-                //     if (ibar_SSB_i != 0) begin
-                //         // sym_cnt needs to be corrected for ibar_SSB != 0
-                //         case (ibar_SSB_i)
-                //             0: begin 
-                //                 // no adjustment needed here
-                //             end
-                //             1: begin
-                //                 // sym_cnt <= sym_cnt + 6 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
-                //             end
-                //             2: begin
-                //                 // sym_cnt <= sym_cnt + 14 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
-                //                 // if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
-                //                 //     subframe_number <= '0;
-                //                 //     // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
-                //                 //     sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
-                //                 // end else begin
-                //                 //     subframe_number <= subframe_number + 1;
-                //                 end       //                     end
-                //             3: begin
-                //                 // sym_cnt <= sym_cnt + 20 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
-                //                 // if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
-                //                 //     subframe_number <= '0;
-                //                 //     // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
-                //                 //     sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
-                //                 // end else begin
-                //                 //     subframe_number <= subframe_number + 1;
-                //                 // end
-                //             end
-                //         endcase
-                //     end
-                //     state <= SYNCED;
-                // end
+            WAIT_FOR_IBAR: begin
+                SSB_start_o <= '0;
+                if (ibar_SSB_valid_i) begin
+                    $display("frame_sync: received ibar_SSB = %d", ibar_SSB_i);
+                    if (ibar_SSB_i != 0) begin
+                        // sym_cnt needs to be corrected for ibar_SSB != 0
+                        case (ibar_SSB_i)
+                            0: begin 
+                                // no adjustment needed here
+                            end
+                            1: begin
+                                // sym_cnt <= sym_cnt + 6 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
+                            end
+                            2: begin
+                                // sym_cnt <= sym_cnt + 14 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
+                                // if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
+                                //     subframe_number <= '0;
+                                //     // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
+                                //     sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
+                                // end else begin
+                                //     subframe_number <= subframe_number + 1;
+                                end       //                     end
+                            3: begin
+                                // sym_cnt <= sym_cnt + 20 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
+                                // if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
+                                //     subframe_number <= '0;
+                                //     // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
+                                //     sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
+                                // end else begin
+                                //     subframe_number <= subframe_number + 1;
+                                // end
+                            end
+                        endcase
+                    end
+                    state <= SYNCED;
+                end
 
-                // m_axis_out_tvalid <= s_axis_in_tvalid;
+                m_axis_out_tvalid <= s_axis_in_tvalid;
 
-                // if (N_id_2_valid_i) begin
-                //     // output of SSB_start_o in WAIT_FOR_IBAR state is needed, because channel_estimator needs it to detect ibar_SSB
-                //     // SSB_start_o <= 1;
-                // end else begin
-                //     // SSB_start_o <= '0;
-                // end                
+                if (s_axis_in_tvalid) begin
+                    if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
+                        m_axis_out_tlast <= 1;
+
+                        if (sym_cnt == SYM_PER_SF - 1) begin
+                            sym_cnt <= 0;
+                            sym_cnt_next = 0;
+                            subframe_number <= subframe_number == SYM_PER_SF - 1 ? 0 : subframe_number + 1;
+                            if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
+                                subframe_number <= '0;
+                                // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
+                                sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
+                            end else begin
+                                subframe_number <= subframe_number + 1;
+                            end
+                        end else begin
+                            sym_cnt <= sym_cnt + 1;
+                            sym_cnt_next = sym_cnt + 1;
+                        end
+
+                        sample_cnt <= '0;
+                        if ((sym_cnt_next == 0) || (sym_cnt_next == 7))   current_CP_len <= CP1_LEN;
+                        else                                              current_CP_len <= CP2_LEN;
+                        
+                        if ((syms_since_last_SSB == SYMS_BTWN_SSB - 1) || N_id_2_valid_i)   syms_since_last_SSB <= 0;
+                        else                                            syms_since_last_SSB <= syms_since_last_SSB + 1;                        
+                    end else begin
+                        sample_cnt <= sample_cnt + 1;
+                        m_axis_out_tlast <= '0;
+                    end
+                end else if (N_id_2_valid_i) begin
+                    syms_since_last_SSB <= 0;                    
+                end
+
+                if (N_id_2_valid_i) begin
+                    // output of SSB_start_o in WAIT_FOR_IBAR state is needed, because channel_estimator needs it to detect ibar_SSB
+                    // SSB_start_o <= 1;
+                end else begin
+                    // SSB_start_o <= '0;
+                end                
             end
             SYNCED: begin
                 if (ibar_SSB_valid_i) begin
@@ -330,62 +373,46 @@ always @(posedge clk_i) begin
                 else                            SSB_start_o <= '0;
 
                 m_axis_out_tvalid <= s_axis_in_tvalid;
+
+                // set sfn, subframe_number, sym_cnt, sample_cnt
+                // set m_axis_out_tlast
+                if (s_axis_in_tvalid) begin
+                    if (sample_cnt != 0 && ((sample_cnt == (FFT_LEN + current_CP_len - 1)) || ((sample_cnt < (FFT_LEN + current_CP_len - 1)) && find_SSB && N_id_2_valid_i))) begin
+                        m_axis_out_tlast <= 1;
+                        if (sym_cnt == SYM_PER_SF - 1) begin
+                            sym_cnt <= 0;
+                            sym_cnt_next = '0;
+                            subframe_number <= subframe_number == SYM_PER_SF - 1 ? 0 : subframe_number + 1;
+                            if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
+                                subframe_number <= '0;
+                                // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
+                                sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
+                            end else begin
+                                subframe_number <= subframe_number + 1;
+                            end
+                        end else begin
+                            sym_cnt <= sym_cnt + 1;
+                            sym_cnt_next = sym_cnt + 1;
+                        end
+
+                        sample_cnt <= '0;
+                        if ((sym_cnt_next == 0) || (sym_cnt_next == 7))     current_CP_len <= CP1_LEN;
+                        else                                                current_CP_len <= CP2_LEN;
+                        
+                        if (find_SSB && N_id_2_valid_i) syms_since_last_SSB <= '0;
+                        else                syms_since_last_SSB <= syms_since_last_SSB + 1;
+                    end else begin
+                        sample_cnt <= sample_cnt + 1;
+                        m_axis_out_tlast <= '0;
+                        if (find_SSB && N_id_2_valid_i) syms_since_last_SSB <= '0;
+                    end
+                end else if (find_SSB && N_id_2_valid_i) begin
+                    syms_since_last_SSB <= '0;
+                end
             end
         endcase
     end
 end
-
-// this is a subprocess for the FSM above
-wire early_SSB_in_find_mode = sample_cnt != 0 && ((sample_cnt < (FFT_LEN + current_CP_len - 1)) && find_SSB && N_id_2_valid_i);
-always @(posedge clk_i) begin
-    if (!reset_ni) begin
-        sfn <= '0;
-        subframe_number <= '0;
-        sym_cnt <= '0;
-        sym_cnt_next = '0;
-        sample_cnt <= '0;
-        syms_since_last_SSB <= '0;
-    end else begin
-        if (state == WAIT_FOR_SSB) begin
-            sample_cnt <= 1;
-            sym_cnt <= 3;
-            syms_since_last_SSB <= '0;
-        end else if (s_axis_in_tvalid && ((state == SYNCED) || (state == WAIT_FOR_IBAR))) begin
-            if ((sample_cnt == (FFT_LEN + current_CP_len - 1)) || early_SSB_in_find_mode) begin
-                m_axis_out_tlast <= 1;
-                if (sym_cnt == SYM_PER_SF - 1) begin
-                    sym_cnt <= 0;
-                    sym_cnt_next = '0;
-                    subframe_number <= subframe_number == SYM_PER_SF - 1 ? 0 : subframe_number + 1;
-                    if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
-                        subframe_number <= '0;
-                        // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
-                        sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
-                    end else begin
-                        subframe_number <= subframe_number + 1;
-                    end
-                end else begin
-                    sym_cnt <= sym_cnt + 1;
-                    sym_cnt_next = sym_cnt + 1;
-                end
-
-                sample_cnt <= '0;
-                if ((sym_cnt_next == 0) || (sym_cnt_next == 7))     current_CP_len <= CP1_LEN;
-                else                                                current_CP_len <= CP2_LEN;
-                
-                if (find_SSB && N_id_2_valid_i) syms_since_last_SSB <= '0;
-                else                syms_since_last_SSB <= syms_since_last_SSB + 1;
-            end else begin
-                sample_cnt <= sample_cnt + 1;
-                m_axis_out_tlast <= '0;
-                if (find_SSB && N_id_2_valid_i) syms_since_last_SSB <= '0;
-            end
-        end else if (find_SSB && N_id_2_valid_i) begin
-            syms_since_last_SSB <= '0;
-        end
-    end        
-end
-
 
 // ----------------------------------------------------------------
 // This process sets symbol_start_o to 1 at the beginning of every symbol,
