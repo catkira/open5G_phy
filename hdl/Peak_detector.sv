@@ -13,6 +13,7 @@ module Peak_detector
     input                  [IN_DW - 1 : 0]      noise_limit_i,
     input                  [7 : 0]              detection_shift_i,
     output  reg                                 peak_detected_o,
+    output  reg                                 peak_valid_o,
     output  reg            [IN_DW - 1 : 0]      score_o
 );
 
@@ -30,6 +31,11 @@ for (ii = 0; ii < WINDOW_LEN; ii++) begin
             else          in_buffer[ii] <= in_buffer[ii - 1];
         end
     end
+end
+
+always @(posedge clk_i) begin
+    if (reset_ni)   peak_valid_o <= '0;
+    else            peak_valid_o <= s_axis_in_tvalid && (init_counter == WINDOW_LEN);
 end
 
 reg                 in_valid_f;

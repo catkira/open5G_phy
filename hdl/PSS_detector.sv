@@ -98,6 +98,7 @@ wire cfo_mode;
 assign CFO_mode_o = cfo_mode;
 localparam CFO_MODE_AUTO = 1'b0;
 localparam CFO_MODE_MANUAL = 1'b1;
+wire peak_valid;
 
 reg [31 : 0] peak_counter_0;
 reg [31 : 0] peak_counter_1;
@@ -274,7 +275,8 @@ peak_detector_0_i(
     .noise_limit_i(noise_limit),
     .detection_shift_i(detection_shift),
     .peak_detected_o(peak_detected[0]),
-    .score_o(score[0])    
+    .score_o(score[0]),
+    .peak_valid_o(peak_valid)
 );
 
 Peak_detector #(
@@ -357,7 +359,7 @@ localparam SSB_INTERVAL = $rtoi(1920000 * 0.02);
 localparam TRACK_TOLERANCE = 100;
 localparam CORRELATOR_DELAY = 160;
 reg [$clog2(SSB_INTERVAL + TRACK_TOLERANCE) - 1 : 0] sample_cnt;
-reg peak_valid;
+reg N_id_2_valid;
 
 reg [1 : 0] CFO_state;
 localparam [1 : 0] WAIT_FOR_PEAK = 0;
@@ -381,7 +383,7 @@ always @(posedge clk_i) begin
         case (CFO_state)
             WAIT_FOR_PEAK : begin
                 CFO_valid_o <= '0;
-                if (peak_valid) begin
+                if (N_id_2_valid) begin
                     C0_in <= C0_f[N_id_2_o];
                     C1_in <= C1_f[N_id_2_o];
                     CFO_calc_valid_in <= 1;
@@ -422,7 +424,7 @@ assign mode_select = USE_MODE ? mode_i : SEARCH;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         N_id_2_o <= '0;
-        peak_valid <= '0;
+        N_id_2_valid <= '0;
         correlator_en <= '0;
     end else begin
         case(mode_select)
@@ -435,9 +437,9 @@ always @(posedge clk_i) begin
                         4 : N_id_2_o <= 2;
                     endcase
                     $display("PSS detector: detected N_id_2 is %d", peak_detected == 1 ? 0 : (peak_detected == 2 ? 1 : 2));                    
-                    peak_valid <= 1;
+                    N_id_2_valid <= 1;
                 end else begin
-                    peak_valid <= 0;
+                    N_id_2_valid <= 0;
                 end
             end
             FIND : begin
@@ -446,20 +448,52 @@ always @(posedge clk_i) begin
                     ((peak_detected == 1) || (peak_detected == 2) || (peak_detected == 4))) begin
                     N_id_2_o <= requested_N_id_2_i;
                     $display("PSS detector: detected N_id_2 is %d (find mode)", requested_N_id_2_i);                    
-                    peak_valid <= 1;
+                    N_id_2_valid <= 1;
                 end else begin
-                    peak_valid <= 0;
+                    N_id_2_valid <= 0;
                 end
             end
             PAUSE : begin
                 correlator_en <= 0;
-                peak_valid <= 0;
+                N_id_2_valid <= 0;
             end
         endcase
     end
 end
 
-assign N_id_2_valid_o = peak_valid;
+assign N_id_2_valid_o = N_id_2_valid;
+
+
+reg [10 : 0] init_counter;
+always @(posedge clk_i) begin
+    if (!reset_ni) init_counter <= '0;
+    else if (s_axis_in_tvalid &&  init_counter < 128) init_counter <= init_counter + 1;
+end
+
+wire N_id_2_valid_synced;
+wire [1 : 0] N_id_2_synced;
+AXIS_FIFO #(
+    .DATA_WIDTH(2),
+    .FIFO_LEN(10),
+    .ASYNC(0),
+    .USER_WIDTH(0)
+)
+peak_fifo_i(
+    .clk_i(clk_i),
+    .s_reset_ni(reset_ni),
+
+    .s_axis_in_tdata(N_id_2_o),
+    .s_axis_in_tuser(),
+    .s_axis_in_tvalid(N_id_2_valid),
+
+    .out_clk_i(clk_i),
+    .m_reset_ni(reset_ni),
+    .m_axis_out_tdata(N_id_2_synced),
+    .m_axis_out_tuser(),
+    .m_axis_out_tvalid(N_id_2_valid_synced),
+    .m_axis_out_tready(init_counter == 128 && peak_valid),
+    .m_axis_out_tlevel()
+);
 
 PSS_detector_regmap #(
     .ID(0),
