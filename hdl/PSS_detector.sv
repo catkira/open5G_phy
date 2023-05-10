@@ -466,16 +466,21 @@ always @(posedge clk_i) begin
     end
 end
 
-// assign N_id_2_valid_o = N_id_2_valid;
+localparam PEAK_DELAY_LIMIT = 138;
+reg [10 : 0] peak_delay;
+always @(posedge clk_i) begin
+    if (!reset_ni) peak_delay <= '0;
+    else if (peak_valid) peak_delay <= peak_delay < PEAK_DELAY_LIMIT ? peak_delay + 1 : peak_delay;
+end
 
 reg peak_valid_f;
-always @(posedge clk_i) peak_valid_f <= (!reset_ni) ? '0 : peak_valid;
+always @(posedge clk_i) peak_valid_f <= (!reset_ni) ? '0 : peak_valid && (peak_delay == PEAK_DELAY_LIMIT);
 
-localparam INIT_COUNTER_LIMIT = 17;
+localparam INIT_COUNTER_LIMIT = 3;
 reg [10 : 0] init_counter;
 always @(posedge clk_i) begin
     if (!reset_ni) init_counter <= '0;
-    else if (s_axis_in_tvalid &&  init_counter < INIT_COUNTER_LIMIT) init_counter <= init_counter + 1;
+    else if (peak_fifo_valid_out && peak_fifo_ready &&  init_counter < INIT_COUNTER_LIMIT) init_counter <= init_counter + 1;
 end
 
 reg [2 : 0] state;
@@ -503,6 +508,7 @@ end
 wire peak_fifo_ready = (state == 1);
 
 wire [2 : 0] peak_fifo_out;
+wire peak_fifo_valid_out;
 AXIS_FIFO #(
     .DATA_WIDTH(3),
     .FIFO_LEN(512),
@@ -515,13 +521,13 @@ peak_fifo_i(
 
     .s_axis_in_tdata({N_id_2, N_id_2_valid}),
     .s_axis_in_tuser(),
-    .s_axis_in_tvalid(peak_valid_f && (init_counter == INIT_COUNTER_LIMIT)),
+    .s_axis_in_tvalid(peak_valid_f),
 
     .out_clk_i(clk_i),
     .m_reset_ni(reset_ni),
     .m_axis_out_tdata(peak_fifo_out),
     .m_axis_out_tuser(),
-    .m_axis_out_tvalid(),
+    .m_axis_out_tvalid(peak_fifo_valid_out),
     .m_axis_out_tready(peak_fifo_ready),
     .m_axis_out_tlevel()
 );
