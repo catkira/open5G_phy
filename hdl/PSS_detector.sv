@@ -32,12 +32,16 @@ module PSS_detector
 (
     input                                       clk_i,
     input                                       reset_ni,
+    input   wire           [IN_DW-1:0]          s_axis_cic_tdata,
+    input                                       s_axis_cic_tvalid,
     input   wire           [IN_DW-1:0]          s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
 
     input                  [1 : 0]              mode_i,
     input                  [1 : 0]              requested_N_id_2_i,
     
+    output                 [IN_DW-1:0]          m_axis_out_tdata,
+    output                                      m_axis_out_tvalid,
     output  reg            [1 : 0]              N_id_2_o,
     output                                      N_id_2_valid_o,
     output  reg signed     [CFO_DW - 1 : 0]     CFO_angle_o,
@@ -137,8 +141,8 @@ if (MULT_REUSE == 0) begin
     correlator_0_i(
         .clk_i(clk_i),
         .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_in_tdata),
-        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .s_axis_in_tdata(s_axis_cic_tdata),
+        .s_axis_in_tvalid(s_axis_cic_tvalid && correlator_en),
         .C0_o(C0[0]),
         .C1_o(C1[0]),
         .m_axis_out_tdata(correlator_0_tdata),
@@ -160,8 +164,8 @@ if (MULT_REUSE == 0) begin
     correlator_1_i(
         .clk_i(clk_i),
         .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_in_tdata),
-        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .s_axis_in_tdata(s_axis_cic_tdata),
+        .s_axis_in_tvalid(s_axis_cic_tvalid && correlator_en),
         .C0_o(C0[1]),
         .C1_o(C1[1]),
         .m_axis_out_tdata(correlator_1_tdata),
@@ -183,8 +187,8 @@ if (MULT_REUSE == 0) begin
     correlator_2_i(
         .clk_i(clk_i),
         .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_in_tdata),
-        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .s_axis_in_tdata(s_axis_cic_tdata),
+        .s_axis_in_tvalid(s_axis_cic_tvalid && correlator_en),
         .C0_o(C0[2]),
         .C1_o(C1[2]),
         .m_axis_out_tdata(correlator_2_tdata),
@@ -207,8 +211,8 @@ end else begin
     correlator_0_i(
         .clk_i(clk_i),
         .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_in_tdata),
-        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .s_axis_in_tdata(s_axis_cic_tdata),
+        .s_axis_in_tvalid(s_axis_cic_tvalid && correlator_en),
         .C0_o(C0[0]),
         .C1_o(C1[0]),
         .m_axis_out_tdata(correlator_0_tdata),
@@ -230,8 +234,8 @@ end else begin
     correlator_1_i(
         .clk_i(clk_i),
         .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_in_tdata),
-        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .s_axis_in_tdata(s_axis_cic_tdata),
+        .s_axis_in_tvalid(s_axis_cic_tvalid && correlator_en),
         .C0_o(C0[1]),
         .C1_o(C1[1]),
         .m_axis_out_tdata(correlator_1_tdata),
@@ -253,8 +257,8 @@ end else begin
     correlator_2_i(
         .clk_i(clk_i),
         .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_in_tdata),
-        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .s_axis_in_tdata(s_axis_cic_tdata),
+        .s_axis_in_tvalid(s_axis_cic_tvalid && correlator_en),
         .C0_o(C0[2]),
         .C1_o(C1[2]),
         .m_axis_out_tdata(correlator_2_tdata),
@@ -420,10 +424,11 @@ end
 // If USE_MODE is 0, the FSM is permanently in SEARCH mode
 wire [1 : 0] mode_select;
 assign mode_select = USE_MODE ? mode_i : SEARCH;
+reg [1 : 0] N_id_2;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
-        N_id_2_o <= '0;
+        N_id_2 <= '0;
         N_id_2_valid <= '0;
         correlator_en <= '0;
     end else begin
@@ -432,9 +437,9 @@ always @(posedge clk_i) begin
                 correlator_en <= 1;
                 if ((peak_detected == 1) || (peak_detected == 2) || (peak_detected == 4)) begin
                     case (peak_detected)
-                        1 : N_id_2_o <= 0;
-                        2 : N_id_2_o <= 1;
-                        4 : N_id_2_o <= 2;
+                        1 : N_id_2 <= 0;
+                        2 : N_id_2 <= 1;
+                        4 : N_id_2 <= 2;
                     endcase
                     $display("PSS detector: detected N_id_2 is %d", peak_detected == 1 ? 0 : (peak_detected == 2 ? 1 : 2));                    
                     N_id_2_valid <= 1;
@@ -446,7 +451,7 @@ always @(posedge clk_i) begin
                 correlator_en <= 1;
                 if (peak_detected[requested_N_id_2_i] && 
                     ((peak_detected == 1) || (peak_detected == 2) || (peak_detected == 4))) begin
-                    N_id_2_o <= requested_N_id_2_i;
+                    N_id_2 <= requested_N_id_2_i;
                     $display("PSS detector: detected N_id_2 is %d (find mode)", requested_N_id_2_i);                    
                     N_id_2_valid <= 1;
                 end else begin
@@ -461,20 +466,46 @@ always @(posedge clk_i) begin
     end
 end
 
-assign N_id_2_valid_o = N_id_2_valid;
+// assign N_id_2_valid_o = N_id_2_valid;
 
+reg peak_valid_f;
+always @(posedge clk_i) peak_valid_f <= (!reset_ni) ? '0 : peak_valid;
 
+localparam INIT_COUNTER_LIMIT = 17;
 reg [10 : 0] init_counter;
 always @(posedge clk_i) begin
     if (!reset_ni) init_counter <= '0;
-    else if (s_axis_in_tvalid &&  init_counter < 128) init_counter <= init_counter + 1;
+    else if (s_axis_in_tvalid &&  init_counter < INIT_COUNTER_LIMIT) init_counter <= init_counter + 1;
 end
 
-wire N_id_2_valid_synced;
-wire [1 : 0] N_id_2_synced;
+reg [2 : 0] state;
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        state <= '0;
+    end else begin
+        case (state)
+            0 : begin
+                if (s_axis_in_tvalid) state <= 1;
+            end
+            1 : begin
+                if (s_axis_in_tvalid) state <= 0;
+                else state <= 2;
+            end
+            2 : begin
+                if (s_axis_in_tvalid) state <= 3;
+            end
+            3 : begin
+                state <= 0;
+            end
+        endcase
+    end
+end
+wire peak_fifo_ready = (state == 1);
+
+wire [2 : 0] peak_fifo_out;
 AXIS_FIFO #(
-    .DATA_WIDTH(2),
-    .FIFO_LEN(10),
+    .DATA_WIDTH(3),
+    .FIFO_LEN(512),
     .ASYNC(0),
     .USER_WIDTH(0)
 )
@@ -482,18 +513,46 @@ peak_fifo_i(
     .clk_i(clk_i),
     .s_reset_ni(reset_ni),
 
-    .s_axis_in_tdata(N_id_2_o),
+    .s_axis_in_tdata({N_id_2, N_id_2_valid}),
     .s_axis_in_tuser(),
-    .s_axis_in_tvalid(N_id_2_valid),
+    .s_axis_in_tvalid(peak_valid_f && (init_counter == INIT_COUNTER_LIMIT)),
 
     .out_clk_i(clk_i),
     .m_reset_ni(reset_ni),
-    .m_axis_out_tdata(N_id_2_synced),
+    .m_axis_out_tdata(peak_fifo_out),
     .m_axis_out_tuser(),
-    .m_axis_out_tvalid(N_id_2_valid_synced),
-    .m_axis_out_tready(init_counter == 128 && peak_valid),
+    .m_axis_out_tvalid(),
+    .m_axis_out_tready(peak_fifo_ready),
     .m_axis_out_tlevel()
 );
+assign N_id_2_o = peak_fifo_out[2:1];
+assign N_id_2_valid_o = peak_fifo_ready && peak_fifo_out[0];
+
+wire data_fifo_valid_out;
+wire data_fifo_ready = (init_counter == INIT_COUNTER_LIMIT) && s_axis_in_tvalid;
+AXIS_FIFO #(
+    .DATA_WIDTH(IN_DW),
+    .FIFO_LEN(512),
+    .ASYNC(0),
+    .USER_WIDTH(0)
+)
+data_fifo_i(
+    .clk_i(clk_i),
+    .s_reset_ni(reset_ni),
+
+    .s_axis_in_tdata(s_axis_in_tdata),
+    .s_axis_in_tuser(),
+    .s_axis_in_tvalid(s_axis_in_tvalid),
+
+    .out_clk_i(clk_i),
+    .m_reset_ni(reset_ni),
+    .m_axis_out_tdata(m_axis_out_tdata),
+    .m_axis_out_tuser(),
+    .m_axis_out_tvalid(data_fifo_valid_out),
+    .m_axis_out_tready(data_fifo_ready),
+    .m_axis_out_tlevel()
+);
+assign m_axis_out_tvalid = data_fifo_valid_out && data_fifo_ready;
 
 PSS_detector_regmap #(
     .ID(0),

@@ -34,7 +34,7 @@ for (ii = 0; ii < WINDOW_LEN; ii++) begin
 end
 
 always @(posedge clk_i) begin
-    if (reset_ni)   peak_valid_o <= '0;
+    if (!reset_ni)   peak_valid_o <= '0;
     else            peak_valid_o <= s_axis_in_tvalid && (init_counter == WINDOW_LEN);
 end
 
