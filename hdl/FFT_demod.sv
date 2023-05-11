@@ -44,6 +44,8 @@ reg meta_FIFO_valid_in;
 wire meta_FIFO_valid_out;
 reg meta_FIFO_out_ready;
 wire [SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH - 1 : 0] meta_FIFO_out_data;
+wire [SYMBOL_NUMBER_WIDTH - 1 : 0] meta_out_sym = meta_FIFO_out_data[SYMBOL_NUMBER_WIDTH - 1 : 0];
+wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] meta_out_subframe = meta_FIFO_out_data[SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH - 1 -: SUBFRAME_NUMBER_WIDTH];
 AXIS_FIFO #(
     .DATA_WIDTH(SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH),
     .FIFO_LEN(16),
@@ -173,12 +175,13 @@ always @(posedge clk_i) begin
         PBCH_symbol <= '0;
         current_out_symbol <= '0;
         last_SC <= '0;
+        meta_FIFO_out_ready <= '0;
     end else begin
         if (fft_val) begin
             last_SC <= (out_cnt == (FFT_LEN - 1 - SC_START));
 
             PBCH_symbol <= (current_out_symbol == 0);
-            meta_FIFO_out_ready <= out_cnt == 0;
+            meta_FIFO_out_ready <= out_cnt == (FFT_LEN - 1 - SC_START);
             if (meta_FIFO_valid_out)  meta_out <= {meta_FIFO_out_data, blk_exp, current_out_symbol == 0};
             
             if (out_cnt == (FFT_LEN - 1)) begin
@@ -193,8 +196,8 @@ always @(posedge clk_i) begin
                 out_cnt <= out_cnt + 1;
             end
 
-            PBCH_valid <= valid_SC && (current_out_symbol == 0);
-            SSS_valid  <= valid_SSS_SC && (current_out_symbol == 1);
+            PBCH_valid <= valid_SC && (meta_out_sym == 3);
+            SSS_valid  <= valid_SSS_SC && (meta_out_sym == 4);
         end else begin
             PBCH_valid <= '0;
             SSS_valid <= '0;

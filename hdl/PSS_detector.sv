@@ -466,7 +466,7 @@ always @(posedge clk_i) begin
     end
 end
 
-localparam PEAK_DELAY_LIMIT = 138;
+localparam PEAK_DELAY_LIMIT = 128; // discard first 128 peaks
 reg [10 : 0] peak_delay;
 always @(posedge clk_i) begin
     if (!reset_ni) peak_delay <= '0;
@@ -476,39 +476,37 @@ end
 reg peak_valid_f;
 always @(posedge clk_i) peak_valid_f <= (!reset_ni) ? '0 : peak_valid && (peak_delay == PEAK_DELAY_LIMIT);
 
-localparam INIT_COUNTER_LIMIT = 3;
-reg [10 : 0] init_counter;
-always @(posedge clk_i) begin
-    if (!reset_ni) init_counter <= '0;
-    else if (peak_fifo_valid_out && peak_fifo_ready &&  init_counter < INIT_COUNTER_LIMIT) init_counter <= init_counter + 1;
-end
+// localparam INIT_COUNTER_LIMIT = 1;
+// reg [10 : 0] init_counter;
+// always @(posedge clk_i) begin
+//     if (!reset_ni) init_counter <= '0;
+//     else if (peak_fifo_valid_out && peak_fifo_ready &&  init_counter < INIT_COUNTER_LIMIT) init_counter <= init_counter + 1;
+// end
 
 reg [2 : 0] state;
+wire peak_fifo_valid_out;
+wire data_fifo_ready = peak_fifo_valid_out;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         state <= '0;
     end else begin
         case (state)
             0 : begin
-                if (s_axis_in_tvalid) state <= 1;
+                if (data_fifo_valid_out && data_fifo_ready) begin
+                    state <= 1;
+                end
             end
             1 : begin
-                if (s_axis_in_tvalid) state <= 0;
-                else state <= 2;
-            end
-            2 : begin
-                if (s_axis_in_tvalid) state <= 3;
-            end
-            3 : begin
-                state <= 0;
+                if (data_fifo_valid_out && data_fifo_ready) begin
+                    state <= 0;
+                end
             end
         endcase
     end
 end
-wire peak_fifo_ready = (state == 1);
+wire peak_fifo_ready = (state == 0) && (data_fifo_valid_out);
 
 wire [2 : 0] peak_fifo_out;
-wire peak_fifo_valid_out;
 AXIS_FIFO #(
     .DATA_WIDTH(3),
     .FIFO_LEN(512),
@@ -535,7 +533,6 @@ assign N_id_2_o = peak_fifo_out[2:1];
 assign N_id_2_valid_o = peak_fifo_ready && peak_fifo_out[0];
 
 wire data_fifo_valid_out;
-wire data_fifo_ready = (init_counter == INIT_COUNTER_LIMIT) && s_axis_in_tvalid;
 AXIS_FIFO #(
     .DATA_WIDTH(IN_DW),
     .FIFO_LEN(512),

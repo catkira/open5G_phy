@@ -232,7 +232,7 @@ always @(posedge clk_i) begin
                     // it might have to be corrected once ibar_SSB arrives
                     // N_id_2_valid arrives here 1 symbol late, therefore start with 3 instead of 2
                     current_CP_len <= CP2_LEN;
-                    sym_cnt <= 3;
+                    sym_cnt <= 2;
                     state <= WAIT_FOR_IBAR;
                     syms_since_last_SSB <= '0;
                     // SSB_start_o <= 1;
