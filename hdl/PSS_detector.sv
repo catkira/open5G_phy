@@ -476,30 +476,42 @@ end
 reg peak_valid_f;
 always @(posedge clk_i) peak_valid_f <= (!reset_ni) ? '0 : peak_valid && (peak_delay == PEAK_DELAY_LIMIT);
 
-// localparam INIT_COUNTER_LIMIT = 1;
-// reg [10 : 0] init_counter;
-// always @(posedge clk_i) begin
-//     if (!reset_ni) init_counter <= '0;
-//     else if (peak_fifo_valid_out && peak_fifo_ready &&  init_counter < INIT_COUNTER_LIMIT) init_counter <= init_counter + 1;
-// end
-
 reg [2 : 0] state;
 wire peak_fifo_valid_out;
-wire data_fifo_ready = peak_fifo_valid_out;
+wire data_fifo_ready = (peak_fifo_valid_out && (state == 0)) || (state == 2);
+localparam WAIT_CNT_LEN = $clog2(MULT_REUSE >> 2) > 0 ? $clog2(MULT_REUSE >> 2) : 1;
+reg [WAIT_CNT_LEN - 1 : 0] wait_cnt;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         state <= '0;
+        wait_cnt <= '0;
     end else begin
         case (state)
             0 : begin
                 if (data_fifo_valid_out && data_fifo_ready) begin
-                    state <= 1;
+                    if (MULT_REUSE <= 2) state <= 2;
+                    else begin
+                        state <= 1;
+                        wait_cnt <= (MULT_REUSE >> 2) - 1;
+                    end
                 end
             end
             1 : begin
+                if (wait_cnt == 0) state <= 2;
+                else wait_cnt <= wait_cnt - 1;
+            end
+            2 : begin
                 if (data_fifo_valid_out && data_fifo_ready) begin
-                    state <= 0;
+                    if (MULT_REUSE <= 2) state <= 0;
+                    else begin
+                        state <= 3;
+                        wait_cnt <= (MULT_REUSE >> 2) - 1;
+                    end
                 end
+            end
+            3 : begin
+                if (wait_cnt == 0) state <= 0;
+                else wait_cnt <= wait_cnt - 1;
             end
         endcase
     end
