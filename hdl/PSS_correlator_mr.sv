@@ -21,6 +21,7 @@ module PSS_correlator_mr
     input                                                       reset_ni,
     input   wire           [IN_DW - 1 : 0]                      s_axis_in_tdata,
     input                                                       s_axis_in_tvalid,
+    input                                                       enable_i,
     output  reg            [OUT_DW - 1 : 0]                     m_axis_out_tdata,
     output  reg            [C_DW - 1 : 0]                       C0_o,
     output  reg            [C_DW - 1 : 0]                       C1_o,
@@ -311,10 +312,10 @@ always @(posedge clk_i) begin
         else                                filter_result = abs(sum_re_f) + (abs(sum_im_f) >> 2);
 
         if (REQUIRED_OUT_DW >= OUT_DW) begin
-            m_axis_out_tdata <= filter_result[REQUIRED_OUT_DW - 1 -: OUT_DW];
+            m_axis_out_tdata <= enable_i ? filter_result[REQUIRED_OUT_DW - 1 -: OUT_DW] : '0;
         end else begin
             // m_axis_out_tdata <= {{(OUT_DW - REQUIRED_OUT_DW){1'b0}}, filter_result};   // do zero padding
-            m_axis_out_tdata <= {{(OUTPUT_PAD_BITS){1'b0}}, filter_result};
+            m_axis_out_tdata <= enable_i ? {{(OUTPUT_PAD_BITS){1'b0}}, filter_result} : '0;
         end 
         m_axis_out_tvalid <= sum_valid;
         C0_o <= C0_f;

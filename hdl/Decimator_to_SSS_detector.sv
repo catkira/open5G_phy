@@ -50,6 +50,9 @@ module Decimator_to_SSS_detector
     output  reg                                     fft_demod_SSS_start_o
 );
 
+wire peak_detected;
+assign peak_detected_debug_o = peak_detected;
+
 wire [IN_DW - 1 : 0] m_axis_cic_tdata;
 wire                 m_axis_cic_tvalid;
 assign m_axis_cic_debug_tdata = m_axis_cic_tdata;
@@ -89,54 +92,34 @@ cic_imag(
 reg N_id_2_valid;
 wire [1 : 0] N_id_2;
 
+wire [IN_DW - 1 : 0] in_data;
+wire in_valid;
 PSS_detector #(
     .IN_DW(IN_DW),
-    .OUT_DW(OUT_DW),  // width of correlator output
+    .OUT_DW(OUT_DW),
     .TAP_DW(TAP_DW),
     .PSS_LEN(PSS_LEN),
     .PSS_LOCAL_0(PSS_LOCAL_0),
     .PSS_LOCAL_1(PSS_LOCAL_1),
     .PSS_LOCAL_2(PSS_LOCAL_2),
-    .USE_TAP_FILE(USE_TAP_FILE),
-    .TAP_FILE_0(TAP_FILE_0),
-    .TAP_FILE_1(TAP_FILE_1),
-    .TAP_FILE_2(TAP_FILE_2),
     .ALGO(ALGO),
+    .USE_TAP_FILE(USE_TAP_FILE),
     .MULT_REUSE(MULT_REUSE),
     .INITIAL_DETECTION_SHIFT(INITIAL_DETECTION_SHIFT)
 )
 PSS_detector_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
-    .s_axis_in_tdata(m_axis_cic_tdata),
-    .s_axis_in_tvalid(m_axis_cic_tvalid),
+    .s_axis_cic_tdata(m_axis_cic_tdata),
+    .s_axis_cic_tvalid(m_axis_cic_tvalid),
+    .s_axis_in_tdata(s_axis_in_tdata),
+    .s_axis_in_tvalid(s_axis_in_tvalid),
 
-    .N_id_2_valid_o(N_id_2_valid),
+    .m_axis_out_tdata(in_data),
+    .m_axis_out_tvalid(in_valid),
+    .N_id_2_valid_o(peak_detected),
     .N_id_2_o(N_id_2)
 );
-
-assign peak_detected_debug_o = N_id_2_valid;
-
-// this delay line is needed because peak_detected goes high
-// at the end of SSS symbol plus some additional delay
-localparam DELAY_LINE_LEN = FFT_LEN == 256 ? 14 : (FFT_LEN == 512 ? 16 : 0);  // only defined for FFT_LEN 256 and 512 !
-reg [IN_DW-1:0] delay_line_data  [0 : DELAY_LINE_LEN - 1];
-reg             delay_line_valid [0 : DELAY_LINE_LEN - 1];
-always @(posedge clk_i) begin
-    if (!reset_ni) begin
-        for (integer i = 0; i < DELAY_LINE_LEN; i = i + 1) begin
-            delay_line_data[i] = '0;
-            delay_line_valid[i] = '0;
-        end
-    end else begin
-        delay_line_data[0] <= s_axis_in_tdata;
-        delay_line_valid[0] <= s_axis_in_tvalid;
-        for (integer i = 0; i < DELAY_LINE_LEN - 1; i = i + 1) begin
-            delay_line_data[i+1] <= delay_line_data[i];
-            delay_line_valid[i+1] <= delay_line_valid[i];
-        end
-    end
-end
 
 localparam SFN_MAX = 1023;
 localparam SUBFRAMES_PER_FRAME = 20;
@@ -162,11 +145,11 @@ frame_sync_i
     .clk_i(clk_i),
     .reset_ni(reset_ni),
     .N_id_2_i(N_id_2),
-    .N_id_2_valid_i(N_id_2_valid),
+    .N_id_2_valid_i(peak_detected),
     .ibar_SSB_i(),
     .ibar_SSB_valid_i(),
-    .s_axis_in_tdata(delay_line_data[DELAY_LINE_LEN - 1]),
-    .s_axis_in_tvalid(delay_line_valid[DELAY_LINE_LEN - 1]),
+    .s_axis_in_tdata(in_data),
+    .s_axis_in_tvalid(in_valid),
 
     .PSS_detector_mode_o(),
     .requested_N_id_2_o(),
@@ -210,7 +193,7 @@ SSS_detector_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
     .N_id_2_i(N_id_2),
-    .N_id_2_valid_i(N_id_2_valid),
+    .N_id_2_valid_i(peak_detected),
     .s_axis_in_tdata(m_axis_out_tdata), 
     .s_axis_in_tvalid(SSS_valid_o),
     .m_axis_out_tdata(m_axis_SSS_tdata),
