@@ -81,6 +81,7 @@ correlator(
     .reset_ni(reset_ni),
     .s_axis_in_tdata(m_axis_cic_tdata),
     .s_axis_in_tvalid(m_axis_cic_tvalid),
+    .enable_i(1'b1),
     .m_axis_out_tdata(correlator_tdata),
     .m_axis_out_tvalid(correlator_tvalid)
 );
