@@ -447,8 +447,8 @@ wire [1 : 0] N_id_2;
 wire [1 : 0] PSS_detector_mode;
 wire [1 : 0] requested_N_id_2;
 assign peak_detected_debug_o = N_id_2_valid;
-wire [IN_DW - 1 : 0] in_data;
-wire in_valid;
+wire [IN_DW - 1 : 0] pss_out_data;
+wire pss_out_valid;
 
 PSS_detector #(
     .IN_DW(IN_DW),
@@ -479,13 +479,13 @@ PSS_detector_i(
 
     .s_axis_cic_tdata(m_axis_cic_tdata),
     .s_axis_cic_tvalid(m_axis_cic_tvalid),
-    .s_axis_in_tdata(s_axis_in_tdata),
-    .s_axis_in_tvalid(s_axis_in_tvalid),    
+    .s_axis_in_tdata(mult_out_tdata),
+    .s_axis_in_tvalid(mult_out_tvalid),    
     .mode_i(PSS_detector_mode),
     .requested_N_id_2_i(requested_N_id_2),
 
-    .m_axis_out_tdata(in_data),
-    .m_axis_out_tvalid(in_valid),
+    .m_axis_out_tdata(pss_out_data),
+    .m_axis_out_tvalid(pss_out_valid),
     .N_id_2_valid_o(N_id_2_valid),
     .N_id_2_o(N_id_2),
     .CFO_DDS_inc_o(CFO_DDS_inc),
@@ -567,8 +567,8 @@ frame_sync_i
     .N_id_2_valid_i(N_id_2_valid),
     .ibar_SSB_i(ibar_SSB),
     .ibar_SSB_valid_i(ibar_SSB_valid),
-    .s_axis_in_tdata(in_data),
-    .s_axis_in_tvalid(in_valid),
+    .s_axis_in_tdata(pss_out_data),
+    .s_axis_in_tvalid(pss_out_valid),
 
     .PSS_detector_mode_o(PSS_detector_mode),
     .requested_N_id_2_o(requested_N_id_2),

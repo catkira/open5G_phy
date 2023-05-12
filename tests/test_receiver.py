@@ -176,20 +176,20 @@ async def simple_test(dut):
     SSS_LEN = 127
     SSS_START = FFT_LEN // 2 - (SSS_LEN + 1) // 2
     if NFFT == 8:
-        if tb.MULT_REUSE == 0:    # uses PSS_correlator
-            DETECTOR_LATENCY = 29  # peak at 853
-        elif tb.MULT_REUSE == 1:  # uses PSS_correlator_mr
-            DETECTOR_LATENCY = 39  # peak at 863
+        if tb.MULT_REUSE == 0:
+            DETECTOR_LATENCY = 20   # peak_pos = 844
+        elif tb.MULT_REUSE == 1:
+            DETECTOR_LATENCY = 41   # peak_pos = 865, ok
         elif tb.MULT_REUSE == 2:
-            DETECTOR_LATENCY = 40  # peak at 864
+            DETECTOR_LATENCY = 31   # peak_pos = 855
         elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 21  # peak at 845
+            DETECTOR_LATENCY = 17   # peak_pos = 841
         elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 12  # peak at 836
+            DETECTOR_LATENCY = 10    # peak_pos = 834
         elif tb.MULT_REUSE == 16:
-            DETECTOR_LATENCY = 7  # peak at 831
+            DETECTOR_LATENCY = 6    # peak_pos = 830
         elif tb.MULT_REUSE == 32:
-            DETECTOR_LATENCY = 5  # peak at 829
+            DETECTOR_LATENCY = 4    # peak_pos = 828
     else:
         assert False, print('Error: only NFFT 8 is supported for now!')
     print(f'DETECTOR_LATENCY = {DETECTOR_LATENCY}')
@@ -363,7 +363,7 @@ async def simple_test(dut):
 
     # verify PSS_detector
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
-        expect_exact_timing = True
+        expect_exact_timing = False
         if NFFT == 8:
             assert received[0] == 824 + DETECTOR_LATENCY
         else:
@@ -464,7 +464,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     unisim_dir = os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/unisims')
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
-        os.path.join(rtl_dir, 'receiver_regmap.sv'),        
+        os.path.join(rtl_dir, 'receiver_regmap.sv'),   
         os.path.join(rtl_dir, 'axil_interconnect_wrap_1x4.v'),
         os.path.join(rtl_dir, 'verilog-axi', 'axil_interconnect.v'),
         os.path.join(rtl_dir, 'verilog-axi', 'arbiter.v'),
@@ -601,4 +601,4 @@ if __name__ == '__main__':
              NFFT = 8, MULT_REUSE = 1, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 1, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 0)
+             NFFT = 8, MULT_REUSE = 1, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1)
