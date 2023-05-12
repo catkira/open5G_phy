@@ -230,7 +230,7 @@ always @(posedge clk_i) begin
                 SSB_start_o <= '0;
                 find_SSB <= '0;                
                 if (N_id_2_valid_i) begin
-                    sample_cnt <= 1;
+                    sample_cnt <= 0;
                     out_valid <= s_axis_in_tvalid;
                     // SSB_pattern for case A is [2, 8, 16, 22]
                     // whether we are on symbol 2 or symbol 8 depends on ibar_SSB

@@ -466,7 +466,10 @@ always @(posedge clk_i) begin
     end
 end
 
-localparam PEAK_DELAY_LIMIT = 128; // discard first 128 peaks
+// discard first 129 peaks
+// TODO: why not 128 ??
+localparam PEAK_DELAY_LIMIT = 129; 
+
 reg [10 : 0] peak_delay;
 always @(posedge clk_i) begin
     if (!reset_ni) peak_delay <= '0;
@@ -478,7 +481,7 @@ always @(posedge clk_i) peak_valid_f <= (!reset_ni) ? '0 : peak_valid && (peak_d
 
 reg [2 : 0] state;
 wire peak_fifo_valid_out;
-wire data_fifo_ready = (peak_fifo_valid_out && (state == 0)) || (state == 2);
+wire data_fifo_ready = (peak_fifo_valid_out && (state == 2)) || (state == 0);
 localparam WAIT_CNT_LEN = $clog2(MULT_REUSE >> 2) > 0 ? $clog2(MULT_REUSE >> 2) : 1;
 reg [WAIT_CNT_LEN - 1 : 0] wait_cnt;
 always @(posedge clk_i) begin
@@ -516,7 +519,7 @@ always @(posedge clk_i) begin
         endcase
     end
 end
-wire peak_fifo_ready = (state == 0) && (data_fifo_valid_out);
+wire peak_fifo_ready = (state == 2) && (data_fifo_valid_out);
 
 wire [2 : 0] peak_fifo_out;
 AXIS_FIFO #(
