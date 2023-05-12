@@ -157,7 +157,6 @@ if (PSS_CORRELATOR_MR) begin
         .TAP_DW(TAP_DW),
         .PSS_LEN(PSS_LEN),
         .PSS_LOCAL(PSS_LOCAL),
-        .ALGO(ALGO),
         .MULT_REUSE(MULT_REUSE)
     )
     correlator(
@@ -165,6 +164,7 @@ if (PSS_CORRELATOR_MR) begin
         .reset_ni(reset_ni),
         .s_axis_in_tdata(m_axis_cic_tdata),
         .s_axis_in_tvalid(m_axis_cic_tvalid),
+        .enable_i(1'b1),
         .m_axis_out_tdata(correlator_tdata),
         .m_axis_out_tvalid(correlator_tvalid),
         .C0_o(C0),
@@ -184,6 +184,7 @@ end else begin
         .reset_ni(reset_ni),
         .s_axis_in_tdata(m_axis_cic_tdata),
         .s_axis_in_tvalid(m_axis_cic_tvalid),
+        .enable_i(1'b1),
         .m_axis_out_tdata(correlator_tdata),
         .m_axis_out_tvalid(correlator_tvalid),
         .C0_o(C0),
