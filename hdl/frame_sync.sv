@@ -58,12 +58,18 @@ reg [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_number;
 reg [SYMBOL_NUMBER_WIDTH - 1 : 0] sym_cnt;
 reg [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len;
 reg [IN_DW - 1 : 0] s_axis_in_tdata_f;
+reg out_valid;
+reg out_last;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         m_axis_out_tdata <= '0;
         m_axis_out_tuser <= '0;
         s_axis_in_tdata_f <= '0;
+        m_axis_out_tvalid <= '0;
+        m_axis_out_tlast <= '0;
     end else begin
+        m_axis_out_tvalid <= out_valid;
+        m_axis_out_tlast <= out_last;
         s_axis_in_tdata_f <= s_axis_in_tdata;
         m_axis_out_tdata <= s_axis_in_tdata_f;
         m_axis_out_tuser <= {sfn, subframe_number, sym_cnt, current_CP_len};
@@ -214,8 +220,8 @@ always @(posedge clk_i) begin
         find_SSB <= '0;
         SSB_start_o <= '0;
         syms_since_last_SSB <= '0;
-        m_axis_out_tvalid <= '0;
-        m_axis_out_tlast <= '0;
+        out_valid <= '0;
+        out_last <= '0;
         sample_cnt_mismatch <= '0;
         reset_fft_no <= '0;
     end else begin
@@ -225,7 +231,7 @@ always @(posedge clk_i) begin
                 find_SSB <= '0;                
                 if (N_id_2_valid_i) begin
                     sample_cnt <= 1;
-                    m_axis_out_tvalid <= s_axis_in_tvalid;
+                    out_valid <= s_axis_in_tvalid;
                     // SSB_pattern for case A is [2, 8, 16, 22]
                     // whether we are on symbol 2 or symbol 8 depends on ibar_SSB
                     // assume for now that we are at symbol 2
@@ -239,7 +245,7 @@ always @(posedge clk_i) begin
                     reset_fft_no <= 1;
                 end else begin
                     // SSB_start_o <= '0;
-                    m_axis_out_tvalid <= '0;
+                    out_valid <= '0;
                     reset_fft_no <= '0;
                 end
             end
@@ -280,11 +286,14 @@ always @(posedge clk_i) begin
                     state <= SYNCED;
                 end
 
-                m_axis_out_tvalid <= s_axis_in_tvalid;
+                out_valid <= s_axis_in_tvalid;
 
                 if (s_axis_in_tvalid) begin
+                    if (sample_cnt == (FFT_LEN + current_CP_len - 2))   out_last <= 1;
+                    else out_last <= 0;
+
                     if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
-                        m_axis_out_tlast <= 1;
+                        // out_last <= 1;
 
                         if (sym_cnt == SYM_PER_SF - 1) begin
                             sym_cnt <= 0;
@@ -310,7 +319,7 @@ always @(posedge clk_i) begin
                         else                                            syms_since_last_SSB <= syms_since_last_SSB + 1;                        
                     end else begin
                         sample_cnt <= sample_cnt + 1;
-                        m_axis_out_tlast <= '0;
+                        // out_last <= '0;
                     end
                 end else if (N_id_2_valid_i) begin
                     syms_since_last_SSB <= 0;                    
@@ -372,13 +381,16 @@ always @(posedge clk_i) begin
                 if (N_id_2_valid_i && find_SSB) SSB_start_o <= '1;
                 else                            SSB_start_o <= '0;
 
-                m_axis_out_tvalid <= s_axis_in_tvalid;
+                out_valid <= s_axis_in_tvalid;
 
                 // set sfn, subframe_number, sym_cnt, sample_cnt
-                // set m_axis_out_tlast
+                // set out_last
                 if (s_axis_in_tvalid) begin
+                    if (sample_cnt == (FFT_LEN + current_CP_len - 2))   out_last <= 1;
+                    else out_last <= 0;
+
                     if (sample_cnt != 0 && ((sample_cnt == (FFT_LEN + current_CP_len - 1)) || ((sample_cnt < (FFT_LEN + current_CP_len - 1)) && find_SSB && N_id_2_valid_i))) begin
-                        m_axis_out_tlast <= 1;
+                        // out_last <= 1;
                         if (sym_cnt == SYM_PER_SF - 1) begin
                             sym_cnt <= 0;
                             sym_cnt_next = '0;
@@ -403,7 +415,7 @@ always @(posedge clk_i) begin
                         else                syms_since_last_SSB <= syms_since_last_SSB + 1;
                     end else begin
                         sample_cnt <= sample_cnt + 1;
-                        m_axis_out_tlast <= '0;
+                        // out_last <= '0;
                         if (find_SSB && N_id_2_valid_i) syms_since_last_SSB <= '0;
                     end
                 end else if (find_SSB && N_id_2_valid_i) begin

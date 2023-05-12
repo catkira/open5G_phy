@@ -121,13 +121,13 @@ async def simple_test(dut):
         elif tb.MULT_REUSE == 2:
             DETECTOR_LATENCY = 31   # peak_pos = 855, ok
         elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 17   # peak_pos = 841
+            DETECTOR_LATENCY = 17   # peak_pos = 841, ok
         elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 9    # peak_pos = 833
+            DETECTOR_LATENCY = 10    # peak_pos = 834, ok
         elif tb.MULT_REUSE == 16:
-            DETECTOR_LATENCY = 6    # peak_pos = 830
+            DETECTOR_LATENCY = 6    # peak_pos = 830, ok
         elif tb.MULT_REUSE == 32:
-            DETECTOR_LATENCY = 4    # peak_pos = 828
+            DETECTOR_LATENCY = 4    # peak_pos = 828, ok
     elif NFFT == 9:
         if tb.MULT_REUSE == 0:
             DETECTOR_LATENCY = 20
@@ -437,4 +437,4 @@ if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
     # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 0, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 32, INITIAL_DETECTION_SHIFT = 4)
