@@ -25,6 +25,7 @@ module PSS_detector
     parameter VARIABLE_DETECTION_FACTOR = 0,
     parameter INITIAL_DETECTION_SHIFT = 3,
     parameter INITIAL_CFO_MODE = 0,
+    parameter CIC_RATE = 2,
 
     localparam SAMPLE_RATE = 1920000,
     localparam AXI_ADDRESS_WIDTH = 11
@@ -490,6 +491,7 @@ wire peak_fifo_valid_out;
 wire data_fifo_ready = (peak_fifo_valid_out && (state == 2)) || (state == 0);
 localparam WAIT_CNT_LEN = $clog2(MULT_REUSE >> 2) > 0 ? $clog2(MULT_REUSE >> 2) : 1;
 reg [WAIT_CNT_LEN - 1 : 0] wait_cnt;
+// TODO: simplift this FSM and support CIC_RATE > 2 (NFFT = 9)
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         state <= '0;
@@ -498,7 +500,7 @@ always @(posedge clk_i) begin
         case (state)
             0 : begin
                 if (data_fifo_valid_out && data_fifo_ready) begin
-                    if (MULT_REUSE <= 2) state <= 2;
+                    if (MULT_REUSE <= 2) state <= CIC_RATE > 1 ? 2 : 0;
                     else begin
                         state <= 1;
                         wait_cnt <= (MULT_REUSE >> 2) - 1;
@@ -506,7 +508,7 @@ always @(posedge clk_i) begin
                 end
             end
             1 : begin
-                if (wait_cnt == 0) state <= 2;
+                if (wait_cnt == 0) state <= CIC_RATE > 1 ? 2 : 0;
                 else wait_cnt <= wait_cnt - 1;
             end
             2 : begin
@@ -525,7 +527,7 @@ always @(posedge clk_i) begin
         endcase
     end
 end
-wire peak_fifo_ready = (state == 2) && (data_fifo_valid_out);
+wire peak_fifo_ready = ((state == 2) && (data_fifo_valid_out) && CIC_RATE > 1) || ((CIC_RATE == 1) && data_fifo_valid_out);
 
 wire [2 : 0] peak_fifo_out;
 AXIS_FIFO #(

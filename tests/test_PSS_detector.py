@@ -104,7 +104,9 @@ async def simple_test(dut):
         await RisingEdge(dut.clk_i)
         data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
               + ((int(waveform[in_counter].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
-        dut.s_axis_in_tdata.value = data
+        dut.s_axis_cic_tdata.value = data
+        dut.s_axis_cic_tvalid.value = 1
+        dut.s_axis_in_tdata.value = 0 # just dummy data
         dut.s_axis_in_tvalid.value = 1
         tb.PSS_correlator_model.set_data(data)
         in_counter += 1
@@ -130,7 +132,7 @@ async def simple_test(dut):
             peak_data[i] = 1
         ax2.plot(peak_data)
         plt.show()
-    assert 427 in received
+    assert 429 in received
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
 @pytest.mark.parametrize("ALGO", [0, 1])
@@ -151,6 +153,7 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
 
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
         os.path.join(rtl_dir, 'div.sv'),
         os.path.join(rtl_dir, 'atan.sv'),
         os.path.join(rtl_dir, 'atan2.sv'),
@@ -178,6 +181,7 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
     parameters['VARIABLE_NOISE_LIMIT'] = VARIABLE_NOISE_LIMIT
     parameters['VARIABLE_DETECTION_FACTOR'] = VARIABLE_DETECTION_FACTOR
+    parameters['CIC_RATE'] = 1
     parameters_no_taps = parameters.copy()
     folder = '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     sim_build='sim_build/' + folder
