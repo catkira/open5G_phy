@@ -339,10 +339,10 @@ always @(posedge clk_i) begin
 
                 if (find_SSB) begin
                     if (N_id_2_valid_i) begin
-                        // expected sample_cnt is 0, if actual sample_cnt deviates +-1, perform realignment
+                        // expected sample_cnt for the next SSB is the last sample of the previous symbol, if actual sample_cnt deviates +-1, perform realignment
                         $display("frame_sync: SSB at sfn = %d, subframe = %d, symbol = %d, sample = %d", sfn, subframe_number, sym_cnt, sample_cnt);
                         $display("frame_sync: is_SSB_location = %d", is_SSB_location(sfn, subframe_number, sym_cnt, sample_cnt, 0, current_CP_len, 0));
-                        if (sample_cnt == 0) begin
+                        if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
                             sample_cnt_mismatch <= 0;
                             // SSB arrives as expected, no STO correction needed
                             $display("frame_sync: SSB is on time");
@@ -440,7 +440,7 @@ always @(posedge clk_i) begin
                 // first symbol of SSB can arrive a bit earlier or later,
                 // therefore need a special check for this case
                 if (find_SSB) begin
-                    if ((state != WAIT_FOR_SSB)&& N_id_2_valid_i) begin
+                    if ((state != WAIT_FOR_SSB) && N_id_2_valid_i) begin
                         symbol_state <= 1;
                         symbol_start_o <= 1;
                     end
