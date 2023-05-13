@@ -177,19 +177,19 @@ async def simple_test(dut):
     SSS_START = FFT_LEN // 2 - (SSS_LEN + 1) // 2
     if NFFT == 8:
         if tb.MULT_REUSE == 0:
-            DETECTOR_LATENCY = 20   # peak_pos = 844
+            DETECTOR_LATENCY = 31   # peak_pos = 855, ok
         elif tb.MULT_REUSE == 1:
             DETECTOR_LATENCY = 41   # peak_pos = 865, ok
         elif tb.MULT_REUSE == 2:
-            DETECTOR_LATENCY = 31   # peak_pos = 855
+            DETECTOR_LATENCY = 42   # peak_pos = 866
         elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 17   # peak_pos = 841
+            DETECTOR_LATENCY = 28   # peak_pos = 852
         elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 10    # peak_pos = 834
+            DETECTOR_LATENCY = 21   # peak_pos = 845
         elif tb.MULT_REUSE == 16:
-            DETECTOR_LATENCY = 6    # peak_pos = 830
+            DETECTOR_LATENCY = 17   # peak_pos = 841
         elif tb.MULT_REUSE == 32:
-            DETECTOR_LATENCY = 4    # peak_pos = 828
+            DETECTOR_LATENCY = 15   # peak_pos = 839
     else:
         assert False, print('Error: only NFFT 8 is supported for now!')
     print(f'DETECTOR_LATENCY = {DETECTOR_LATENCY}')
@@ -597,9 +597,9 @@ def test_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    if True:
+    if False:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
              NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 1, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1)
+             NFFT = 8, MULT_REUSE = 2, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1)
