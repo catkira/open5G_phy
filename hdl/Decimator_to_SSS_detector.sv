@@ -42,8 +42,6 @@ module Decimator_to_SSS_detector
     output          [$clog2(N_id_MAX) - 1 : 0]      N_id_o,
     
     // debug outputs
-    output  wire    [IN_DW - 1 : 0]                 m_axis_cic_debug_tdata,
-    output  wire                                    m_axis_cic_debug_tvalid,
     output                                          peak_detected_debug_o,
     output  wire    [15:0]                          sync_wait_counter_debug_o,
     output  reg                                     fft_demod_PBCH_start_o,
@@ -52,42 +50,6 @@ module Decimator_to_SSS_detector
 
 wire peak_detected;
 assign peak_detected_debug_o = peak_detected;
-
-wire [IN_DW - 1 : 0] m_axis_cic_tdata;
-wire                 m_axis_cic_tvalid;
-assign m_axis_cic_debug_tdata = m_axis_cic_tdata;
-assign m_axis_cic_debug_tvalid = m_axis_cic_tvalid;
-
-cic_d #(
-    .INP_DW(IN_DW/2),
-    .OUT_DW(IN_DW/2),
-    .CIC_R(CIC_RATE),
-    .CIC_N(3),
-    .VAR_RATE(0)
-)
-cic_real(
-    .clk(clk_i),
-    .reset_n(reset_ni),
-    .s_axis_in_tdata(s_axis_in_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
-    .s_axis_in_tvalid(s_axis_in_tvalid),
-    .m_axis_out_tdata(m_axis_cic_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
-    .m_axis_out_tvalid(m_axis_cic_tvalid)
-);
-
-cic_d #(
-    .INP_DW(IN_DW / 2),
-    .OUT_DW(IN_DW / 2),
-    .CIC_R(CIC_RATE),
-    .CIC_N(3),
-    .VAR_RATE(0)
-)
-cic_imag(
-    .clk(clk_i),
-    .reset_n(reset_ni),
-    .s_axis_in_tdata(s_axis_in_tdata[IN_DW - 1 -: IN_DW / 2]),
-    .s_axis_in_tvalid(s_axis_in_tvalid),
-    .m_axis_out_tdata(m_axis_cic_tdata[IN_DW - 1 -: IN_DW / 2])
-);
 
 reg N_id_2_valid;
 wire [1 : 0] N_id_2;
@@ -110,8 +72,6 @@ PSS_detector #(
 PSS_detector_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
-    .s_axis_cic_tdata(m_axis_cic_tdata),
-    .s_axis_cic_tvalid(m_axis_cic_tvalid),
     .s_axis_in_tdata(s_axis_in_tdata),
     .s_axis_in_tvalid(s_axis_in_tvalid),
 

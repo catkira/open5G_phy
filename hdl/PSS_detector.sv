@@ -33,8 +33,8 @@ module PSS_detector
 (
     input                                       clk_i,
     input                                       reset_ni,
-    input   wire           [IN_DW-1:0]          s_axis_cic_tdata,
-    input                                       s_axis_cic_tvalid,
+    // input   wire           [IN_DW-1:0]          s_axis_cic_tdata,
+    // input                                       s_axis_cic_tvalid,
     input   wire           [IN_DW-1:0]          s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
 
@@ -104,6 +104,44 @@ assign CFO_mode_o = cfo_mode;
 localparam CFO_MODE_AUTO = 1'b0;
 localparam CFO_MODE_MANUAL = 1'b1;
 wire peak_valid;
+wire [IN_DW - 1 : 0] cic_tdata;
+wire cic_tvalid;
+
+if (CIC_RATE > 1) begin
+    cic_d #(
+        .INP_DW(IN_DW/2),
+        .OUT_DW(IN_DW/2),
+        .CIC_R(CIC_RATE),
+        .CIC_N(3),
+        .VAR_RATE(0)
+    )
+    cic_real(
+        .clk(clk_i),
+        .reset_n(reset_ni),
+        .s_axis_in_tdata(s_axis_in_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
+        .s_axis_in_tvalid(s_axis_in_tvalid),
+        .m_axis_out_tdata(cic_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
+        .m_axis_out_tvalid(cic_tvalid)
+    );
+
+    cic_d #(
+        .INP_DW(IN_DW / 2),
+        .OUT_DW(IN_DW / 2),
+        .CIC_R(CIC_RATE),
+        .CIC_N(3),
+        .VAR_RATE(0)
+    )
+    cic_imag(
+        .clk(clk_i),
+        .reset_n(reset_ni),
+        .s_axis_in_tdata(s_axis_in_tdata[IN_DW - 1 -: IN_DW / 2]),
+        .s_axis_in_tvalid(s_axis_in_tvalid),
+        .m_axis_out_tdata(cic_tdata[IN_DW - 1 -: IN_DW / 2])
+    );
+end else begin
+    assign cic_tdata = s_axis_in_tdata;
+    assign cic_tvalid = cic_tvalid;
+end
 
 reg [31 : 0] peak_counter_0;
 reg [31 : 0] peak_counter_1;
@@ -142,8 +180,8 @@ if (MULT_REUSE == 0) begin
     correlator_0_i(
         .clk_i(clk_i),
         .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_cic_tdata),
-        .s_axis_in_tvalid(s_axis_cic_tvalid),
+        .s_axis_in_tdata(cic_tdata),
+        .s_axis_in_tvalid(cic_tvalid),
         .enable_i(correlator_en),
         .C0_o(C0[0]),
         .C1_o(C1[0]),
@@ -166,8 +204,8 @@ if (MULT_REUSE == 0) begin
     correlator_1_i(
         .clk_i(clk_i),
         .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_cic_tdata),
-        .s_axis_in_tvalid(s_axis_cic_tvalid),
+        .s_axis_in_tdata(cic_tdata),
+        .s_axis_in_tvalid(cic_tvalid),
         .enable_i(correlator_en),
         .C0_o(C0[1]),
         .C1_o(C1[1]),
@@ -190,8 +228,8 @@ if (MULT_REUSE == 0) begin
     correlator_2_i(
         .clk_i(clk_i),
         .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_cic_tdata),
-        .s_axis_in_tvalid(s_axis_cic_tvalid),
+        .s_axis_in_tdata(cic_tdata),
+        .s_axis_in_tvalid(cic_tvalid),
         .enable_i(correlator_en),
         .C0_o(C0[2]),
         .C1_o(C1[2]),
@@ -215,8 +253,8 @@ end else begin
     correlator_0_i(
         .clk_i(clk_i),
         .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_cic_tdata),
-        .s_axis_in_tvalid(s_axis_cic_tvalid),
+        .s_axis_in_tdata(cic_tdata),
+        .s_axis_in_tvalid(cic_tvalid),
         .enable_i(correlator_en),
         .C0_o(C0[0]),
         .C1_o(C1[0]),
@@ -239,8 +277,8 @@ end else begin
     correlator_1_i(
         .clk_i(clk_i),
         .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_cic_tdata),
-        .s_axis_in_tvalid(s_axis_cic_tvalid),
+        .s_axis_in_tdata(cic_tdata),
+        .s_axis_in_tvalid(cic_tvalid),
         .enable_i(correlator_en),
         .C0_o(C0[1]),
         .C1_o(C1[1]),
@@ -263,8 +301,8 @@ end else begin
     correlator_2_i(
         .clk_i(clk_i),
         .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_cic_tdata),
-        .s_axis_in_tvalid(s_axis_cic_tvalid),
+        .s_axis_in_tdata(cic_tdata),
+        .s_axis_in_tvalid(cic_tvalid),
         .enable_i(correlator_en),
         .C0_o(C0[2]),
         .C1_o(C1[2]),

@@ -105,8 +105,6 @@ module receiver
     input                                       s_axi_if_rready, 
     
     // debug outputs
-    output  wire    [IN_DW - 1 : 0]                 m_axis_cic_debug_tdata,
-    output  wire                                    m_axis_cic_debug_tvalid,
     output  wire    [OUT_DW - 1 : 0]                m_axis_correlator_debug_tdata,
     output  wire                                    m_axis_correlator_debug_tvalid,
     output  wire    [15:0]                          sync_wait_counter_debug_o,
@@ -186,13 +184,6 @@ wire            [ 1 : 0]                        s_axi_rx_rresp;
 wire                                            s_axi_rx_rvalid;
 wire                                            s_axi_rx_rready;
 // ------------------------------------------------------------------
-
-
-wire [IN_DW - 1 : 0] m_axis_cic_tdata;
-wire                 m_axis_cic_tvalid;
-assign m_axis_cic_debug_tdata = m_axis_cic_tdata;
-assign m_axis_cic_debug_tvalid = m_axis_cic_tvalid;
-
 
 reg [COMPL_MULT_OUT_DW - 1 : 0] mult_out_tdata;
 reg                             mult_out_tvalid;
@@ -400,43 +391,6 @@ complex_multiplier_i(
     .m_axis_dout_tvalid(mult_out_tvalid)
 );
 
-cic_d #(
-    .INP_DW(IN_DW/2),
-    .OUT_DW(IN_DW/2),
-    .CIC_R(CIC_RATE),
-    .CIC_N(3),
-    .VAR_RATE(0)
-)
-cic_real(
-    .clk(clk_i),
-    .reset_n(reset_ni),
-
-    .s_axis_in_tdata(mult_out_tdata[COMPL_MULT_OUT_DW / 2 - 1 -: COMPL_MULT_OUT_DW / 2]),
-    .s_axis_in_tvalid(mult_out_tvalid),
-
-    .m_axis_out_tdata(m_axis_cic_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
-    .m_axis_out_tvalid(m_axis_cic_tvalid)
-);
-
-cic_d #(
-    .INP_DW(IN_DW / 2),
-    .OUT_DW(IN_DW / 2),
-    .CIC_R(CIC_RATE),
-    .CIC_N(3),
-    .VAR_RATE(0)
-)
-cic_imag(
-    .clk(clk_i),
-    .reset_n(reset_ni),
-
-    .s_axis_in_tdata(mult_out_tdata[COMPL_MULT_OUT_DW - 1 -: COMPL_MULT_OUT_DW / 2]),
-    .s_axis_in_tvalid(mult_out_tvalid),
-
-    .m_axis_out_tdata(m_axis_cic_tdata[IN_DW - 1 -: IN_DW / 2]),
-    .m_axis_out_tvalid()
-);
-
-
 wire [OUT_DW - 1 : 0] correlator_tdata;
 wire correlator_tvalid;
 assign m_axis_correlator_debug_tdata = correlator_tdata;
@@ -477,8 +431,6 @@ PSS_detector_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
 
-    .s_axis_cic_tdata(m_axis_cic_tdata),
-    .s_axis_cic_tvalid(m_axis_cic_tvalid),
     .s_axis_in_tdata(mult_out_tdata),
     .s_axis_in_tvalid(mult_out_tvalid),    
     .mode_i(PSS_detector_mode),
