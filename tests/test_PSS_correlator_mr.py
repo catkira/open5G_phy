@@ -108,6 +108,7 @@ async def simple_test(dut):
     C0 = []
     C1 = []
     C_DW = int(tb.IN_DW + tb.TAP_DW + 2 + 2*np.ceil(np.log2(tb.PSS_LEN)))
+    dut.enable_i.value = 1
     while rx_cnt < num_items:
         await RisingEdge(dut.clk_i)
         if clk_div < (clk_decimation - 1):
