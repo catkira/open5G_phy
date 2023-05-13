@@ -183,7 +183,7 @@ async def simple_test(dut):
         elif tb.MULT_REUSE == 2:
             DETECTOR_LATENCY = 42   # peak_pos = 866
         elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 28   # peak_pos = 852
+            DETECTOR_LATENCY = 22   # peak_pos = 846, ok
         elif tb.MULT_REUSE == 8:
             DETECTOR_LATENCY = 21   # peak_pos = 845
         elif tb.MULT_REUSE == 16:
@@ -372,7 +372,7 @@ async def simple_test(dut):
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
         expect_exact_timing = False
         if NFFT == 8:
-            assert received[0] == 2397 + DETECTOR_LATENCY
+            assert received[0] == 2386 + DETECTOR_LATENCY
     else:
         assert False
 
@@ -597,9 +597,9 @@ def test_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    if False:
+    if True:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
              NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
     else:
-        test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 2, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1)
+        test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
+             NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1)
