@@ -205,7 +205,8 @@ localparam [1 : 0] SYNCED = 2;
 localparam FIND_EARLY_SAMPLES = 4;
 reg signed [7 : 0] sample_cnt_mismatch;
 assign sample_cnt_mismatch_o = sample_cnt_mismatch;
-wire end_of_symbol = sample_cnt == (FFT_LEN + current_CP_len - 1);
+wire end_of_symbol_ = sample_cnt == (FFT_LEN + current_CP_len - 1);
+wire end_of_symbol = (end_of_symbol_ && !find_SSB) || (find_SSB && N_id_2_valid_i);
 wire end_of_subframe = end_of_symbol && (sym_cnt == SYM_PER_SF - 1);
 wire end_of_frame = end_of_symbol && (subframe_number == SUBFRAMES_PER_FRAME - 1);
 wire [$clog2(FFT_LEN + MAX_CP_LEN) - 1 : 0] sample_cnt_next = end_of_symbol ? '0 : sample_cnt + 1;
@@ -240,7 +241,6 @@ always @(posedge clk_i) begin
                     // whether we are on symbol 2 or symbol 8 depends on ibar_SSB
                     // assume for now that we are at symbol 2
                     // it might have to be corrected once ibar_SSB arrives
-                    // N_id_2_valid arrives here 1 symbol late, therefore start with 3 instead of 2
                     current_CP_len <= CP2_LEN;
                     sym_cnt <= 2;
                     state <= WAIT_FOR_IBAR;
@@ -327,7 +327,7 @@ always @(posedge clk_i) begin
                     if (N_id_2_valid_i) begin
                         // expected sample_cnt for the next SSB is the last sample of the previous symbol, if actual sample_cnt deviates +-1, perform realignment
                         $display("frame_sync: SSB at sfn = %d, subframe = %d, symbol = %d, sample = %d", sfn, subframe_number, sym_cnt, sample_cnt);
-                        $display("frame_sync: is_SSB_location = %d", is_SSB_location(sfn, subframe_number, sym_cnt, sample_cnt, 0, current_CP_len, 0));
+                        $display("frame_sync: is_SSB_location = %d", is_SSB_location(sfn_next, subframe_number_next, sym_cnt_next, sample_cnt_next, 0, current_CP_len, 0));
                         if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
                             sample_cnt_mismatch <= 0;
                             // SSB arrives as expected, no STO correction needed
@@ -374,28 +374,17 @@ always @(posedge clk_i) begin
                 if (s_axis_in_tvalid) begin
                     out_last <= sample_cnt == (FFT_LEN + current_CP_len - 2);
 
-                    if ((end_of_symbol && !find_SSB) || (find_SSB && N_id_2_valid_i)) begin
-                        // out_last <= 1;
-                        if (sym_cnt == SYM_PER_SF - 1) begin
-                            sym_cnt <= 0;
-                            subframe_number <= subframe_number == SUBFRAMES_PER_FRAME - 1 ? 0 : subframe_number + 1;
-                            if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
-                                // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
-                                sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
-                            end
-                        end else begin
-                            sym_cnt <= sym_cnt + 1;
-                        end
-
-                        sample_cnt <= '0;
+                    if (end_of_symbol) begin
                         if ((sym_cnt_next == 0) || (sym_cnt_next == 7))     current_CP_len <= CP1_LEN;
                         else                                                current_CP_len <= CP2_LEN;
                         
                         if (find_SSB && N_id_2_valid_i) syms_since_last_SSB <= '0;
-                        else                syms_since_last_SSB <= syms_since_last_SSB + 1;
-                    end else begin
-                        sample_cnt <= sample_cnt + 1;
+                        else                            syms_since_last_SSB <= syms_since_last_SSB + 1;
                     end
+                    sample_cnt <= sample_cnt_next;
+                    sym_cnt <= sym_cnt_next;
+                    subframe_number <= subframe_number_next;
+                    sfn <= sfn_next;
                 end else if (N_id_2_valid_i) begin
                     $display("Error: N_id_2_valid_i is out of sync with s_axis_in_tvalid!");
                     $finish();
