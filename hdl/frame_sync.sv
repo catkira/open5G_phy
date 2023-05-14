@@ -152,7 +152,6 @@ end
 
 // This function is only used for debugging for now
 // assumes SSB pattern case A (TS 38.213)
-// N_id_2_valid arrives here 1 symbol late, therefore start with 3 instead of 2
 function is_SSB_location;
     input [SFN_WIDTH - 1 : 0] sfn;
     input [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe;
@@ -166,16 +165,16 @@ function is_SSB_location;
         else begin
             case (ibar_SSB)
                 0 : begin
-                    is_SSB_location = (sample_cnt == 0) && (sym == 3) && (subframe == 0);
+                    is_SSB_location = (sample_cnt == 0) && (sym == 2) && (subframe == 0);
                 end
                 1 : begin
-                    is_SSB_location = (sample_cnt == 0) && (sym == 9) && (subframe == 0);
+                    is_SSB_location = (sample_cnt == 0) && (sym == 8) && (subframe == 0);
                 end
                 2 : begin
-                    is_SSB_location = (sample_cnt == 0) && (sym == 3) && (subframe == 1);
+                    is_SSB_location = (sample_cnt == 0) && (sym == 2) && (subframe == 1);
                 end
                 3 : begin
-                    is_SSB_location = (sample_cnt == 0) && (sym == 9) && (subframe == 1);
+                    is_SSB_location = (sample_cnt == 0) && (sym == 8) && (subframe == 1);
                 end
             endcase
         end
@@ -322,7 +321,8 @@ always @(posedge clk_i) begin
                         // out_last <= '0;
                     end
                 end else if (N_id_2_valid_i) begin
-                    syms_since_last_SSB <= 0;                    
+                    $display("Error: N_id_2_valid_i is out of sync with s_axis_in_tvalid!");
+                    $finish();                  
                 end
 
                 if (N_id_2_valid_i) begin
@@ -418,8 +418,9 @@ always @(posedge clk_i) begin
                         // out_last <= '0;
                         if (find_SSB && N_id_2_valid_i) syms_since_last_SSB <= '0;
                     end
-                end else if (find_SSB && N_id_2_valid_i) begin
-                    syms_since_last_SSB <= '0;
+                end else if (N_id_2_valid_i) begin
+                    $display("Error: N_id_2_valid_i is out of sync with s_axis_in_tvalid!");
+                    $finish();
                 end
             end
         endcase
