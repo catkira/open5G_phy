@@ -33,8 +33,6 @@ module PSS_detector
 (
     input                                       clk_i,
     input                                       reset_ni,
-    // input   wire           [IN_DW-1:0]          s_axis_cic_tdata,
-    // input                                       s_axis_cic_tvalid,
     input   wire           [IN_DW-1:0]          s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
 
@@ -140,7 +138,7 @@ if (CIC_RATE > 1) begin
     );
 end else begin
     assign cic_tdata = s_axis_in_tdata;
-    assign cic_tvalid = cic_tvalid;
+    assign cic_tvalid = s_axis_in_tvalid;
 end
 
 reg [31 : 0] peak_counter_0;
