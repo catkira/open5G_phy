@@ -202,17 +202,22 @@ assign state_o = state;
 localparam [1 : 0] WAIT_FOR_SSB = 0;
 localparam [1 : 0] WAIT_FOR_IBAR = 1;
 localparam [1 : 0] SYNCED = 2;
-reg [SYMBOL_NUMBER_WIDTH - 1 : 0] sym_cnt_next;
 localparam FIND_EARLY_SAMPLES = 4;
 reg signed [7 : 0] sample_cnt_mismatch;
 assign sample_cnt_mismatch_o = sample_cnt_mismatch;
+wire end_of_symbol = sample_cnt == (FFT_LEN + current_CP_len - 1);
+wire end_of_subframe = end_of_symbol && (sym_cnt == SYM_PER_SF - 1);
+wire end_of_frame = end_of_symbol && (subframe_number == SUBFRAMES_PER_FRAME - 1);
+wire [$clog2(FFT_LEN + MAX_CP_LEN) - 1 : 0] sample_cnt_next = end_of_symbol ? '0 : sample_cnt + 1;
+wire [SYMBOL_NUMBER_WIDTH - 1 : 0] sym_cnt_next = end_of_symbol ? (end_of_subframe ? 0 : sym_cnt + 1) : sym_cnt;
+wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_number_next = end_of_subframe ? (end_of_frame ? 0 : subframe_number + 1) : subframe_number;
+wire [SFN_WIDTH - 1 : 0] sfn_next = end_of_symbol ? ((end_of_frame && (sfn == SFN_MAX)) - 1 ? 0 : sfn + 1) : sfn;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         sfn <= '0;
         subframe_number <= '0;
         sym_cnt <= '0;
-        sym_cnt_next = '0;
         sample_cnt <= '0;
         state <= WAIT_FOR_SSB;
         current_CP_len <= CP2_LEN;
@@ -288,38 +293,19 @@ always @(posedge clk_i) begin
                 out_valid <= s_axis_in_tvalid;
 
                 if (s_axis_in_tvalid) begin
-                    if (sample_cnt == (FFT_LEN + current_CP_len - 2))   out_last <= 1;
-                    else out_last <= 0;
+                    out_last <= sample_cnt == (FFT_LEN + current_CP_len - 2);
 
                     if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
-                        // out_last <= 1;
-
-                        if (sym_cnt == SYM_PER_SF - 1) begin
-                            sym_cnt <= 0;
-                            sym_cnt_next = 0;
-                            subframe_number <= subframe_number == SYM_PER_SF - 1 ? 0 : subframe_number + 1;
-                            if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
-                                subframe_number <= '0;
-                                // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
-                                sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
-                            end else begin
-                                subframe_number <= subframe_number + 1;
-                            end
-                        end else begin
-                            sym_cnt <= sym_cnt + 1;
-                            sym_cnt_next = sym_cnt + 1;
-                        end
-
-                        sample_cnt <= '0;
                         if ((sym_cnt_next == 0) || (sym_cnt_next == 7))   current_CP_len <= CP1_LEN;
                         else                                              current_CP_len <= CP2_LEN;
                         
                         if ((syms_since_last_SSB == SYMS_BTWN_SSB - 1) || N_id_2_valid_i)   syms_since_last_SSB <= 0;
                         else                                            syms_since_last_SSB <= syms_since_last_SSB + 1;                        
-                    end else begin
-                        sample_cnt <= sample_cnt + 1;
-                        // out_last <= '0;
                     end
+                    sample_cnt <= sample_cnt_next;
+                    sym_cnt <= sym_cnt_next;
+                    subframe_number <= subframe_number_next;
+                    sfn <= sfn_next;
                 end else if (N_id_2_valid_i) begin
                     $display("Error: N_id_2_valid_i is out of sync with s_axis_in_tvalid!");
                     $finish();                  
@@ -386,25 +372,19 @@ always @(posedge clk_i) begin
                 // set sfn, subframe_number, sym_cnt, sample_cnt
                 // set out_last
                 if (s_axis_in_tvalid) begin
-                    if (sample_cnt == (FFT_LEN + current_CP_len - 2))   out_last <= 1;
-                    else out_last <= 0;
+                    out_last <= sample_cnt == (FFT_LEN + current_CP_len - 2);
 
-                    if (sample_cnt != 0 && ((sample_cnt == (FFT_LEN + current_CP_len - 1)) || ((sample_cnt < (FFT_LEN + current_CP_len - 1)) && find_SSB && N_id_2_valid_i))) begin
+                    if ((end_of_symbol && !find_SSB) || (find_SSB && N_id_2_valid_i)) begin
                         // out_last <= 1;
                         if (sym_cnt == SYM_PER_SF - 1) begin
                             sym_cnt <= 0;
-                            sym_cnt_next = '0;
-                            subframe_number <= subframe_number == SYM_PER_SF - 1 ? 0 : subframe_number + 1;
+                            subframe_number <= subframe_number == SUBFRAMES_PER_FRAME - 1 ? 0 : subframe_number + 1;
                             if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
-                                subframe_number <= '0;
                                 // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
                                 sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
-                            end else begin
-                                subframe_number <= subframe_number + 1;
                             end
                         end else begin
                             sym_cnt <= sym_cnt + 1;
-                            sym_cnt_next = sym_cnt + 1;
                         end
 
                         sample_cnt <= '0;
@@ -415,8 +395,6 @@ always @(posedge clk_i) begin
                         else                syms_since_last_SSB <= syms_since_last_SSB + 1;
                     end else begin
                         sample_cnt <= sample_cnt + 1;
-                        // out_last <= '0;
-                        if (find_SSB && N_id_2_valid_i) syms_since_last_SSB <= '0;
                     end
                 end else if (N_id_2_valid_i) begin
                     $display("Error: N_id_2_valid_i is out of sync with s_axis_in_tvalid!");
