@@ -563,7 +563,7 @@ always @(posedge clk_i) begin
         endcase
     end
 end
-wire peak_fifo_ready = ((state == 2) && (data_fifo_valid_out) && CIC_RATE > 1) || ((CIC_RATE == 1) && data_fifo_valid_out);
+wire peak_fifo_ready = ((state == 2) && data_fifo_valid_out && data_fifo_ready && (CIC_RATE > 1)) || ((CIC_RATE == 1) && data_fifo_valid_out);
 
 wire [2 : 0] peak_fifo_out;
 AXIS_FIFO #(
@@ -589,7 +589,7 @@ peak_fifo_i(
     .m_axis_out_tlevel()
 );
 assign N_id_2_o = peak_fifo_out[2:1];
-assign N_id_2_valid_o = peak_fifo_ready && peak_fifo_out[0];
+assign N_id_2_valid_o = peak_fifo_valid_out && peak_fifo_out[0];
 
 wire data_fifo_valid_out;
 AXIS_FIFO #(
