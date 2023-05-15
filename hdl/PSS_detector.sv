@@ -105,7 +105,8 @@ wire peak_valid;
 wire [IN_DW - 1 : 0] cic_tdata;
 wire cic_tvalid;
 // set input data to CIC to 0s if correlators are disabled to prevent unwanted peaks
-wire [IN_DW - 1 : 0] cic_in_tdata = correlator_en ? s_axis_in_tdata : '0;
+// wire [IN_DW - 1 : 0] cic_in_tdata = correlator_en ? s_axis_in_tdata : '0;
+wire [IN_DW - 1 : 0] cic_in_tdata = s_axis_in_tdata;
 
 if (CIC_RATE > 1) begin
     cic_d #(
@@ -182,7 +183,7 @@ if (MULT_REUSE == 0) begin
         .reset_ni(reset_ni),
         .s_axis_in_tdata(cic_tdata),
         .s_axis_in_tvalid(cic_tvalid),
-        .enable_i(correlator_en),
+        .enable_i(1'b1),
         .C0_o(C0[0]),
         .C1_o(C1[0]),
         .m_axis_out_tdata(correlator_0_tdata),
@@ -206,7 +207,7 @@ if (MULT_REUSE == 0) begin
         .reset_ni(reset_ni),
         .s_axis_in_tdata(cic_tdata),
         .s_axis_in_tvalid(cic_tvalid),
-        .enable_i(correlator_en),
+        .enable_i(1'b1),
         .C0_o(C0[1]),
         .C1_o(C1[1]),
         .m_axis_out_tdata(correlator_1_tdata),
@@ -230,7 +231,7 @@ if (MULT_REUSE == 0) begin
         .reset_ni(reset_ni),
         .s_axis_in_tdata(cic_tdata),
         .s_axis_in_tvalid(cic_tvalid),
-        .enable_i(correlator_en),
+        .enable_i(1'b1),
         .C0_o(C0[2]),
         .C1_o(C1[2]),
         .m_axis_out_tdata(correlator_2_tdata),
@@ -255,7 +256,7 @@ end else begin
         .reset_ni(reset_ni),
         .s_axis_in_tdata(cic_tdata),
         .s_axis_in_tvalid(cic_tvalid),
-        .enable_i(correlator_en),
+        .enable_i(1'b1),
         .C0_o(C0[0]),
         .C1_o(C1[0]),
         .m_axis_out_tdata(correlator_0_tdata),
@@ -279,7 +280,7 @@ end else begin
         .reset_ni(reset_ni),
         .s_axis_in_tdata(cic_tdata),
         .s_axis_in_tvalid(cic_tvalid),
-        .enable_i(correlator_en),
+        .enable_i(1'b1),
         .C0_o(C0[1]),
         .C1_o(C1[1]),
         .m_axis_out_tdata(correlator_1_tdata),
@@ -303,7 +304,7 @@ end else begin
         .reset_ni(reset_ni),
         .s_axis_in_tdata(cic_tdata),
         .s_axis_in_tvalid(cic_tvalid),
-        .enable_i(correlator_en),
+        .enable_i(1'b1),
         .C0_o(C0[2]),
         .C1_o(C1[2]),
         .m_axis_out_tdata(correlator_2_tdata),
@@ -323,6 +324,7 @@ peak_detector_0_i(
     .s_axis_in_tvalid(correlator_0_tvalid),
     .noise_limit_i(noise_limit),
     .detection_shift_i(detection_shift),
+    .enable_i(correlator_en),
     .peak_detected_o(peak_detected[0]),
     .score_o(score[0]),
     .peak_valid_o(peak_valid)
@@ -339,6 +341,7 @@ peak_detector_1_i(
     .s_axis_in_tvalid(correlator_1_tvalid),
     .noise_limit_i(noise_limit),
     .detection_shift_i(detection_shift),
+    .enable_i(correlator_en),
     .peak_detected_o(peak_detected[1]),
     .score_o(score[1])
 );
@@ -354,6 +357,7 @@ peak_detector_2_i(
     .s_axis_in_tvalid(correlator_2_tvalid),
     .noise_limit_i(noise_limit),
     .detection_shift_i(detection_shift),
+    .enable_i(correlator_en),
     .peak_detected_o(peak_detected[2]),
     .score_o(score[2])    
 );

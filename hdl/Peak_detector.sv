@@ -12,6 +12,7 @@ module Peak_detector
     input                                       s_axis_in_tvalid,
     input                  [IN_DW - 1 : 0]      noise_limit_i,
     input                  [7 : 0]              detection_shift_i,
+    input                                       enable_i,
     output  reg                                 peak_detected_o,
     output  reg                                 peak_valid_o,
     output  reg            [IN_DW - 1 : 0]      score_o
@@ -59,7 +60,7 @@ always @(posedge clk_i) begin
             if (init_counter == WINDOW_LEN) begin
                 if ((total_shift > 0 ? (s_axis_in_tdata > (average >> total_shift)) && (s_axis_in_tdata > noise_limit_i)
                     : (s_axis_in_tdata > (average << -total_shift))) && (s_axis_in_tdata > noise_limit_i)) begin
-                    peak_detected_o <= 1;
+                    peak_detected_o <= 1 && enable_i;
                     score_o <= total_shift > 0 ? s_axis_in_tdata - (average >> total_shift)
                         : s_axis_in_tdata - (average << -total_shift);
                 end else begin
