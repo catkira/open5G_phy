@@ -49,7 +49,8 @@ module frame_sync #(
     // output to regmap
     output  wire       [1 : 0]                      state_o,
     output  wire signed   [7 : 0]                   sample_cnt_mismatch_o,
-    output  wire       [15 : 0]                     missed_SSBs_o
+    output  wire       [15 : 0]                     missed_SSBs_o,
+    output  wire       [31 : 0]                     clks_btwn_SSBs_o
 );
 
 reg [$clog2(MAX_CP_LEN) - 1: 0] CP_len;
@@ -101,19 +102,21 @@ localparam [1 : 0] PSS_DETECTOR_MODE_PAUSE  = 1;
 localparam CLKS_20MS = $rtoi(CLK_FREQ * 0.02);
 localparam CLKS_PSS_EARLY_WAKEUP = $rtoi(CLK_FREQ * 0.0001); // start PSS detector 0.1 ms before expected SSB
 localparam CLKS_PSS_LATE_TOLERANCE = $rtoi(CLK_FREQ * 0.0001); // keep PSS detector running until 0.1ms after expected SSB
-reg [$clog2(CLKS_20MS + CLKS_PSS_LATE_TOLERANCE) - 1 : 0] clks_since_SSB;
+reg [$clog2(CLKS_20MS + CLKS_PSS_LATE_TOLERANCE) - 1 : 0] clks_since_SSB, clks_since_SSB_f;
 reg [1 : 0] PSS_state;
 localparam [1 : 0] SEARCH_PSS = 0;
 localparam [1 : 0] FIND_PSS = 1;
 localparam [1 : 0] PAUSE_PSS = 2;
 reg [15 : 0] missed_SSBs;
 assign missed_SSBs_o = missed_SSBs;
+assign clks_btwn_SSBs_o = clks_since_SSB_f;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         PSS_state <= SEARCH_PSS;
         clks_since_SSB <= '0;
         PSS_detector_mode_o <= '0;
         missed_SSBs <= '0;
+        clks_since_SSB_f <= '0;
     end else begin
         PSS_detector_mode_o <= PSS_state;
         case (PSS_state)
@@ -122,6 +125,7 @@ always @(posedge clk_i) begin
                     missed_SSBs <= '0;
                     PSS_state <= PAUSE_PSS;
                     clks_since_SSB <= 1;
+                    clks_since_SSB_f <= '0;
                 end else begin
                     clks_since_SSB <= clks_since_SSB + 1;
                 end
@@ -139,7 +143,8 @@ always @(posedge clk_i) begin
                     PSS_state <= SEARCH_PSS;
                     missed_SSBs <= missed_SSBs + 1;
                 end else if (N_id_2_valid_i) begin
-                    $display("frame_sync: found PSS in FIND mode, putting PSS detectore in PAUSE mode");
+                    $display("frame_sync: found PSS in FIND mode after %d clk's, putting PSS detectore in PAUSE mode", clks_since_SSB);
+                    clks_since_SSB_f <= clks_since_SSB;
                     PSS_state <= PAUSE_PSS;
                     clks_since_SSB <= 1;
                 end else begin

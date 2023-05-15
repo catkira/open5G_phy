@@ -209,6 +209,7 @@ always @(posedge clk_i) begin
     else if (FIFO_out_tvalid) FIFO_out_f <= FIFO_out_tdata;
 end
 
+wire [31 : 0] clks_btwn_SSBs;
 receiver_regmap #(
     .ID(0),
     .ADDRESS_WIDTH(AXI_ADDRESS_WIDTH)
@@ -224,6 +225,7 @@ receiver_regmap_i(
     .sample_cnt_mismatch_i(sample_cnt_mismatch),
     .missed_SSBs_i(missed_SSBs),
     .ibar_SSB_i(ibar_SSB_f),
+    .clks_btwn_SSBs_i(clks_btwn_SSBs),
 
     .s_axi_if_awaddr(s_axi_rx_awaddr),
     .s_axi_if_awvalid(s_axi_rx_awvalid),
@@ -537,7 +539,8 @@ frame_sync_i
     .sample_cnt_mismatch_o(sample_cnt_mismatch),
     .missed_SSBs_o(missed_SSBs),
     .N_id_2_o(fs_N_id_2),
-    .N_id_2_valid_o(fs_N_id_2_valid)
+    .N_id_2_valid_o(fs_N_id_2_valid),
+    .clks_btwn_SSBs_o(clks_btwn_SSBs)
 );
 
 wire [SAMPLE_ID_WIDTH - 1 : 0] sample_id_fifo_out_data;
