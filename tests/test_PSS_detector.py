@@ -229,6 +229,11 @@ def test_axi():
 
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
+        os.path.join(rtl_dir, 'CIC/cic_d.sv'),
+        os.path.join(rtl_dir, 'CIC/comb.sv'),
+        os.path.join(rtl_dir, 'CIC/downsampler.sv'),
+        os.path.join(rtl_dir, 'CIC/integrator.sv'),
         os.path.join(rtl_dir, 'div.sv'),
         os.path.join(rtl_dir, 'atan.sv'),
         os.path.join(rtl_dir, 'atan2.sv'),
@@ -240,11 +245,17 @@ def test_axi():
         os.path.join(rtl_dir, 'CFO_calc.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.sv')
     ]
+
+    includes = [
+        os.path.join(rtl_dir, 'CIC')
+    ]
+
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
         toplevel=toplevel,
         module=module,
+        includes=includes,
         sim_build=sim_build,
         testcase='axi_tb',
         force_compile=True,
@@ -254,5 +265,5 @@ def test_axi():
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0, USE_TAP_FILE=1, DDS_DW = 24, CFO_DW = 24, VARIABLE_NOISE_LIMIT = 0, VARIABLE_DETECTION_FACTOR = 0)
-    # test_axi()
+    # test(IN_DW=32, OUT_DW=32, TAP_DW=32, ALGO=0, WINDOW_LEN=8, USE_MODE=0, USE_TAP_FILE=1, DDS_DW = 24, CFO_DW = 24, VARIABLE_NOISE_LIMIT = 0, VARIABLE_DETECTION_FACTOR = 0)
+    test_axi()

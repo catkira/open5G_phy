@@ -465,7 +465,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     unisim_dir = os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/unisims')
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
-        os.path.join(rtl_dir, 'receiver_regmap.sv'),   
+        os.path.join(rtl_dir, 'receiver_regmap.sv'),
         os.path.join(rtl_dir, 'axil_interconnect_wrap_1x4.v'),
         os.path.join(rtl_dir, 'verilog-axi', 'axil_interconnect.v'),
         os.path.join(rtl_dir, 'verilog-axi', 'arbiter.v'),
