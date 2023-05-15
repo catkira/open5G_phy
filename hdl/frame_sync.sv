@@ -208,11 +208,11 @@ assign sample_cnt_mismatch_o = sample_cnt_mismatch;
 wire end_of_symbol_ = sample_cnt == (FFT_LEN + current_CP_len - 1);
 wire end_of_symbol = (end_of_symbol_ && !find_SSB) || (find_SSB && N_id_2_valid_i);
 wire end_of_subframe = end_of_symbol && (sym_cnt == SYM_PER_SF - 1);
-wire end_of_frame = end_of_symbol && (subframe_number == SUBFRAMES_PER_FRAME - 1);
+wire end_of_frame = end_of_subframe && (subframe_number == SUBFRAMES_PER_FRAME - 1);
 wire [$clog2(FFT_LEN + MAX_CP_LEN) - 1 : 0] sample_cnt_next = end_of_symbol ? '0 : sample_cnt + 1;
 wire [SYMBOL_NUMBER_WIDTH - 1 : 0] sym_cnt_next = end_of_symbol ? (end_of_subframe ? 0 : sym_cnt + 1) : sym_cnt;
 wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_number_next = end_of_subframe ? (end_of_frame ? 0 : subframe_number + 1) : subframe_number;
-wire [SFN_WIDTH - 1 : 0] sfn_next = end_of_symbol ? ((end_of_frame && (sfn == SFN_MAX)) - 1 ? 0 : sfn + 1) : sfn;
+wire [SFN_WIDTH - 1 : 0] sfn_next = end_of_frame ? (sfn == SFN_MAX - 1 ? 0 : sfn + 1) : sfn;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
