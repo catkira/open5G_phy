@@ -111,41 +111,6 @@ async def simple_test(dut):
     MAX_CLK_CNT = 3000 * FFT_LEN // 256
     CP_LEN = 18 * FFT_LEN // 256
     HALF_CP_ADVANCE = tb.HALF_CP_ADVANCE
-    # that's a nice bunch of magic numbers
-    # TODO: make this nicer / more systematic
-    if NFFT == 8:
-        if tb.MULT_REUSE == 0:
-            DETECTOR_LATENCY = 20   # peak_pos = 844, ok
-        elif tb.MULT_REUSE == 1:
-            DETECTOR_LATENCY = 30   # peak_pos = 854, ok
-        elif tb.MULT_REUSE == 2:
-            DETECTOR_LATENCY = 31   # peak_pos = 855, ok
-        elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 17   # peak_pos = 841, ok
-        elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 10    # peak_pos = 834, ok
-        elif tb.MULT_REUSE == 16:
-            DETECTOR_LATENCY = 6    # peak_pos = 830, ok
-        elif tb.MULT_REUSE == 32:
-            DETECTOR_LATENCY = 4    # peak_pos = 828, ok
-    elif NFFT == 9:
-        if tb.MULT_REUSE == 0:
-            DETECTOR_LATENCY = 20
-        elif tb.MULT_REUSE == 1:
-            DETECTOR_LATENCY = 30  # peak_pos = 
-        elif tb.MULT_REUSE == 2:
-            DETECTOR_LATENCY = 31  # peak_pos = 1679
-        elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 18  # peak_pos = 1666
-        elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 11  # peak_pos = 1659
-        elif tb.MULT_REUSE == 16:
-            DETECTOR_LATENCY = 8   # peak_pos = 1656
-        elif tb.MULT_REUSE == 32:
-            DETECTOR_LATENCY = 6   # peak_pos = 1654
-    else:
-        assert False, print("Error: only NFFT 8 and 9 are supported for now!")
-    print(f'DETECTOR_LATENCY = {DETECTOR_LATENCY}')
     FFT_OUT_DW = 32
 
     SSS_LEN = 127
@@ -155,10 +120,10 @@ async def simple_test(dut):
     SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
     clk_div = 0
     MAX_CLK_CNT = 10000 * FFT_LEN // 256 * SAMPLE_CLK_DECIMATION
-    rx_start_pos = 0
     peaks = []
 
     tx_cnt = 0
+    sample_cnt = 0
     while (len(received_SSS) < SSS_LEN) and (clk_cnt < MAX_CLK_CNT):
         await RisingEdge(dut.clk_i)
         if (clk_div == 0 or SAMPLE_CLK_DECIMATION == 1):
@@ -178,7 +143,7 @@ async def simple_test(dut):
         #print(f"data[{in_counter}] = {(int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x} {(int(waveform[in_counter].real)  & ((2 ** (tb.IN_DW // 2)) - 1)):4x}")
         clk_cnt += 1
 
-        sample_cnt = clk_cnt // SAMPLE_CLK_DECIMATION if SAMPLE_CLK_DECIMATION > 1 else clk_cnt
+        # sample_cnt = clk_cnt // SAMPLE_CLK_DECIMATION if SAMPLE_CLK_DECIMATION > 1 else clk_cnt
         received.append(dut.peak_detected_debug_o.value.integer)
         rx_counter += 1
         # if dut.peak_detected_debug_o.value.integer == 1:
@@ -192,8 +157,7 @@ async def simple_test(dut):
         if dut.peak_detected_debug_o.value.integer == 1:
             peaks.append(sample_cnt)
             print(f'peak pos = {sample_cnt}')
-            if rx_start_pos == 0:
-                rx_start_pos = sample_cnt - DETECTOR_LATENCY
+        sample_cnt += dut.m_axis_PSS_out_tvalid.value.integer
 
         if dut.PBCH_valid_o.value.integer == 1:
             # print(f"rx PBCH[{len(received_PBCH):3d}] re = {dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1):4x} " \
@@ -220,7 +184,7 @@ async def simple_test(dut):
     #     print(f'SSS[{i}] = {int(received_SSS[i].real > 0)}')
 
     print(f'first peak at = {peaks[0]}')
-    rx_ADC_data = waveform[peaks[0] - DETECTOR_LATENCY:]
+    rx_ADC_data = waveform[peaks[0] + CP_LEN + FFT_LEN - 1:]
     CP_ADVANCE = CP_LEN // 2 if HALF_CP_ADVANCE else CP_LEN
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_LEN + FFT_LEN + CP_ADVANCE:][:FFT_LEN]))
     scaling_factor = 2 ** (tb.IN_DW / 2 + NFFT - FFT_OUT_DW / 2) # FFT core is in truncation mode
@@ -293,12 +257,12 @@ async def simple_test(dut):
     # this test is not ideal, because the maximum peak could be any of the 4 SSBs within one burst
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
         if NFFT == 8:
-            assert peak_pos == DETECTOR_LATENCY + 824
+            assert peak_pos == 551
         elif NFFT == 9:
-            assert peak_pos == DETECTOR_LATENCY + 1648
+            assert False # not yet implemented
     else:
         if NFFT == 8:
-            assert peak_pos == DETECTOR_LATENCY + 2386
+            assert peak_pos == 2113
 
     corr = np.zeros(335)
     for i in range(335):
@@ -399,7 +363,6 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
         generate_FFT_demod_tap_file.main(['--NFFT', str(NFFT),'--CP_LEN', str(CP_LEN), '--CP_ADVANCE', str(CP_ADVANCE),
                                             '--OUT_DW', str(OUT_DW), '--path', sim_build])
 
-    
     for N_id_2 in range(3):
         os.makedirs(sim_build, exist_ok=True)
         file_path = os.path.abspath(os.path.join(tests_dir, '../tools/generate_PSS_tap_file.py'))
@@ -438,4 +401,4 @@ if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
-    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4)
+    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4)

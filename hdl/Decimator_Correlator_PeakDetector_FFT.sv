@@ -40,7 +40,9 @@ module Decimator_Correlator_PeakDetector_FFT
     output  wire                                fft_sync_debug_o,
     output  wire            [15:0]              sync_wait_counter_debug_o,
     output  reg                                 fft_demod_PBCH_start_o,
-    output  reg                                 fft_demod_SSS_start_o
+    output  reg                                 fft_demod_SSS_start_o,
+    output                  [IN_DW-1:0]         m_axis_PSS_out_tdata,
+    output                                      m_axis_PSS_out_tvalid
 );
 
 wire [IN_DW - 1 : 0] in_data;
@@ -72,6 +74,8 @@ PSS_detector_i(
 
 wire peak_detected;
 assign peak_detected_debug_o = peak_detected;
+assign m_axis_PSS_out_tdata = in_data;
+assign m_axis_PSS_out_tvalid = in_valid;
 
 wire [FFT_OUT_DW - 1 : 0] fft_result, fft_result_demod;
 wire [FFT_OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;

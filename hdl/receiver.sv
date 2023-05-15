@@ -105,8 +105,8 @@ module receiver
     input                                       s_axi_if_rready, 
     
     // debug outputs
-    output  wire    [OUT_DW - 1 : 0]                m_axis_correlator_debug_tdata,
-    output  wire                                    m_axis_correlator_debug_tvalid,
+    output  wire    [IN_DW - 1 : 0]                 m_axis_PSS_out_tdata,
+    output  wire                                    m_axis_PSS_out_tvalid,
     output  wire    [15:0]                          sync_wait_counter_debug_o,
     output  wire                                    peak_detected_debug_o
 );
@@ -391,10 +391,8 @@ complex_multiplier_i(
     .m_axis_dout_tvalid(mult_out_tvalid)
 );
 
-wire [OUT_DW - 1 : 0] correlator_tdata;
-wire correlator_tvalid;
-assign m_axis_correlator_debug_tdata = correlator_tdata;
-assign m_axis_correlator_debug_tvalid = correlator_tvalid;
+assign m_axis_PSS_out_tdata = pss_out_data;
+assign m_axis_PSS_out_tvalid = pss_out_valid;
 
 reg N_id_2_valid;
 wire [1 : 0] N_id_2;

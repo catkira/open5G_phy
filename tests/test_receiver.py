@@ -5,6 +5,7 @@ import pytest
 import logging
 import matplotlib.pyplot as plt
 import importlib.util
+import random
 
 import cocotb
 import cocotb_test.simulator
@@ -88,6 +89,7 @@ async def simple_test(dut):
     else:
         fs_dec = fs
 
+    RND_JITTER = int(os.getenv('RND_JITTER'))
     SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
     MAX_AMPLITUDE = (2 ** (tb.IN_DW // 2 - 1) - 1)
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
@@ -95,7 +97,7 @@ async def simple_test(dut):
         expected_N_id_2 = 2
         N_SSBs = 4
         MAX_TX = int((0.005 + 0.02 * (N_SSBs - 1)) * fs_dec)
-        MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
+        MAX_CLK_CNT = int(MAX_TX * (SAMPLE_CLK_DECIMATION + RND_JITTER * 0.5) + 10000)
         waveform /= max(np.abs(waveform.real.max()), np.abs(waveform.imag.max()))
         waveform *= MAX_AMPLITUDE * 0.8  # need this 0.8 because rounding errors caused overflows, nasty bug!
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
@@ -104,7 +106,7 @@ async def simple_test(dut):
         expected_N_id_2 = 0
         N_SSBs = 4
         MAX_TX = int((0.01 + 0.02 * (N_SSBs - 1)) * fs_dec)
-        MAX_CLK_CNT = MAX_TX * SAMPLE_CLK_DECIMATION + 10000
+        MAX_CLK_CNT = int(MAX_TX * (SAMPLE_CLK_DECIMATION + RND_JITTER * 0.5) + 10000)
         delta_f = -4e3
         waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
         waveform *= 2**19
@@ -175,26 +177,10 @@ async def simple_test(dut):
     CP2_LEN = 18 * FFT_LEN // 256
     SSS_LEN = 127
     SSS_START = FFT_LEN // 2 - (SSS_LEN + 1) // 2
-    if NFFT == 8:
-        if tb.MULT_REUSE == 0:
-            DETECTOR_LATENCY = 31   # peak_pos = 855, ok
-        elif tb.MULT_REUSE == 1:
-            DETECTOR_LATENCY = 41   # peak_pos = 865, ok
-        elif tb.MULT_REUSE == 2:
-            DETECTOR_LATENCY = 42   # peak_pos = 866
-        elif tb.MULT_REUSE == 4:
-            DETECTOR_LATENCY = 22   # peak_pos = 846, ok
-        elif tb.MULT_REUSE == 8:
-            DETECTOR_LATENCY = 21   # peak_pos = 845
-        elif tb.MULT_REUSE == 16:
-            DETECTOR_LATENCY = 17   # peak_pos = 841
-        elif tb.MULT_REUSE == 32:
-            DETECTOR_LATENCY = 15   # peak_pos = 839
-    else:
-        assert False, print('Error: only NFFT 8 is supported for now!')
-    print(f'DETECTOR_LATENCY = {DETECTOR_LATENCY}')
     clk_div = 0
     tx_cnt = 0
+    sample_cnt = 0
+    extra_cycle = 0
     while clk_cnt < MAX_CLK_CNT:
         await RisingEdge(dut.clk_i)
         if (tx_cnt < MAX_TX) and (clk_div == 0 or SAMPLE_CLK_DECIMATION == 1):
@@ -206,18 +192,18 @@ async def simple_test(dut):
             dut.s_axis_in_tvalid.value = 1
         else:
             dut.s_axis_in_tvalid.value = 0
-            if clk_div == SAMPLE_CLK_DECIMATION - 1:
+            if clk_div == SAMPLE_CLK_DECIMATION - 1 + extra_cycle:
                 clk_div = 0
+                extra_cycle = random.randint(0, 1) if RND_JITTER else 0
             else:
                 clk_div += 1
 
         clk_cnt += 1
 
-        sample_cnt = clk_cnt // SAMPLE_CLK_DECIMATION if SAMPLE_CLK_DECIMATION > 1 else clk_cnt
-
         if dut.peak_detected_debug_o.value.integer:
             received.append(sample_cnt)
             print(f'peak pos = {sample_cnt}')
+        sample_cnt += dut.m_axis_PSS_out_tvalid.value.integer
 
         if dut.N_id_valid_o.value.integer:
             print(f'detected N_id = {dut.N_id_o.value.integer}')
@@ -293,7 +279,7 @@ async def simple_test(dut):
     assert not np.array_equal(np.array(fifo_data), np.zeros(len(fifo_data)))
     assert np.array_equal(np.array(received_PBCH_LLR)[:864 * 2], np.array(fifo_data))
 
-    rx_ADC_data = waveform[received[0] - DETECTOR_LATENCY:][:MAX_TX]
+    rx_ADC_data = waveform[received[0] + CP2_LEN + FFT_LEN - 1:][:MAX_TX]
     CP_ADVANCE = CP2_LEN // 2 if HALF_CP_ADVANCE else CP2_LEN
     ideal_SSS_sym = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP2_LEN + FFT_LEN + CP_ADVANCE:][:FFT_LEN]))
     ideal_SSS_sym *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_LEN * np.arange(FFT_LEN) + np.pi * (CP2_LEN - CP_ADVANCE)))
@@ -366,13 +352,13 @@ async def simple_test(dut):
         expect_exact_timing = False
         if NFFT == 8:
             # TODO: figure out why there are two possibilities
-            assert received[0] == 824 + DETECTOR_LATENCY
+            assert received[0] == 551 #824 + DETECTOR_LATENCY
         else:
             assert False
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
         expect_exact_timing = False
         if NFFT == 8:
-            assert received[0] == 2386 + DETECTOR_LATENCY
+            assert received[0] == 2113 #2386 + DETECTOR_LATENCY
     else:
         assert False
 
@@ -456,8 +442,9 @@ async def simple_test(dut):
 @pytest.mark.parametrize('MULT_REUSE', [0, 2, 4])
 @pytest.mark.parametrize('INITIAL_DETECTION_SHIFT', [4])
 @pytest.mark.parametrize('INITIAL_CFO_MODE', [0])
+@pytest.mark.parametrize('RND_JITTER', [0])
 def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT, MULT_REUSE,
-         INITIAL_DETECTION_SHIFT, INITIAL_CFO_MODE, FILE = '30720KSPS_dl_signal'):
+         INITIAL_DETECTION_SHIFT, INITIAL_CFO_MODE, RND_JITTER, FILE = '30720KSPS_dl_signal'):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -519,7 +506,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     ]
 
     PSS_LEN = 128
-    CLK_FREQ = str(3840000 * MULT_REUSE // 2) if MULT_REUSE > 2 else str(3840000)
+    CLK_FREQ = str(int(3840000 * (MULT_REUSE // 2 + 0.5 * RND_JITTER))) if MULT_REUSE > 2 else str(3840000)
     print(f'system clock frequency = {CLK_FREQ}')
     print('sample clock frequency = 3840000')
     parameters = {}
@@ -537,8 +524,10 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     parameters['INITIAL_DETECTION_SHIFT'] = INITIAL_DETECTION_SHIFT
     parameters['INITIAL_CFO_MODE'] = INITIAL_CFO_MODE
     os.environ['CFO'] = str(CFO)
+    os.environ['RND_JITTER'] = str(RND_JITTER)
     parameters_dirname = parameters.copy()
     parameters_dirname['CFO'] = CFO
+    parameters_dirname['RND_JITTER'] = RND_JITTER
     folder = 'receiver_' + '_'.join(('{}={}'.format(*i) for i in parameters_dirname.items())) + '_' + FILE
     sim_build = os.path.join('sim_build/', folder)
     os.environ['TEST_FILE'] = FILE
@@ -590,16 +579,17 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 @pytest.mark.parametrize('FILE', ['772850KHz_3840KSPS_low_gain'])
 @pytest.mark.parametrize('HALF_CP_ADVANCE', [0, 1])
 @pytest.mark.parametrize('MULT_REUSE', [4])
-def test_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE):
+@pytest.mark.parametrize('RND_JITTER', [1])
+def test_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
-         NFFT = 8, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = FILE)
+         NFFT = 8, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
     if True:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
+             NFFT = 8, MULT_REUSE = 32, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 1, FILE = '772850KHz_3840KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 32, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1)
+             NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)
