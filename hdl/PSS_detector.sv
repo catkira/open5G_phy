@@ -525,7 +525,7 @@ always @(posedge clk_i) peak_valid_f <= (!reset_ni) ? '0 : peak_valid && (peak_d
 reg [2 : 0] state;
 wire peak_fifo_valid_out;
 wire data_fifo_ready = (peak_fifo_valid_out && (state == 2)) || (state == 0);
-localparam WAIT_CNT_LEN = $clog2(MULT_REUSE >> 2) > 0 ? $clog2(MULT_REUSE >> 2) : 1;
+localparam WAIT_CNT_LEN = $clog2(MULT_REUSE >> 1) > 0 ? $clog2(MULT_REUSE >> 1) : 1;
 reg [WAIT_CNT_LEN - 1 : 0] wait_cnt;
 // TODO: simplift this FSM and support CIC_RATE > 2 (NFFT = 9)
 always @(posedge clk_i) begin
@@ -539,7 +539,7 @@ always @(posedge clk_i) begin
                     if (MULT_REUSE <= 2) state <= CIC_RATE > 1 ? 2 : 0;
                     else begin
                         state <= 1;
-                        wait_cnt <= (MULT_REUSE >> 2) - 1;
+                        wait_cnt <= (MULT_REUSE >> 1) - 2;
                     end
                 end
             end
@@ -552,7 +552,7 @@ always @(posedge clk_i) begin
                     if (MULT_REUSE <= 2) state <= 0;
                     else begin
                         state <= 3;
-                        wait_cnt <= (MULT_REUSE >> 2) - 1;
+                        wait_cnt <= (MULT_REUSE >> 1) - 2;
                     end
                 end
             end

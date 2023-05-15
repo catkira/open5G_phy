@@ -589,7 +589,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 
 @pytest.mark.parametrize('FILE', ['772850KHz_3840KSPS_low_gain'])
 @pytest.mark.parametrize('HALF_CP_ADVANCE', [0, 1])
-@pytest.mark.parametrize('MULT_REUSE', [0])
+@pytest.mark.parametrize('MULT_REUSE', [4])
 def test_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
          NFFT = 8, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = FILE)
@@ -602,4 +602,4 @@ if __name__ == '__main__':
              NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, FILE = '772850KHz_3840KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 1, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1)
+             NFFT = 8, MULT_REUSE = 32, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1)

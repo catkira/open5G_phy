@@ -31,7 +31,7 @@ module receiver
     localparam BLK_EXP_LEN = 8,
     localparam FFT_LEN = 2 ** NFFT,
     localparam MAX_CP_LEN = 20 * FFT_LEN / 256,
-    localparam CIC_RATE = FFT_LEN / 128,    
+    localparam CIC_RATE = FFT_LEN / 128,
     localparam FFT_OUT_DW = 16,
     localparam N_id_1_MAX = 335,
     localparam N_id_MAX = 1007,
