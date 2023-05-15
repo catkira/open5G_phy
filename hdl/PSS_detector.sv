@@ -566,6 +566,7 @@ end
 wire peak_fifo_ready = ((state == 2) && data_fifo_valid_out && data_fifo_ready && (CIC_RATE > 1)) || ((CIC_RATE == 1) && data_fifo_valid_out);
 
 wire [2 : 0] peak_fifo_out;
+wire [31 : 0] peak_fifo_level;
 AXIS_FIFO #(
     .DATA_WIDTH(3),
     .FIFO_LEN(512),
@@ -586,12 +587,13 @@ peak_fifo_i(
     .m_axis_out_tuser(),
     .m_axis_out_tvalid(peak_fifo_valid_out),
     .m_axis_out_tready(peak_fifo_ready),
-    .m_axis_out_tlevel()
+    .m_axis_out_tlevel(peak_fifo_level)
 );
 assign N_id_2_o = peak_fifo_out[2:1];
 assign N_id_2_valid_o = peak_fifo_valid_out && peak_fifo_ready && peak_fifo_out[0];
 
 wire data_fifo_valid_out;
+wire [31 : 0] data_fifo_level;
 AXIS_FIFO #(
     .DATA_WIDTH(IN_DW),
     .FIFO_LEN(512),
@@ -612,7 +614,7 @@ data_fifo_i(
     .m_axis_out_tuser(),
     .m_axis_out_tvalid(data_fifo_valid_out),
     .m_axis_out_tready(data_fifo_ready),
-    .m_axis_out_tlevel()
+    .m_axis_out_tlevel(data_fifo_level)
 );
 assign m_axis_out_tvalid = data_fifo_valid_out && data_fifo_ready;
 
@@ -635,6 +637,8 @@ PSS_detector_regmap_i(
     .peak_counter_0_i(peak_counter_0),
     .peak_counter_1_i(peak_counter_1),
     .peak_counter_2_i(peak_counter_2),
+    .peak_fifo_level_i(peak_fifo_level),
+    .data_fifo_level_i(data_fifo_level),
     .noise_limit_o(noise_limit),
     .detection_shift_o(detection_shift),
 

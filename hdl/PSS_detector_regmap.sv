@@ -65,6 +65,8 @@ module PSS_detector_regmap #(
     input           [31 : 0]                    peak_counter_0_i,
     input           [31 : 0]                    peak_counter_1_i,
     input           [31 : 0]                    peak_counter_2_i,
+    input           [31 : 0]                    peak_fifo_level_i,
+    input           [31 : 0]                    data_fifo_level_i,
     output reg      [CORR_DW - 1 : 0]           noise_limit_o,
     output reg      [7 : 0]                     detection_shift_o
 );
@@ -100,6 +102,8 @@ always @(posedge clk_i) begin
                 9'h00A: rdata <= peak_counter_2_i;
                 9'h00B: rdata <= noise_limit_o;
                 9'h00C: rdata <= detection_shift_o;
+                9'h00D: rdata <= peak_fifo_level_i;
+                9'h00E: rdata <= data_fifo_level_i;
                 default: rdata <= '0;
             endcase
         end
