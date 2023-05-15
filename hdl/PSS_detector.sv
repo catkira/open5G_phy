@@ -589,7 +589,7 @@ peak_fifo_i(
     .m_axis_out_tlevel()
 );
 assign N_id_2_o = peak_fifo_out[2:1];
-assign N_id_2_valid_o = peak_fifo_valid_out && peak_fifo_out[0];
+assign N_id_2_valid_o = peak_fifo_valid_out && peak_fifo_ready && peak_fifo_out[0];
 
 wire data_fifo_valid_out;
 AXIS_FIFO #(
