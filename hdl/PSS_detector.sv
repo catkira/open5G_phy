@@ -104,6 +104,8 @@ localparam CFO_MODE_MANUAL = 1'b1;
 wire peak_valid;
 wire [IN_DW - 1 : 0] cic_tdata;
 wire cic_tvalid;
+// set input data to CIC to 0s if correlators are disabled to prevent unwanted peaks
+wire [IN_DW - 1 : 0] cic_in_tdata = correlator_en ? s_axis_in_tdata : '0;
 
 if (CIC_RATE > 1) begin
     cic_d #(
@@ -116,7 +118,7 @@ if (CIC_RATE > 1) begin
     cic_real(
         .clk(clk_i),
         .reset_n(reset_ni),
-        .s_axis_in_tdata(s_axis_in_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
+        .s_axis_in_tdata(cic_in_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
         .s_axis_in_tvalid(s_axis_in_tvalid),
         .m_axis_out_tdata(cic_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
         .m_axis_out_tvalid(cic_tvalid)
@@ -132,7 +134,7 @@ if (CIC_RATE > 1) begin
     cic_imag(
         .clk(clk_i),
         .reset_n(reset_ni),
-        .s_axis_in_tdata(s_axis_in_tdata[IN_DW - 1 -: IN_DW / 2]),
+        .s_axis_in_tdata(cic_in_tdata[IN_DW - 1 -: IN_DW / 2]),
         .s_axis_in_tvalid(s_axis_in_tvalid),
         .m_axis_out_tdata(cic_tdata[IN_DW - 1 -: IN_DW / 2])
     );
