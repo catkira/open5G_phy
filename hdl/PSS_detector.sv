@@ -577,7 +577,7 @@ wire [2 : 0] peak_fifo_out;
 wire [31 : 0] peak_fifo_level;
 AXIS_FIFO #(
     .DATA_WIDTH(3),
-    .FIFO_LEN(512),
+    .FIFO_LEN(16),
     .ASYNC(0),
     .USER_WIDTH(0)
 )
