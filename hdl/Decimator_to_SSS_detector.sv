@@ -73,6 +73,7 @@ PSS_detector #(
 PSS_detector_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
+    .clear_ni(1'b1),
     .s_axis_in_tdata(s_axis_in_tdata),
     .s_axis_in_tvalid(s_axis_in_tvalid),
 

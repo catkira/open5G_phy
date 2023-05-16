@@ -83,6 +83,7 @@ async def simple_test(dut):
     in_counter = 0
     received = []
     received_correlator = []
+    dut.clear_ni.value = 1
     while clk_cnt < MAX_CLK_CNT:
         await RisingEdge(dut.clk_i)
         data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
