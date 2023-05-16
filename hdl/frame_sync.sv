@@ -206,7 +206,7 @@ reg [$clog2(SYMS_BTWN_SSB + 100) - 1 : 0] syms_since_last_SSB;
 reg [1 : 0] state;
 assign state_o = state;
 localparam [1 : 0] WAIT_FOR_SSB = 0;
-localparam [1 : 0] WAIT_FOR_IBAR = 1;
+localparam [1 : 0] WAIT_FOR_IBAR = 1; // not used
 localparam [1 : 0] SYNCED = 2;
 localparam [1 : 0] RESET_DETECTOR = 3;
 localparam FIND_EARLY_SAMPLES = 4;
@@ -254,7 +254,7 @@ always @(posedge clk_i) begin
                     // it might have to be corrected once ibar_SSB arrives
                     current_CP_len <= CP2_LEN;
                     sym_cnt <= 2;
-                    state <= WAIT_FOR_IBAR;
+                    state <= SYNCED;
                     syms_since_last_SSB <= '0;
                     // SSB_start_o <= 1;
                     reset_fft_no <= 1;
@@ -264,74 +264,11 @@ always @(posedge clk_i) begin
                     reset_fft_no <= '0;
                 end
             end
-            WAIT_FOR_IBAR: begin
-                SSB_start_o <= '0;
-                if (ibar_SSB_valid_i) begin
-                    $display("frame_sync: received ibar_SSB = %d", ibar_SSB_i);
-                    if (ibar_SSB_i != 0) begin
-                        // sym_cnt needs to be corrected for ibar_SSB != 0
-                        case (ibar_SSB_i)
-                            0: begin 
-                                // no adjustment needed here
-                            end
-                            1: begin
-                                // sym_cnt <= sym_cnt + 6 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
-                            end
-                            2: begin
-                                // sym_cnt <= sym_cnt + 14 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
-                                // if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
-                                //     subframe_number <= '0;
-                                //     // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
-                                //     sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
-                                // end else begin
-                                //     subframe_number <= subframe_number + 1;
-                                end       //                     end
-                            3: begin
-                                // sym_cnt <= sym_cnt + 20 < SYM_PER_SF ? sym_cnt + 6 : sym_cnt + 6 - SYM_PER_SF;
-                                // if (subframe_number == SUBFRAMES_PER_FRAME - 1) begin
-                                //     subframe_number <= '0;
-                                //     // inc sfn with modulo SFN_MAX if current subframe_number is SYM_PER_SF - 1
-                                //     sfn <= sfn == SFN_MAX - 1 ? 0 : sfn + 1;
-                                // end else begin
-                                //     subframe_number <= subframe_number + 1;
-                                // end
-                            end
-                        endcase
-                    end
-                    state <= SYNCED;
-                end
-
-                out_valid <= s_axis_in_tvalid;
-
-                if (s_axis_in_tvalid) begin
-                    out_last <= sample_cnt == (FFT_LEN + current_CP_len - 2);
-
-                    if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
-                        if ((sym_cnt_next == 0) || (sym_cnt_next == 7))   current_CP_len <= CP1_LEN;
-                        else                                              current_CP_len <= CP2_LEN;
-                        
-                        if ((syms_since_last_SSB == SYMS_BTWN_SSB - 1) || N_id_2_valid_i)   syms_since_last_SSB <= 0;
-                        else                                            syms_since_last_SSB <= syms_since_last_SSB + 1;                        
-                    end
-                    sample_cnt <= sample_cnt_next;
-                    sym_cnt <= sym_cnt_next;
-                    subframe_number <= subframe_number_next;
-                    sfn <= sfn_next;
-                end else if (N_id_2_valid_i) begin
-                    $display("Error: N_id_2_valid_i is out of sync with s_axis_in_tvalid!");
-                    $finish();                  
-                end
-
-                if (N_id_2_valid_i) begin
-                    // output of SSB_start_o in WAIT_FOR_IBAR state is needed, because channel_estimator needs it to detect ibar_SSB
-                    // SSB_start_o <= 1;
-                end else begin
-                    // SSB_start_o <= '0;
-                end                
+            WAIT_FOR_IBAR: begin  // not used
             end
             SYNCED: begin
                 if (ibar_SSB_valid_i) begin
-                    // TODO throw error if ibar_SSB does not match expected ibar_SSB
+                    // TODO: adjust sym_cnt, subframe, sfn accordingly
                 end
 
                 if (find_SSB) begin
