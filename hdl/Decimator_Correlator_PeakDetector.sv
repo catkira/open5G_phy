@@ -97,6 +97,7 @@ peak_detector(
     .s_axis_in_tvalid(correlator_tvalid),
     .noise_limit_i(0),
     .detection_shift_i(4),
+    .enable_i(1'b1),
     .peak_detected_o(peak_detected_o)
 );
 
