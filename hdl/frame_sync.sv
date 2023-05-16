@@ -45,6 +45,7 @@ module frame_sync #(
     output  reg                                     reset_fft_no,
     output  reg        [1 : 0]                      N_id_2_o,
     output  reg                                     N_id_2_valid_o,
+    output                                          clear_detector_no,                                     
 
     // output to regmap
     output  wire       [1 : 0]                      state_o,
@@ -207,6 +208,7 @@ assign state_o = state;
 localparam [1 : 0] WAIT_FOR_SSB = 0;
 localparam [1 : 0] WAIT_FOR_IBAR = 1;
 localparam [1 : 0] SYNCED = 2;
+localparam [1 : 0] RESET_DETECTOR = 3;
 localparam FIND_EARLY_SAMPLES = 4;
 reg signed [7 : 0] sample_cnt_mismatch;
 assign sample_cnt_mismatch_o = sample_cnt_mismatch;
@@ -218,6 +220,7 @@ wire [$clog2(FFT_LEN + MAX_CP_LEN) - 1 : 0] sample_cnt_next = end_of_symbol ? '0
 wire [SYMBOL_NUMBER_WIDTH - 1 : 0] sym_cnt_next = end_of_symbol ? (end_of_subframe ? 0 : sym_cnt + 1) : sym_cnt;
 wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_number_next = end_of_subframe ? (end_of_frame ? 0 : subframe_number + 1) : subframe_number;
 wire [SFN_WIDTH - 1 : 0] sfn_next = end_of_frame ? (sfn == SFN_MAX - 1 ? 0 : sfn + 1) : sfn;
+assign clear_detector_no = !(state == RESET_DETECTOR);
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -225,7 +228,7 @@ always @(posedge clk_i) begin
         subframe_number <= '0;
         sym_cnt <= '0;
         sample_cnt <= '0;
-        state <= WAIT_FOR_SSB;
+        state <= RESET_DETECTOR;
         current_CP_len <= CP2_LEN;
         find_SSB <= '0;
         SSB_start_o <= '0;
@@ -236,6 +239,9 @@ always @(posedge clk_i) begin
         reset_fft_no <= '0;
     end else begin
         case (state)
+            RESET_DETECTOR: begin
+                state <= WAIT_FOR_SSB;
+            end
             WAIT_FOR_SSB: begin
                 SSB_start_o <= '0;
                 find_SSB <= '0;                
@@ -355,7 +361,7 @@ always @(posedge clk_i) begin
                         // could not find SSB, connection is lost 
                         // go back to search mode (state 0)
                         $display("frame_sync: could not find SSB, connection is lost!");
-                        state <= WAIT_FOR_SSB;
+                        state <= RESET_DETECTOR;
                     end
                 end else begin
                     if (N_id_2_valid_i) begin

@@ -403,6 +403,7 @@ wire [1 : 0] requested_N_id_2;
 assign peak_detected_debug_o = N_id_2_valid;
 wire [IN_DW - 1 : 0] pss_out_data;
 wire pss_out_valid;
+wire clear_detector_n;
 
 PSS_detector #(
     .IN_DW(IN_DW),
@@ -431,6 +432,7 @@ PSS_detector #(
 PSS_detector_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
+    .clear_ni(clear_detector_n),
 
     .s_axis_in_tdata(mult_out_tdata),
     .s_axis_in_tvalid(mult_out_tvalid),    
@@ -523,6 +525,7 @@ frame_sync_i
     .s_axis_in_tdata(pss_out_data),
     .s_axis_in_tvalid(pss_out_valid),
 
+    .clear_detector_no(clear_detector_n),
     .PSS_detector_mode_o(PSS_detector_mode),
     .requested_N_id_2_o(requested_N_id_2),
 

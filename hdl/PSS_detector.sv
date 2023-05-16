@@ -33,6 +33,7 @@ module PSS_detector
 (
     input                                       clk_i,
     input                                       reset_ni,
+    input                                       clear_ni,
     input   wire           [IN_DW-1:0]          s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
 
@@ -107,6 +108,7 @@ wire cic_tvalid;
 // set input data to CIC to 0s if correlators are disabled to prevent unwanted peaks
 // wire [IN_DW - 1 : 0] cic_in_tdata = correlator_en ? s_axis_in_tdata : '0;
 wire [IN_DW - 1 : 0] cic_in_tdata = s_axis_in_tdata;
+wire reset_int_n = reset_ni && clear_ni;
 
 if (CIC_RATE > 1) begin
     cic_d #(
@@ -118,7 +120,7 @@ if (CIC_RATE > 1) begin
     )
     cic_real(
         .clk(clk_i),
-        .reset_n(reset_ni),
+        .reset_n(reset_int_n),
         .s_axis_in_tdata(cic_in_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
         .s_axis_in_tvalid(s_axis_in_tvalid),
         .m_axis_out_tdata(cic_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
@@ -134,7 +136,7 @@ if (CIC_RATE > 1) begin
     )
     cic_imag(
         .clk(clk_i),
-        .reset_n(reset_ni),
+        .reset_n(reset_int_n),
         .s_axis_in_tdata(cic_in_tdata[IN_DW - 1 -: IN_DW / 2]),
         .s_axis_in_tvalid(s_axis_in_tvalid),
         .m_axis_out_tdata(cic_tdata[IN_DW - 1 -: IN_DW / 2])
@@ -180,7 +182,7 @@ if (MULT_REUSE == 0) begin
     )
     correlator_0_i(
         .clk_i(clk_i),
-        .reset_ni(reset_ni),
+        .reset_ni(reset_int_n),
         .s_axis_in_tdata(cic_tdata),
         .s_axis_in_tvalid(cic_tvalid),
         .enable_i(1'b1),
@@ -204,7 +206,7 @@ if (MULT_REUSE == 0) begin
     )
     correlator_1_i(
         .clk_i(clk_i),
-        .reset_ni(reset_ni),
+        .reset_ni(reset_int_n),
         .s_axis_in_tdata(cic_tdata),
         .s_axis_in_tvalid(cic_tvalid),
         .enable_i(1'b1),
@@ -228,7 +230,7 @@ if (MULT_REUSE == 0) begin
     )
     correlator_2_i(
         .clk_i(clk_i),
-        .reset_ni(reset_ni),
+        .reset_ni(reset_int_n),
         .s_axis_in_tdata(cic_tdata),
         .s_axis_in_tvalid(cic_tvalid),
         .enable_i(1'b1),
@@ -253,7 +255,7 @@ end else begin
     )
     correlator_0_i(
         .clk_i(clk_i),
-        .reset_ni(reset_ni),
+        .reset_ni(reset_int_n),
         .s_axis_in_tdata(cic_tdata),
         .s_axis_in_tvalid(cic_tvalid),
         .enable_i(1'b1),
@@ -277,7 +279,7 @@ end else begin
     )
     correlator_1_i(
         .clk_i(clk_i),
-        .reset_ni(reset_ni),
+        .reset_ni(reset_int_n),
         .s_axis_in_tdata(cic_tdata),
         .s_axis_in_tvalid(cic_tvalid),
         .enable_i(1'b1),
@@ -301,7 +303,7 @@ end else begin
     )
     correlator_2_i(
         .clk_i(clk_i),
-        .reset_ni(reset_ni),
+        .reset_ni(reset_int_n),
         .s_axis_in_tdata(cic_tdata),
         .s_axis_in_tvalid(cic_tvalid),
         .enable_i(1'b1),
@@ -319,7 +321,7 @@ Peak_detector #(
 )
 peak_detector_0_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .reset_ni(reset_int_n),
     .s_axis_in_tdata(correlator_0_tdata),
     .s_axis_in_tvalid(correlator_0_tvalid),
     .noise_limit_i(noise_limit),
@@ -336,7 +338,7 @@ Peak_detector #(
 )
 peak_detector_1_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .reset_ni(reset_int_n),
     .s_axis_in_tdata(correlator_1_tdata),
     .s_axis_in_tvalid(correlator_1_tvalid),
     .noise_limit_i(noise_limit),
@@ -352,7 +354,7 @@ Peak_detector #(
 )
 peak_detector_2_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .reset_ni(reset_int_n),
     .s_axis_in_tdata(correlator_2_tdata),
     .s_axis_in_tvalid(correlator_2_tvalid),
     .noise_limit_i(noise_limit),
@@ -365,7 +367,7 @@ peak_detector_2_i(
 reg [C_DW - 1 : 0] C0_f [0 : 2];
 reg [C_DW - 1 : 0] C1_f [0 : 2];
 always @(posedge clk_i) begin
-    if (!reset_ni) begin
+    if (!reset_int_n) begin
         C0_f[0] <= '0;
         C0_f[1] <= '0;
         C0_f[2] <= '0;
@@ -395,7 +397,7 @@ CFO_calc #(
 )
 CFO_calc_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .reset_ni(reset_int_n),
     .C0_i(C0_in),
     .C1_i(C1_in),
     .valid_i(CFO_calc_valid_in),
@@ -427,7 +429,7 @@ localparam [1 : 0] WAIT_FOR_CFO = 2;
 // TODO: signal a valid N_id_2 only of the calculated CFO is below a certain threshold,
 // i.e. +- 100 Hz, if it is above, wait for next SSB with corrected CFO
 always @(posedge clk_i) begin
-    if (!reset_ni) begin
+    if (!reset_int_n) begin
         CFO_state <= WAIT_FOR_PEAK;
         CFO_angle_o <= '0;
         CFO_DDS_inc_o <= '0;
@@ -476,7 +478,7 @@ assign mode_select = USE_MODE ? mode_i : SEARCH;
 reg [1 : 0] N_id_2;
 
 always @(posedge clk_i) begin
-    if (!reset_ni) begin
+    if (!reset_int_n) begin
         N_id_2 <= '0;
         N_id_2_valid <= '0;
         correlator_en <= '0;
@@ -521,12 +523,12 @@ localparam PEAK_DELAY_LIMIT = 129;
 
 reg [10 : 0] peak_delay;
 always @(posedge clk_i) begin
-    if (!reset_ni) peak_delay <= '0;
+    if (!reset_int_n) peak_delay <= '0;
     else if (peak_valid) peak_delay <= peak_delay < PEAK_DELAY_LIMIT ? peak_delay + 1 : peak_delay;
 end
 
 reg peak_valid_f;
-always @(posedge clk_i) peak_valid_f <= (!reset_ni) ? '0 : peak_valid && (peak_delay == PEAK_DELAY_LIMIT);
+always @(posedge clk_i) peak_valid_f <= (!reset_int_n) ? '0 : peak_valid && (peak_delay == PEAK_DELAY_LIMIT);
 
 reg [2 : 0] state;
 wire peak_fifo_valid_out;
@@ -535,7 +537,7 @@ localparam WAIT_CNT_LEN = $clog2(MULT_REUSE >> 1) > 0 ? $clog2(MULT_REUSE >> 1) 
 reg [WAIT_CNT_LEN - 1 : 0] wait_cnt;
 // TODO: simplift this FSM and support CIC_RATE > 2 (NFFT = 9)
 always @(posedge clk_i) begin
-    if (!reset_ni) begin
+    if (!reset_int_n) begin
         state <= '0;
         wait_cnt <= '0;
     end else begin
@@ -581,14 +583,14 @@ AXIS_FIFO #(
 )
 peak_fifo_i(
     .clk_i(clk_i),
-    .s_reset_ni(reset_ni),
+    .s_reset_ni(reset_int_n),
 
     .s_axis_in_tdata({N_id_2, N_id_2_valid}),
     .s_axis_in_tuser(),
     .s_axis_in_tvalid(peak_valid_f),
 
     .out_clk_i(clk_i),
-    .m_reset_ni(reset_ni),
+    .m_reset_ni(reset_int_n),
     .m_axis_out_tdata(peak_fifo_out),
     .m_axis_out_tuser(),
     .m_axis_out_tvalid(peak_fifo_valid_out),
@@ -608,14 +610,14 @@ AXIS_FIFO #(
 )
 data_fifo_i(
     .clk_i(clk_i),
-    .s_reset_ni(reset_ni),
+    .s_reset_ni(reset_int_n),
 
     .s_axis_in_tdata(s_axis_in_tdata),
     .s_axis_in_tuser(),
     .s_axis_in_tvalid(s_axis_in_tvalid),
 
     .out_clk_i(clk_i),
-    .m_reset_ni(reset_ni),
+    .m_reset_ni(reset_int_n),
     .m_axis_out_tdata(m_axis_out_tdata),
     .m_axis_out_tuser(),
     .m_axis_out_tvalid(data_fifo_valid_out),
