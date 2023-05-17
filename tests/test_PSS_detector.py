@@ -44,10 +44,6 @@ class TB(object):
         self.log.setLevel(logging.DEBUG)
 
         tests_dir = os.path.abspath(os.path.dirname(__file__))
-        model_file = os.path.abspath(os.path.join(tests_dir, '../model/PSS_correlator.py'))
-        spec = importlib.util.spec_from_file_location('PSS_correlator', model_file)
-        foo = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(foo)
         if self.USE_TAP_FILE:
             self.TAP_FILE_2 = os.environ["TAP_FILE_2"]
             self.PSS_LOCAL_2 = 0
@@ -55,19 +51,7 @@ class TB(object):
             self.TAP_FILE_2 = ""
             self.PSS_LOCAL_2 =  int(dut.PSS_LOCAL_2.value)
 
-        self.PSS_correlator_model = foo.Model(self.IN_DW, self.OUT_DW, self.TAP_DW, self.PSS_LEN, self.PSS_LOCAL_2, self.ALGO, self.USE_TAP_FILE, self.TAP_FILE_2)
-
         cocotb.start_soon(Clock(self.dut.clk_i, CLK_PERIOD_NS, units='ns').start())
-        cocotb.start_soon(self.model_clk(CLK_PERIOD_NS, 'ns'))
-
-    async def model_clk(self, period, period_units):
-        timer = Timer(period, period_units)
-        while True:
-            self.PSS_correlator_model.tick()
-            await timer
-
-    async def generate_input(self):
-        pass
 
     async def cycle_reset(self):
         self.dut.s_axis_in_tvalid.value = 0
@@ -77,7 +61,6 @@ class TB(object):
         await RisingEdge(self.dut.clk_i)
         self.dut.reset_ni.value = 1
         await RisingEdge(self.dut.clk_i)
-        self.PSS_correlator_model.reset()
 
 @cocotb.test()
 async def simple_test(dut):
@@ -93,33 +76,31 @@ async def simple_test(dut):
     await tb.cycle_reset()
 
     if tb.USE_MODE:
-        num_items = int(1.92e6 * 0.025)
+        MAX_CLK_CNT = int(1.92e6 * 0.025)
     else:
-        num_items = 2000
-    rx_counter = 0
+        MAX_CLK_CNT = 3000
+    clk_cnt = 0
     in_counter = 0
     received = []
     received_correlator = []
-    while rx_counter < num_items:
+    dut.clear_ni.value = 1
+    while clk_cnt < MAX_CLK_CNT:
         await RisingEdge(dut.clk_i)
         data = (((int(waveform[in_counter].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
               + ((int(waveform[in_counter].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
         dut.s_axis_in_tdata.value = data
         dut.s_axis_in_tvalid.value = 1
-        tb.PSS_correlator_model.set_data(data)
         in_counter += 1
 
-        # print(f'{dut.m_axis_cic_tvalid.value.integer} + {dut.m_axis_cic_tdata.value.integer}')
-
-        if dut.m_axis_correlator_debug_tvalid == 1:
+        if dut.m_axis_correlator_debug_tvalid.value == 1:
             received_correlator.append(dut.m_axis_correlator_debug_tdata.value.integer)
 
-        if dut.N_id_2_valid_o.value.integer == 1:
+        if dut.N_id_2_valid_o.value == 1:
             print(f'detected N_id_2 = {dut.N_id_2_o.value.integer}')
-            received.append(rx_counter)
-        rx_counter += 1
-        if ((rx_counter % (1920)) == 0):
-            print(f'sim time {rx_counter // 1920} ms')
+            received.append(clk_cnt)
+        clk_cnt += 1
+        if ((clk_cnt % (1920)) == 0):
+            print(f'sim time {clk_cnt // 1920} ms')
 
     print(f'received peaks at {received}')
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
@@ -130,7 +111,7 @@ async def simple_test(dut):
             peak_data[i] = 1
         ax2.plot(peak_data)
         plt.show()
-    assert 427 in received
+    assert 429 in received
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
 @pytest.mark.parametrize("ALGO", [0, 1])
@@ -161,6 +142,9 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
         os.path.join(rtl_dir, 'PSS_detector_regmap.sv'),
         os.path.join(rtl_dir, 'AXI_lite_interface.sv'),
         os.path.join(rtl_dir, 'CFO_calc.sv'),
+        os.path.join(rtl_dir, 'div.sv'),
+        os.path.join(rtl_dir, 'atan.sv'),
+        os.path.join(rtl_dir, 'atan2.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.sv')
     ]
     includes = []
@@ -179,6 +163,7 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
     parameters['VARIABLE_NOISE_LIMIT'] = VARIABLE_NOISE_LIMIT
     parameters['VARIABLE_DETECTION_FACTOR'] = VARIABLE_DETECTION_FACTOR
+    parameters['CIC_RATE'] = 1
     parameters_no_taps = parameters.copy()
     folder = '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items()))
     sim_build='sim_build/' + folder
@@ -249,6 +234,10 @@ def test_axi():
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
+        os.path.join(rtl_dir, 'CIC/cic_d.sv'),
+        os.path.join(rtl_dir, 'CIC/comb.sv'),
+        os.path.join(rtl_dir, 'CIC/downsampler.sv'),
+        os.path.join(rtl_dir, 'CIC/integrator.sv'),
         os.path.join(rtl_dir, 'div.sv'),
         os.path.join(rtl_dir, 'atan.sv'),
         os.path.join(rtl_dir, 'atan2.sv'),
@@ -260,11 +249,17 @@ def test_axi():
         os.path.join(rtl_dir, 'CFO_calc.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.sv')
     ]
+
+    includes = [
+        os.path.join(rtl_dir, 'CIC')
+    ]
+
     cocotb_test.simulator.run(
         python_search=[tests_dir],
         verilog_sources=verilog_sources,
         toplevel=toplevel,
         module=module,
+        includes=includes,
         sim_build=sim_build,
         testcase='axi_tb',
         force_compile=True,

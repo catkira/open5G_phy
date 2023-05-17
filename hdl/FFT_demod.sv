@@ -44,6 +44,8 @@ reg meta_FIFO_valid_in;
 wire meta_FIFO_valid_out;
 reg meta_FIFO_out_ready;
 wire [SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH - 1 : 0] meta_FIFO_out_data;
+wire [SYMBOL_NUMBER_WIDTH - 1 : 0] meta_out_sym = meta_FIFO_out_data[SYMBOL_NUMBER_WIDTH - 1 : 0];
+wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] meta_out_subframe = meta_FIFO_out_data[SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH - 1 -: SUBFRAME_NUMBER_WIDTH];
 AXIS_FIFO #(
     .DATA_WIDTH(SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH),
     .FIFO_LEN(16),
@@ -133,7 +135,6 @@ always @(posedge clk_i) begin
         if (s_axis_in_tvalid) begin
             current_CP_len <= s_axis_in_tuser[$clog2(MAX_CP_LEN) - 1 : 0];
             in_data_f <= s_axis_in_tdata;
-            // in_valid_f <= s_axis_in_tvalid;
         end
         in_valid_f <= s_axis_in_tvalid;
     end
@@ -165,21 +166,24 @@ wire valid_SSS_SC = (out_cnt >= SSS_START) && (out_cnt <= SSS_START + SSS_LEN - 
 wire fft_val;
 reg fft_val_f;
 wire [BLK_EXP_LEN - 1 : 0] blk_exp;
+wire is_PBCH_symbol = (meta_out_sym == 3) && (meta_out_subframe == 0);
+wire is_SSS_symbol = (meta_out_sym == 4) && (meta_out_subframe == 0);
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         out_cnt <= '0;
         SSS_valid <= '0;
         PBCH_valid <= '0;
-        PBCH_symbol <= '0;
+        // PBCH_symbol <= '0;
         current_out_symbol <= '0;
         last_SC <= '0;
+        meta_FIFO_out_ready <= '0;
     end else begin
         if (fft_val) begin
             last_SC <= (out_cnt == (FFT_LEN - 1 - SC_START));
 
-            PBCH_symbol <= (current_out_symbol == 0);
-            meta_FIFO_out_ready <= out_cnt == 0;
-            if (meta_FIFO_valid_out)  meta_out <= {meta_FIFO_out_data, blk_exp, current_out_symbol == 0};
+            // PBCH_symbol <= (current_out_symbol == 0);
+            meta_FIFO_out_ready <= out_cnt == (FFT_LEN - 1 - SC_START);
+            if (meta_FIFO_valid_out)  meta_out <= {meta_FIFO_out_data, blk_exp, is_PBCH_symbol};
             
             if (out_cnt == (FFT_LEN - 1)) begin
                 if (current_out_symbol == SYMS_BTWN_SSB - 1) begin
@@ -193,8 +197,8 @@ always @(posedge clk_i) begin
                 out_cnt <= out_cnt + 1;
             end
 
-            PBCH_valid <= valid_SC && (current_out_symbol == 0);
-            SSS_valid  <= valid_SSS_SC && (current_out_symbol == 1);
+            PBCH_valid <= valid_SC && is_PBCH_symbol; // only used for debugging
+            SSS_valid  <= valid_SSS_SC && is_SSS_symbol; // only used for debugging
         end else begin
             PBCH_valid <= '0;
             SSS_valid <= '0;
@@ -243,7 +247,7 @@ if (HALF_CP_ADVANCE) begin
     reg [MULT_DELAY - 1 : 0] PBCH_valid_delay;
     reg [MULT_DELAY - 1 : 0] SSS_valid_delay;
     reg [MULT_DELAY - 1 : 0] last_SC_delay;
-    reg [MULT_DELAY - 1 : 0] PBCH_symbol_delay;
+    // reg [MULT_DELAY - 1 : 0] PBCH_symbol_delay;
     reg [USER_WIDTH_OUT - 1 : 0] meta_delay [MULT_DELAY - 1 : 0];
 
     reg [OUT_DW - 1 : 0] coeff [0 : 2**NFFT - 1];
@@ -252,7 +256,7 @@ if (HALF_CP_ADVANCE) begin
     reg PBCH_valid_f;
     reg SSS_valid_f;
     reg last_SC_f;
-    reg PBCH_symbol_f;
+    // reg PBCH_symbol_f;
     reg [USER_WIDTH_OUT - 1 : 0] meta_delay_f;
     assign PBCH_valid_o = PBCH_valid_f;
     assign SSS_valid_o = SSS_valid_f;
@@ -323,26 +327,26 @@ if (HALF_CP_ADVANCE) begin
             SSS_valid_f <= '0;
             PBCH_valid_f <= '0;
             last_SC_f <= '0;
-            PBCH_symbol_f <= '0;
+            // PBCH_symbol_f <= '0;
         end else begin
             fft_val_f <= fft_val && valid_SC;
             out_data_f <= {fft_result_im, fft_result_re};
             SSS_valid_delay[0] <= SSS_valid;
             PBCH_valid_delay[0] <= PBCH_valid;
             last_SC_delay[0] <= last_SC;
-            PBCH_symbol_delay[0] <= PBCH_symbol;
+            // PBCH_symbol_delay[0] <= PBCH_symbol;
             meta_delay[0] <= meta_out;
             for (integer i = 0; i < (MULT_DELAY - 1); i = i + 1) begin
                 SSS_valid_delay[i+1] <= SSS_valid_delay[i];
                 PBCH_valid_delay[i+1] <= PBCH_valid_delay[i];
                 last_SC_delay[i+1] <= last_SC_delay[i];
-                PBCH_symbol_delay[i+1] <= PBCH_symbol_delay[i];
+                // PBCH_symbol_delay[i+1] <= PBCH_symbol_delay[i];
                 meta_delay[i+1] <= meta_delay[i];
             end
             SSS_valid_f <= SSS_valid_delay[MULT_DELAY - 1];
             PBCH_valid_f <= PBCH_valid_delay[MULT_DELAY - 1];
             last_SC_f <= last_SC_delay[MULT_DELAY - 1];
-            PBCH_symbol_f <= PBCH_symbol_delay[MULT_DELAY - 1];
+            // PBCH_symbol_f <= PBCH_symbol_delay[MULT_DELAY - 1];
             meta_delay_f <= meta_delay[MULT_DELAY - 1];
 
             if (fft_sync) coeff_idx <= '0;

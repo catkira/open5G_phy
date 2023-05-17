@@ -91,6 +91,7 @@ async def simple_test(dut):
     in_counter = 0
     received = np.empty(num_items, int)
     received_model = np.empty(num_items, int)
+    dut.enable_i.value = 1
     while rx_counter < num_items:
         await RisingEdge(dut.clk_i)
         data = (((int(waveform[in_counter].imag)  & (2 ** (tb.IN_DW // 2) - 1)) << (tb.IN_DW // 2)) \

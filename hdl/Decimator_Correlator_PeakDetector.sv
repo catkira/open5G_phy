@@ -81,6 +81,7 @@ correlator(
     .reset_ni(reset_ni),
     .s_axis_in_tdata(m_axis_cic_tdata),
     .s_axis_in_tvalid(m_axis_cic_tvalid),
+    .enable_i(1'b1),
     .m_axis_out_tdata(correlator_tdata),
     .m_axis_out_tvalid(correlator_tvalid)
 );
@@ -96,6 +97,7 @@ peak_detector(
     .s_axis_in_tvalid(correlator_tvalid),
     .noise_limit_i(0),
     .detection_shift_i(4),
+    .enable_i(1'b1),
     .peak_detected_o(peak_detected_o)
 );
 

@@ -27,8 +27,6 @@ class TB(object):
 
     async def cycle_reset(self):
         self.dut.s_axis_in_tvalid.value = 0
-        self.dut.reset_ni.setimmediatevalue(1)
-        await RisingEdge(self.dut.clk_i)
         self.dut.reset_ni.value = 0
         await RisingEdge(self.dut.clk_i)
         self.dut.reset_ni.value = 1

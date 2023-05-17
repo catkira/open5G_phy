@@ -35,52 +35,18 @@ module Decimator_Correlator_PeakDetector_FFT
     output                                      m_axis_out_tvalid,
     
     // debug outputs
-    output  wire            [IN_DW-1:0]         m_axis_cic_debug_tdata,
-    output  wire                                m_axis_cic_debug_tvalid,
     output  reg                                 peak_detected_debug_o,
     output  wire            [FFT_OUT_DW-1:0]    fft_result_debug_o,
     output  wire                                fft_sync_debug_o,
     output  wire            [15:0]              sync_wait_counter_debug_o,
     output  reg                                 fft_demod_PBCH_start_o,
-    output  reg                                 fft_demod_SSS_start_o
+    output  reg                                 fft_demod_SSS_start_o,
+    output                  [IN_DW-1:0]         m_axis_PSS_out_tdata,
+    output                                      m_axis_PSS_out_tvalid
 );
 
-wire [IN_DW - 1 : 0] m_axis_cic_tdata;
-wire                 m_axis_cic_tvalid;
-assign m_axis_cic_debug_tdata = m_axis_cic_tdata;
-assign m_axis_cic_debug_tvalid = m_axis_cic_tvalid;
-
-cic_d #(
-    .INP_DW(IN_DW/2),
-    .OUT_DW(IN_DW/2),
-    .CIC_R(CIC_RATE),
-    .CIC_N(3),
-    .VAR_RATE(0)
-)
-cic_real(
-    .clk(clk_i),
-    .reset_n(reset_ni),
-    .s_axis_in_tdata(s_axis_in_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
-    .s_axis_in_tvalid(s_axis_in_tvalid),
-    .m_axis_out_tdata(m_axis_cic_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
-    .m_axis_out_tvalid(m_axis_cic_tvalid)
-);
-
-cic_d #(
-    .INP_DW(IN_DW / 2),
-    .OUT_DW(IN_DW / 2),
-    .CIC_R(CIC_RATE),
-    .CIC_N(3),
-    .VAR_RATE(0)
-)
-cic_imag(
-    .clk(clk_i),
-    .reset_n(reset_ni),
-    .s_axis_in_tdata(s_axis_in_tdata[IN_DW - 1 -: IN_DW / 2]),
-    .s_axis_in_tvalid(s_axis_in_tvalid),
-    .m_axis_out_tdata(m_axis_cic_tdata[IN_DW - 1 -: IN_DW / 2])
-);
-
+wire [IN_DW - 1 : 0] in_data;
+wire in_valid;
 PSS_detector #(
     .IN_DW(IN_DW),
     .OUT_DW(OUT_DW),
@@ -92,19 +58,25 @@ PSS_detector #(
     .ALGO(ALGO),
     .USE_TAP_FILE(USE_TAP_FILE),
     .MULT_REUSE(MULT_REUSE),
-    .INITIAL_DETECTION_SHIFT(INITIAL_DETECTION_SHIFT)
+    .INITIAL_DETECTION_SHIFT(INITIAL_DETECTION_SHIFT),
+    .CIC_RATE(CIC_RATE)
 )
 PSS_detector_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
-    .s_axis_in_tdata(m_axis_cic_tdata),
-    .s_axis_in_tvalid(m_axis_cic_tvalid),
+    .clear_ni(1'b1),
+    .s_axis_in_tdata(s_axis_in_tdata),
+    .s_axis_in_tvalid(s_axis_in_tvalid),
 
+    .m_axis_out_tdata(in_data),
+    .m_axis_out_tvalid(in_valid),
     .N_id_2_valid_o(peak_detected)
 );
 
 wire peak_detected;
 assign peak_detected_debug_o = peak_detected;
+assign m_axis_PSS_out_tdata = in_data;
+assign m_axis_PSS_out_tvalid = in_valid;
 
 wire [FFT_OUT_DW - 1 : 0] fft_result, fft_result_demod;
 wire [FFT_OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
@@ -113,55 +85,6 @@ wire fft_sync;
 
 assign fft_result_debug_o = fft_result;
 assign fft_sync_debug_o = fft_sync;
-
-function integer calc_delay;
-    input dummy;  // Vivado wants that a function has at least one argument
-    begin
-        // that's a bunch of magic numbers
-        // TODO: make this nicer / more systematic
-        if (FFT_LEN == 256) begin
-            if (MULT_REUSE == 0)        calc_delay = 14;  // ok with new PSS_correlator_mr
-            else if (MULT_REUSE == 1)   calc_delay = 24;  // ok with new PSS_correlator_mr, 24
-            else if (MULT_REUSE == 2)   calc_delay = 25;  // ok with new PSS_correlator_mr, 24 + 1
-            else if (MULT_REUSE == 4)   calc_delay = 26;  // ok with new PSS_correlator_mr, 24 + 2
-            else if (MULT_REUSE == 8)   calc_delay = 28;  // ok with new PSS_correlator_mr, 24 + 4
-            else if (MULT_REUSE == 16)  calc_delay = 32;  // ok with new PSS_correlator_mr, 24 + 8
-            else if (MULT_REUSE == 32)  calc_delay = 40;  // ok with new PSS_correlator_mr, 24 + 16
-        end else if (FFT_LEN == 512) begin
-            if (MULT_REUSE == 0)        calc_delay = 16;  // ok with new PSS_correlator_mr
-            else if (MULT_REUSE == 1)   calc_delay = 26;  // ok with new PSS_correlator_mr, 26
-            else if (MULT_REUSE == 2)   calc_delay = 27;  // ok with new PSS_correlator_mr, 26 + 1
-            else if (MULT_REUSE == 4)   calc_delay = 30;  // ok with new PSS_correlator_mr, 26 + 4
-            else if (MULT_REUSE == 8)   calc_delay = 36;  // ok with new PSS_correlator_mr, 26 + 10
-            else if (MULT_REUSE == 16)  calc_delay = 48;  // ok with new PSS_correlator_mr, 26 + 22
-            else if (MULT_REUSE == 32)  calc_delay = 72;  // ok with new PSS_correlator_mr, 26 + 46
-        end else begin
-            $display("Error: FFT_LEN = %d is not supported!", FFT_LEN);
-            $finish();
-        end
-    end
-endfunction
-
-// this delay line is needed because peak_detected goes high
-// at the end of SSS symbol plus some additional delay
-localparam DELAY_LINE_LEN = calc_delay(0);
-reg [IN_DW-1:0] delay_line_data  [0 : DELAY_LINE_LEN - 1];
-reg             delay_line_valid [0 : DELAY_LINE_LEN - 1];
-always @(posedge clk_i) begin
-    if (!reset_ni) begin
-        for (integer i = 0; i < DELAY_LINE_LEN; i = i + 1) begin
-            delay_line_data[i] = '0;
-            delay_line_valid[i] = '0;
-        end
-    end else begin
-        delay_line_data[0] <= s_axis_in_tdata;
-        delay_line_valid[0] <= s_axis_in_tvalid;
-        for (integer i = 0; i < DELAY_LINE_LEN - 1; i = i + 1) begin
-            delay_line_data[i+1] <= delay_line_data[i];
-            delay_line_valid[i+1] <= delay_line_valid[i];
-        end
-    end
-end
 
 localparam SFN_MAX = 1023;
 localparam SUBFRAMES_PER_FRAME = 20;
@@ -190,8 +113,8 @@ frame_sync_i
     .N_id_2_valid_i(peak_detected),
     .ibar_SSB_i(),
     .ibar_SSB_valid_i(),
-    .s_axis_in_tdata(delay_line_data[DELAY_LINE_LEN - 1]),
-    .s_axis_in_tvalid(delay_line_valid[DELAY_LINE_LEN - 1]),
+    .s_axis_in_tdata(in_data),
+    .s_axis_in_tvalid(in_valid),
 
     .PSS_detector_mode_o(),
     .requested_N_id_2_o(),

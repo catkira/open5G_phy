@@ -31,7 +31,7 @@ module receiver
     localparam BLK_EXP_LEN = 8,
     localparam FFT_LEN = 2 ** NFFT,
     localparam MAX_CP_LEN = 20 * FFT_LEN / 256,
-    localparam CIC_RATE = FFT_LEN / 128,    
+    localparam CIC_RATE = FFT_LEN / 128,
     localparam FFT_OUT_DW = 16,
     localparam N_id_1_MAX = 335,
     localparam N_id_MAX = 1007,
@@ -105,10 +105,8 @@ module receiver
     input                                       s_axi_if_rready, 
     
     // debug outputs
-    output  wire    [IN_DW - 1 : 0]                 m_axis_cic_debug_tdata,
-    output  wire                                    m_axis_cic_debug_tvalid,
-    output  wire    [OUT_DW - 1 : 0]                m_axis_correlator_debug_tdata,
-    output  wire                                    m_axis_correlator_debug_tvalid,
+    output  wire    [IN_DW - 1 : 0]                 m_axis_PSS_out_tdata,
+    output  wire                                    m_axis_PSS_out_tvalid,
     output  wire    [15:0]                          sync_wait_counter_debug_o,
     output  wire                                    peak_detected_debug_o
 );
@@ -187,13 +185,6 @@ wire                                            s_axi_rx_rvalid;
 wire                                            s_axi_rx_rready;
 // ------------------------------------------------------------------
 
-
-wire [IN_DW - 1 : 0] m_axis_cic_tdata;
-wire                 m_axis_cic_tvalid;
-assign m_axis_cic_debug_tdata = m_axis_cic_tdata;
-assign m_axis_cic_debug_tvalid = m_axis_cic_tvalid;
-
-
 reg [COMPL_MULT_OUT_DW - 1 : 0] mult_out_tdata;
 reg                             mult_out_tvalid;
 
@@ -218,6 +209,7 @@ always @(posedge clk_i) begin
     else if (FIFO_out_tvalid) FIFO_out_f <= FIFO_out_tdata;
 end
 
+wire [31 : 0] clks_btwn_SSBs;
 receiver_regmap #(
     .ID(0),
     .ADDRESS_WIDTH(AXI_ADDRESS_WIDTH)
@@ -233,6 +225,7 @@ receiver_regmap_i(
     .sample_cnt_mismatch_i(sample_cnt_mismatch),
     .missed_SSBs_i(missed_SSBs),
     .ibar_SSB_i(ibar_SSB_f),
+    .clks_btwn_SSBs_i(clks_btwn_SSBs),
 
     .s_axi_if_awaddr(s_axi_rx_awaddr),
     .s_axi_if_awvalid(s_axi_rx_awvalid),
@@ -400,53 +393,17 @@ complex_multiplier_i(
     .m_axis_dout_tvalid(mult_out_tvalid)
 );
 
-cic_d #(
-    .INP_DW(IN_DW/2),
-    .OUT_DW(IN_DW/2),
-    .CIC_R(CIC_RATE),
-    .CIC_N(3),
-    .VAR_RATE(0)
-)
-cic_real(
-    .clk(clk_i),
-    .reset_n(reset_ni),
-
-    .s_axis_in_tdata(mult_out_tdata[COMPL_MULT_OUT_DW / 2 - 1 -: COMPL_MULT_OUT_DW / 2]),
-    .s_axis_in_tvalid(mult_out_tvalid),
-
-    .m_axis_out_tdata(m_axis_cic_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
-    .m_axis_out_tvalid(m_axis_cic_tvalid)
-);
-
-cic_d #(
-    .INP_DW(IN_DW / 2),
-    .OUT_DW(IN_DW / 2),
-    .CIC_R(CIC_RATE),
-    .CIC_N(3),
-    .VAR_RATE(0)
-)
-cic_imag(
-    .clk(clk_i),
-    .reset_n(reset_ni),
-
-    .s_axis_in_tdata(mult_out_tdata[COMPL_MULT_OUT_DW - 1 -: COMPL_MULT_OUT_DW / 2]),
-    .s_axis_in_tvalid(mult_out_tvalid),
-
-    .m_axis_out_tdata(m_axis_cic_tdata[IN_DW - 1 -: IN_DW / 2]),
-    .m_axis_out_tvalid()
-);
-
-
-wire [OUT_DW - 1 : 0] correlator_tdata;
-wire correlator_tvalid;
-assign m_axis_correlator_debug_tdata = correlator_tdata;
-assign m_axis_correlator_debug_tvalid = correlator_tvalid;
+assign m_axis_PSS_out_tdata = pss_out_data;
+assign m_axis_PSS_out_tvalid = pss_out_valid;
 
 reg N_id_2_valid;
 wire [1 : 0] N_id_2;
 wire [1 : 0] PSS_detector_mode;
 wire [1 : 0] requested_N_id_2;
 assign peak_detected_debug_o = N_id_2_valid;
+wire [IN_DW - 1 : 0] pss_out_data;
+wire pss_out_valid;
+wire clear_detector_n;
 
 PSS_detector #(
     .IN_DW(IN_DW),
@@ -469,17 +426,21 @@ PSS_detector #(
     .VARIABLE_DETECTION_FACTOR(VARIABLE_DETECTION_FACTOR),
     .VARIABLE_NOISE_LIMIT(VARIABLE_NOISE_LIMIT),
     .INITIAL_DETECTION_SHIFT(INITIAL_DETECTION_SHIFT),
-    .INITIAL_CFO_MODE(INITIAL_CFO_MODE)
+    .INITIAL_CFO_MODE(INITIAL_CFO_MODE),
+    .CIC_RATE(CIC_RATE)
 )
 PSS_detector_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
+    .clear_ni(clear_detector_n),
 
-    .s_axis_in_tdata(m_axis_cic_tdata),
-    .s_axis_in_tvalid(m_axis_cic_tvalid),
+    .s_axis_in_tdata(mult_out_tdata),
+    .s_axis_in_tvalid(mult_out_tvalid),    
     .mode_i(PSS_detector_mode),
     .requested_N_id_2_i(requested_N_id_2),
 
+    .m_axis_out_tdata(pss_out_data),
+    .m_axis_out_tvalid(pss_out_valid),
     .N_id_2_valid_o(N_id_2_valid),
     .N_id_2_o(N_id_2),
     .CFO_DDS_inc_o(CFO_DDS_inc),
@@ -523,56 +484,6 @@ wire [FFT_OUT_DW / 2 - 1 : 0] fft_result_re, fft_result_im;
 wire fft_result_demod_valid;
 wire fft_sync;
 
-function integer calc_delay;
-    input dummy;  // Vivado wants that a function has at least one argument
-    begin
-        // that's a bunch of magic numbers
-        // TODO: make this nicer / more systematic
-        if (FFT_LEN == 256) begin
-            if (MULT_REUSE == 0)        calc_delay = 14;  // ok with new PSS_correlator_mr
-            else if (MULT_REUSE == 1)   calc_delay = 24;  // ok with new PSS_correlator_mr, 24
-            else if (MULT_REUSE == 2)   calc_delay = 25;  // ok with new PSS_correlator_mr, 24 + 1
-            else if (MULT_REUSE == 4)   calc_delay = 26;  // ok with new PSS_correlator_mr, 24 + 2
-            else if (MULT_REUSE == 8)   calc_delay = 28;  // ok with new PSS_correlator_mr, 24 + 4
-            else if (MULT_REUSE == 16)  calc_delay = 32;  // ok with new PSS_correlator_mr, 24 + 8
-            else if (MULT_REUSE == 32)  calc_delay = 40;  // ok with new PSS_correlator_mr, 24 + 16
-        end else if (FFT_LEN == 512) begin
-            if (MULT_REUSE == 0)        calc_delay = 16;  // ok with new PSS_correlator_mr
-            else if (MULT_REUSE == 1)   calc_delay = 26;  // ok with new PSS_correlator_mr, 26
-            else if (MULT_REUSE == 2)   calc_delay = 27;  // ok with new PSS_correlator_mr, 26 + 1
-            else if (MULT_REUSE == 4)   calc_delay = 30;  // ok with new PSS_correlator_mr, 26 + 4
-            else if (MULT_REUSE == 8)   calc_delay = 36;  // ok with new PSS_correlator_mr, 26 + 10
-            else if (MULT_REUSE == 16)  calc_delay = 48;  // ok with new PSS_correlator_mr, 26 + 22
-            else if (MULT_REUSE == 32)  calc_delay = 72;  // ok with new PSS_correlator_mr, 26 + 46
-        end else begin
-            $display("Error: FFT_LEN = %d is not supported!", FFT_LEN);
-            $finish();
-        end
-    end
-endfunction
-
-// this delay line is needed because peak_detected goes high
-// at the end of SSS symbol plus some additional delay
-localparam DELAY_LINE_LEN = calc_delay(0);
-reg [IN_DW-1:0] delay_line_data  [0 : DELAY_LINE_LEN - 1];
-reg             delay_line_valid [0 : DELAY_LINE_LEN - 1];
-always @(posedge clk_i) begin
-    if (!reset_ni) begin
-        for (integer i = 0; i < DELAY_LINE_LEN; i = i + 1) begin
-            delay_line_data[i] = '0;
-            delay_line_valid[i] = '0;
-        end
-    end else begin
-        delay_line_data[0] <= mult_out_tdata;
-        delay_line_valid[0] <= mult_out_tvalid;
-        for (integer i = 0; i < DELAY_LINE_LEN - 1; i = i + 1) begin
-            delay_line_data[i+1] <= delay_line_data[i];
-            delay_line_valid[i+1] <= delay_line_valid[i];
-        end
-    end
-end
-
-
 localparam SFN_MAX = 1023;
 localparam SUBFRAMES_PER_FRAME = 20;
 localparam SYM_PER_SF = 14;
@@ -611,9 +522,10 @@ frame_sync_i
     .N_id_2_valid_i(N_id_2_valid),
     .ibar_SSB_i(ibar_SSB),
     .ibar_SSB_valid_i(ibar_SSB_valid),
-    .s_axis_in_tdata(delay_line_data[DELAY_LINE_LEN - 1]),
-    .s_axis_in_tvalid(delay_line_valid[DELAY_LINE_LEN - 1]),
+    .s_axis_in_tdata(pss_out_data),
+    .s_axis_in_tvalid(pss_out_valid),
 
+    .clear_detector_no(clear_detector_n),
     .PSS_detector_mode_o(PSS_detector_mode),
     .requested_N_id_2_o(requested_N_id_2),
 
@@ -630,7 +542,8 @@ frame_sync_i
     .sample_cnt_mismatch_o(sample_cnt_mismatch),
     .missed_SSBs_o(missed_SSBs),
     .N_id_2_o(fs_N_id_2),
-    .N_id_2_valid_o(fs_N_id_2_valid)
+    .N_id_2_valid_o(fs_N_id_2_valid),
+    .clks_btwn_SSBs_o(clks_btwn_SSBs)
 );
 
 wire [SAMPLE_ID_WIDTH - 1 : 0] sample_id_fifo_out_data;

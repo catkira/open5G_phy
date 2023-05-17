@@ -170,6 +170,18 @@ async def simple_test(dut):
                 + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
     assert len(received_SSS) == SSS_LEN
+
+    if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
+        ax = plt.subplot(2, 2, 1)
+        ax = plt.subplot(2, 2, 2)
+        ax.plot(np.abs(received_SSS[0:127]))
+        ax.set_title('1st SSB')
+        ax = plt.subplot(2, 2, 3)
+        ax.plot(np.real(received_SSS[0:127]), 'r-')
+        ax = ax.twinx()
+        ax.plot(np.imag(received_SSS[0:127]), 'b-')
+        ax = plt.subplot(2, 2, 4)
+        ax.plot(np.real(received_SSS[0:127]), np.imag(received_SSS[0:127]), '.')
     
     print(f'detected N_id_1 = {detected_N_id_1}')
     print(f'detected N_id = {detected_N_id}')
@@ -314,7 +326,7 @@ def test_recording(FILE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, NFFT = 8,
-        MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
-    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, NFFT = 9,
-    #     MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4)
+    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, NFFT = 8,
+        # MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, NFFT = 8,
+        MULT_REUSE = 1, INITIAL_DETECTION_SHIFT = 4)

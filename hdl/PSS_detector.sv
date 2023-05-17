@@ -25,6 +25,7 @@ module PSS_detector
     parameter VARIABLE_DETECTION_FACTOR = 0,
     parameter INITIAL_DETECTION_SHIFT = 3,
     parameter INITIAL_CFO_MODE = 0,
+    parameter CIC_RATE = 2,
 
     localparam SAMPLE_RATE = 1920000,
     localparam AXI_ADDRESS_WIDTH = 11
@@ -32,12 +33,15 @@ module PSS_detector
 (
     input                                       clk_i,
     input                                       reset_ni,
+    input                                       clear_ni,
     input   wire           [IN_DW-1:0]          s_axis_in_tdata,
     input                                       s_axis_in_tvalid,
 
     input                  [1 : 0]              mode_i,
     input                  [1 : 0]              requested_N_id_2_i,
     
+    output                 [IN_DW-1:0]          m_axis_out_tdata,
+    output                                      m_axis_out_tvalid,
     output  reg            [1 : 0]              N_id_2_o,
     output                                      N_id_2_valid_o,
     output  reg signed     [CFO_DW - 1 : 0]     CFO_angle_o,
@@ -98,6 +102,49 @@ wire cfo_mode;
 assign CFO_mode_o = cfo_mode;
 localparam CFO_MODE_AUTO = 1'b0;
 localparam CFO_MODE_MANUAL = 1'b1;
+wire peak_valid;
+wire [IN_DW - 1 : 0] cic_tdata;
+wire cic_tvalid;
+// set input data to CIC to 0s if correlators are disabled to prevent unwanted peaks
+// wire [IN_DW - 1 : 0] cic_in_tdata = correlator_en ? s_axis_in_tdata : '0;
+wire [IN_DW - 1 : 0] cic_in_tdata = s_axis_in_tdata;
+wire reset_int_n = reset_ni && clear_ni;
+
+if (CIC_RATE > 1) begin
+    cic_d #(
+        .INP_DW(IN_DW/2),
+        .OUT_DW(IN_DW/2),
+        .CIC_R(CIC_RATE),
+        .CIC_N(3),
+        .VAR_RATE(0)
+    )
+    cic_real(
+        .clk(clk_i),
+        .reset_n(reset_int_n),
+        .s_axis_in_tdata(cic_in_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
+        .s_axis_in_tvalid(s_axis_in_tvalid),
+        .m_axis_out_tdata(cic_tdata[IN_DW / 2 - 1 -: IN_DW / 2]),
+        .m_axis_out_tvalid(cic_tvalid)
+    );
+
+    cic_d #(
+        .INP_DW(IN_DW / 2),
+        .OUT_DW(IN_DW / 2),
+        .CIC_R(CIC_RATE),
+        .CIC_N(3),
+        .VAR_RATE(0)
+    )
+    cic_imag(
+        .clk(clk_i),
+        .reset_n(reset_int_n),
+        .s_axis_in_tdata(cic_in_tdata[IN_DW - 1 -: IN_DW / 2]),
+        .s_axis_in_tvalid(s_axis_in_tvalid),
+        .m_axis_out_tdata(cic_tdata[IN_DW - 1 -: IN_DW / 2])
+    );
+end else begin
+    assign cic_tdata = s_axis_in_tdata;
+    assign cic_tvalid = s_axis_in_tvalid;
+end
 
 reg [31 : 0] peak_counter_0;
 reg [31 : 0] peak_counter_1;
@@ -135,9 +182,10 @@ if (MULT_REUSE == 0) begin
     )
     correlator_0_i(
         .clk_i(clk_i),
-        .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_in_tdata),
-        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .reset_ni(reset_int_n),
+        .s_axis_in_tdata(cic_tdata),
+        .s_axis_in_tvalid(cic_tvalid),
+        .enable_i(1'b1),
         .C0_o(C0[0]),
         .C1_o(C1[0]),
         .m_axis_out_tdata(correlator_0_tdata),
@@ -158,9 +206,10 @@ if (MULT_REUSE == 0) begin
     )
     correlator_1_i(
         .clk_i(clk_i),
-        .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_in_tdata),
-        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .reset_ni(reset_int_n),
+        .s_axis_in_tdata(cic_tdata),
+        .s_axis_in_tvalid(cic_tvalid),
+        .enable_i(1'b1),
         .C0_o(C0[1]),
         .C1_o(C1[1]),
         .m_axis_out_tdata(correlator_1_tdata),
@@ -181,9 +230,10 @@ if (MULT_REUSE == 0) begin
     )
     correlator_2_i(
         .clk_i(clk_i),
-        .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_in_tdata),
-        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .reset_ni(reset_int_n),
+        .s_axis_in_tdata(cic_tdata),
+        .s_axis_in_tvalid(cic_tvalid),
+        .enable_i(1'b1),
         .C0_o(C0[2]),
         .C1_o(C1[2]),
         .m_axis_out_tdata(correlator_2_tdata),
@@ -205,9 +255,10 @@ end else begin
     )
     correlator_0_i(
         .clk_i(clk_i),
-        .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_in_tdata),
-        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .reset_ni(reset_int_n),
+        .s_axis_in_tdata(cic_tdata),
+        .s_axis_in_tvalid(cic_tvalid),
+        .enable_i(1'b1),
         .C0_o(C0[0]),
         .C1_o(C1[0]),
         .m_axis_out_tdata(correlator_0_tdata),
@@ -228,9 +279,10 @@ end else begin
     )
     correlator_1_i(
         .clk_i(clk_i),
-        .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_in_tdata),
-        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .reset_ni(reset_int_n),
+        .s_axis_in_tdata(cic_tdata),
+        .s_axis_in_tvalid(cic_tvalid),
+        .enable_i(1'b1),
         .C0_o(C0[1]),
         .C1_o(C1[1]),
         .m_axis_out_tdata(correlator_1_tdata),
@@ -251,9 +303,10 @@ end else begin
     )
     correlator_2_i(
         .clk_i(clk_i),
-        .reset_ni(reset_ni),
-        .s_axis_in_tdata(s_axis_in_tdata),
-        .s_axis_in_tvalid(s_axis_in_tvalid && correlator_en),
+        .reset_ni(reset_int_n),
+        .s_axis_in_tdata(cic_tdata),
+        .s_axis_in_tvalid(cic_tvalid),
+        .enable_i(1'b1),
         .C0_o(C0[2]),
         .C1_o(C1[2]),
         .m_axis_out_tdata(correlator_2_tdata),
@@ -268,13 +321,15 @@ Peak_detector #(
 )
 peak_detector_0_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .reset_ni(reset_int_n),
     .s_axis_in_tdata(correlator_0_tdata),
     .s_axis_in_tvalid(correlator_0_tvalid),
     .noise_limit_i(noise_limit),
     .detection_shift_i(detection_shift),
+    .enable_i(correlator_en),
     .peak_detected_o(peak_detected[0]),
-    .score_o(score[0])    
+    .score_o(score[0]),
+    .peak_valid_o(peak_valid)
 );
 
 Peak_detector #(
@@ -283,11 +338,12 @@ Peak_detector #(
 )
 peak_detector_1_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .reset_ni(reset_int_n),
     .s_axis_in_tdata(correlator_1_tdata),
     .s_axis_in_tvalid(correlator_1_tvalid),
     .noise_limit_i(noise_limit),
     .detection_shift_i(detection_shift),
+    .enable_i(correlator_en),
     .peak_detected_o(peak_detected[1]),
     .score_o(score[1])
 );
@@ -298,11 +354,12 @@ Peak_detector #(
 )
 peak_detector_2_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .reset_ni(reset_int_n),
     .s_axis_in_tdata(correlator_2_tdata),
     .s_axis_in_tvalid(correlator_2_tvalid),
     .noise_limit_i(noise_limit),
     .detection_shift_i(detection_shift),
+    .enable_i(correlator_en),
     .peak_detected_o(peak_detected[2]),
     .score_o(score[2])    
 );
@@ -310,7 +367,7 @@ peak_detector_2_i(
 reg [C_DW - 1 : 0] C0_f [0 : 2];
 reg [C_DW - 1 : 0] C1_f [0 : 2];
 always @(posedge clk_i) begin
-    if (!reset_ni) begin
+    if (!reset_int_n) begin
         C0_f[0] <= '0;
         C0_f[1] <= '0;
         C0_f[2] <= '0;
@@ -340,7 +397,7 @@ CFO_calc #(
 )
 CFO_calc_i(
     .clk_i(clk_i),
-    .reset_ni(reset_ni),
+    .reset_ni(reset_int_n),
     .C0_i(C0_in),
     .C1_i(C1_in),
     .valid_i(CFO_calc_valid_in),
@@ -357,7 +414,7 @@ localparam SSB_INTERVAL = $rtoi(1920000 * 0.02);
 localparam TRACK_TOLERANCE = 100;
 localparam CORRELATOR_DELAY = 160;
 reg [$clog2(SSB_INTERVAL + TRACK_TOLERANCE) - 1 : 0] sample_cnt;
-reg peak_valid;
+reg N_id_2_valid;
 
 reg [1 : 0] CFO_state;
 localparam [1 : 0] WAIT_FOR_PEAK = 0;
@@ -372,7 +429,7 @@ localparam [1 : 0] WAIT_FOR_CFO = 2;
 // TODO: signal a valid N_id_2 only of the calculated CFO is below a certain threshold,
 // i.e. +- 100 Hz, if it is above, wait for next SSB with corrected CFO
 always @(posedge clk_i) begin
-    if (!reset_ni) begin
+    if (!reset_int_n) begin
         CFO_state <= WAIT_FOR_PEAK;
         CFO_angle_o <= '0;
         CFO_DDS_inc_o <= '0;
@@ -381,7 +438,7 @@ always @(posedge clk_i) begin
         case (CFO_state)
             WAIT_FOR_PEAK : begin
                 CFO_valid_o <= '0;
-                if (peak_valid) begin
+                if (N_id_2_valid) begin
                     C0_in <= C0_f[N_id_2_o];
                     C1_in <= C1_f[N_id_2_o];
                     CFO_calc_valid_in <= 1;
@@ -418,11 +475,12 @@ end
 // If USE_MODE is 0, the FSM is permanently in SEARCH mode
 wire [1 : 0] mode_select;
 assign mode_select = USE_MODE ? mode_i : SEARCH;
+reg [1 : 0] N_id_2;
 
 always @(posedge clk_i) begin
-    if (!reset_ni) begin
-        N_id_2_o <= '0;
-        peak_valid <= '0;
+    if (!reset_int_n) begin
+        N_id_2 <= '0;
+        N_id_2_valid <= '0;
         correlator_en <= '0;
     end else begin
         case(mode_select)
@@ -430,36 +488,143 @@ always @(posedge clk_i) begin
                 correlator_en <= 1;
                 if ((peak_detected == 1) || (peak_detected == 2) || (peak_detected == 4)) begin
                     case (peak_detected)
-                        1 : N_id_2_o <= 0;
-                        2 : N_id_2_o <= 1;
-                        4 : N_id_2_o <= 2;
+                        1 : N_id_2 <= 0;
+                        2 : N_id_2 <= 1;
+                        4 : N_id_2 <= 2;
                     endcase
                     $display("PSS detector: detected N_id_2 is %d", peak_detected == 1 ? 0 : (peak_detected == 2 ? 1 : 2));                    
-                    peak_valid <= 1;
+                    N_id_2_valid <= 1;
                 end else begin
-                    peak_valid <= 0;
+                    N_id_2_valid <= 0;
                 end
             end
             FIND : begin
                 correlator_en <= 1;
                 if (peak_detected[requested_N_id_2_i] && 
                     ((peak_detected == 1) || (peak_detected == 2) || (peak_detected == 4))) begin
-                    N_id_2_o <= requested_N_id_2_i;
+                    N_id_2 <= requested_N_id_2_i;
                     $display("PSS detector: detected N_id_2 is %d (find mode)", requested_N_id_2_i);                    
-                    peak_valid <= 1;
+                    N_id_2_valid <= 1;
                 end else begin
-                    peak_valid <= 0;
+                    N_id_2_valid <= 0;
                 end
             end
             PAUSE : begin
                 correlator_en <= 0;
-                peak_valid <= 0;
+                N_id_2_valid <= 0;
             end
         endcase
     end
 end
 
-assign N_id_2_valid_o = peak_valid;
+// discard first 129 peaks
+// TODO: why not 128 ??
+localparam PEAK_DELAY_LIMIT = 129; 
+
+reg [10 : 0] peak_delay;
+always @(posedge clk_i) begin
+    if (!reset_int_n) peak_delay <= '0;
+    else if (peak_valid) peak_delay <= peak_delay < PEAK_DELAY_LIMIT ? peak_delay + 1 : peak_delay;
+end
+
+reg peak_valid_f;
+always @(posedge clk_i) peak_valid_f <= (!reset_int_n) ? '0 : peak_valid && (peak_delay == PEAK_DELAY_LIMIT);
+
+reg [2 : 0] state;
+wire peak_fifo_valid_out;
+wire data_fifo_ready = (peak_fifo_valid_out && (state == 2)) || (state == 0);
+localparam WAIT_CNT_LEN = $clog2(MULT_REUSE >> 1) > 0 ? $clog2(MULT_REUSE >> 1) : 1;
+reg [WAIT_CNT_LEN - 1 : 0] wait_cnt;
+// TODO: simplift this FSM and support CIC_RATE > 2 (NFFT = 9)
+always @(posedge clk_i) begin
+    if (!reset_int_n) begin
+        state <= '0;
+        wait_cnt <= '0;
+    end else begin
+        case (state)
+            0 : begin
+                if (data_fifo_valid_out && data_fifo_ready) begin
+                    if (MULT_REUSE <= 2) state <= CIC_RATE > 1 ? 2 : 0;
+                    else begin
+                        state <= 1;
+                        wait_cnt <= (MULT_REUSE >> 1) - 2;
+                    end
+                end
+            end
+            1 : begin
+                if (wait_cnt == 0) state <= CIC_RATE > 1 ? 2 : 0;
+                else wait_cnt <= wait_cnt - 1;
+            end
+            2 : begin
+                if (data_fifo_valid_out && data_fifo_ready) begin
+                    if (MULT_REUSE <= 2) state <= 0;
+                    else begin
+                        state <= 3;
+                        wait_cnt <= (MULT_REUSE >> 1) - 2;
+                    end
+                end
+            end
+            3 : begin
+                if (wait_cnt == 0) state <= 0;
+                else wait_cnt <= wait_cnt - 1;
+            end
+        endcase
+    end
+end
+wire peak_fifo_ready = ((state == 2) && data_fifo_valid_out && data_fifo_ready && (CIC_RATE > 1)) || ((CIC_RATE == 1) && data_fifo_valid_out);
+
+wire [2 : 0] peak_fifo_out;
+wire [31 : 0] peak_fifo_level;
+AXIS_FIFO #(
+    .DATA_WIDTH(3),
+    .FIFO_LEN(16),
+    .ASYNC(0),
+    .USER_WIDTH(0)
+)
+peak_fifo_i(
+    .clk_i(clk_i),
+    .s_reset_ni(reset_int_n),
+
+    .s_axis_in_tdata({N_id_2, N_id_2_valid}),
+    .s_axis_in_tuser(),
+    .s_axis_in_tvalid(peak_valid_f),
+
+    .out_clk_i(clk_i),
+    .m_reset_ni(reset_int_n),
+    .m_axis_out_tdata(peak_fifo_out),
+    .m_axis_out_tuser(),
+    .m_axis_out_tvalid(peak_fifo_valid_out),
+    .m_axis_out_tready(peak_fifo_ready),
+    .m_axis_out_tlevel(peak_fifo_level)
+);
+assign N_id_2_o = peak_fifo_out[2:1];
+assign N_id_2_valid_o = peak_fifo_valid_out && peak_fifo_ready && peak_fifo_out[0];
+
+wire data_fifo_valid_out;
+wire [31 : 0] data_fifo_level;
+AXIS_FIFO #(
+    .DATA_WIDTH(IN_DW),
+    .FIFO_LEN(512),
+    .ASYNC(0),
+    .USER_WIDTH(0)
+)
+data_fifo_i(
+    .clk_i(clk_i),
+    .s_reset_ni(reset_int_n),
+
+    .s_axis_in_tdata(s_axis_in_tdata),
+    .s_axis_in_tuser(),
+    .s_axis_in_tvalid(s_axis_in_tvalid),
+
+    .out_clk_i(clk_i),
+    .m_reset_ni(reset_int_n),
+    .m_axis_out_tdata(m_axis_out_tdata),
+    .m_axis_out_tuser(),
+    .m_axis_out_tvalid(data_fifo_valid_out),
+    .m_axis_out_tready(data_fifo_ready),
+    .m_axis_out_tlevel(data_fifo_level)
+);
+assign m_axis_out_tvalid = data_fifo_valid_out && data_fifo_ready;
 
 PSS_detector_regmap #(
     .ID(0),
@@ -480,6 +645,8 @@ PSS_detector_regmap_i(
     .peak_counter_0_i(peak_counter_0),
     .peak_counter_1_i(peak_counter_1),
     .peak_counter_2_i(peak_counter_2),
+    .peak_fifo_level_i(peak_fifo_level),
+    .data_fifo_level_i(data_fifo_level),
     .noise_limit_o(noise_limit),
     .detection_shift_o(detection_shift),
 
