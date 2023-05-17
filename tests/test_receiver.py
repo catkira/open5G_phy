@@ -5,7 +5,6 @@ import pytest
 import logging
 import matplotlib.pyplot as plt
 import importlib.util
-import random
 
 import cocotb
 import cocotb_test.simulator
@@ -181,6 +180,7 @@ async def simple_test(dut):
     tx_cnt = 0
     sample_cnt = 0
     extra_cycle = 0
+    random_seq = py3gpp.nrPSS(0)
     while clk_cnt < MAX_CLK_CNT:
         await RisingEdge(dut.clk_i)
         if (tx_cnt < MAX_TX) and (clk_div == 0 or SAMPLE_CLK_DECIMATION == 1):
@@ -194,7 +194,8 @@ async def simple_test(dut):
             dut.s_axis_in_tvalid.value = 0
             if clk_div == SAMPLE_CLK_DECIMATION - 1 + extra_cycle:
                 clk_div = 0
-                extra_cycle = random.randint(0, 1) if RND_JITTER else 0
+                if RND_JITTER:
+                    extra_cycle = random_seq[clk_cnt % 127]
             else:
                 clk_div += 1
 
