@@ -209,7 +209,7 @@ localparam [1 : 0] WAIT_FOR_SSB = 0;
 localparam [1 : 0] WAIT_FOR_IBAR = 1; // not used
 localparam [1 : 0] SYNCED = 2;
 localparam [1 : 0] RESET_DETECTOR = 3;
-localparam FIND_EARLY_SAMPLES = 4;
+localparam FIND_SAMPLES_TOLERANCE = 4;
 reg signed [7 : 0] sample_cnt_mismatch;
 assign sample_cnt_mismatch_o = sample_cnt_mismatch;
 wire end_of_symbol_ = sample_cnt == (FFT_LEN + current_CP_len - 1);
@@ -280,13 +280,13 @@ always @(posedge clk_i) begin
                             sample_cnt_mismatch <= 0;
                             // SSB arrives as expected, no STO correction needed
                             $display("frame_sync: SSB is on time");
-                        end else if (sample_cnt < 3) begin
-                            sample_cnt_mismatch <= sample_cnt;
+                        end else if (sample_cnt <= FIND_SAMPLES_TOLERANCE) begin
+                            sample_cnt_mismatch <= sample_cnt + 1;
                             // SSB arrives too late
                             // correct this STO by outputting symbol_start and SSB_start a bit later
                             $display("frame_sync: SSB is %d samples too late", sample_cnt);
-                        end else if (sample_cnt > (FFT_LEN + current_CP_len - 1 - FIND_EARLY_SAMPLES)) begin
-                            sample_cnt_mismatch <= sample_cnt - (FFT_LEN + current_CP_len);
+                        end else if (sample_cnt >= (FFT_LEN + current_CP_len - 1 - FIND_SAMPLES_TOLERANCE)) begin
+                            sample_cnt_mismatch <= sample_cnt - (FFT_LEN + current_CP_len - 1);
                             // SSB arrives too early
                             // correct this STO by outputting symbol_start and SSB_start a bit earlier
                             $display("frame_sync: SSB is %d samples too early", (FFT_LEN + current_CP_len) - sample_cnt);
@@ -305,7 +305,7 @@ always @(posedge clk_i) begin
                         $display("frame_sync: ignoring SSB outside FIND mode");
                     end
                     if (s_axis_in_tvalid) begin
-                        if ((sample_cnt == FFT_LEN + current_CP_len - FIND_EARLY_SAMPLES) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
+                        if ((sample_cnt == FFT_LEN + current_CP_len - FIND_SAMPLES_TOLERANCE) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
                             find_SSB <= 1;  // go into find state one SC before the symbol ends
                             // $display("find SSB ...");
                         end
