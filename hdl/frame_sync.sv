@@ -101,8 +101,8 @@ localparam [1 : 0] PSS_DETECTOR_MODE_SEARCH = 0;
 localparam [1 : 0] PSS_DETECTOR_MODE_FIND   = 1;
 localparam [1 : 0] PSS_DETECTOR_MODE_PAUSE  = 1;
 localparam CLKS_20MS = $rtoi(CLK_FREQ * 0.02);
-localparam CLKS_PSS_EARLY_WAKEUP = $rtoi(CLK_FREQ * 0.0001); // start PSS detector 0.1 ms before expected SSB
-localparam CLKS_PSS_LATE_TOLERANCE = $rtoi(CLK_FREQ * 0.0001); // keep PSS detector running until 0.1ms after expected SSB
+localparam CLKS_PSS_EARLY_WAKEUP = $rtoi(CLK_FREQ * 0.00001); // start PSS detector 0.01 ms before expected SSB
+localparam CLKS_PSS_LATE_TOLERANCE = $rtoi(CLK_FREQ * 0.00001); // keep PSS detector running until 0.01ms after expected SSB
 reg [$clog2(CLKS_20MS + CLKS_PSS_LATE_TOLERANCE) - 1 : 0] clks_since_SSB, clks_since_SSB_f;
 reg [1 : 0] PSS_state;
 localparam [1 : 0] SEARCH_PSS = 0;
