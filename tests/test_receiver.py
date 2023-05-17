@@ -180,7 +180,7 @@ async def simple_test(dut):
     tx_cnt = 0
     sample_cnt = 0
     extra_cycle = 0
-    random_seq = py3gpp.nrPSS(0)
+    random_seq = (py3gpp.nrPSS(0)[:-1] + 1) // 2
     while clk_cnt < MAX_CLK_CNT:
         await RisingEdge(dut.clk_i)
         if (tx_cnt < MAX_TX) and (clk_div == 0 or SAMPLE_CLK_DECIMATION == 1):
@@ -195,7 +195,7 @@ async def simple_test(dut):
             if clk_div == SAMPLE_CLK_DECIMATION - 1 + extra_cycle:
                 clk_div = 0
                 if RND_JITTER:
-                    extra_cycle = random_seq[clk_cnt % 127]
+                    extra_cycle = random_seq[clk_cnt % 126]
             else:
                 clk_div += 1
 
@@ -589,8 +589,8 @@ if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
     if True:
-        test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 1, FILE = '772850KHz_3840KSPS_low_gain')
+        test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
+             NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 1, FILE = '772850KHz_3840KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
              NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)
