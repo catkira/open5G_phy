@@ -142,9 +142,6 @@ def test(IN_DW, OUT_DW, TAP_DW, CFO_DW, DDS_DW, ALGO, WINDOW_LEN, USE_MODE, USE_
         os.path.join(rtl_dir, 'PSS_detector_regmap.sv'),
         os.path.join(rtl_dir, 'AXI_lite_interface.sv'),
         os.path.join(rtl_dir, 'CFO_calc.sv'),
-        os.path.join(rtl_dir, 'div.sv'),
-        os.path.join(rtl_dir, 'atan.sv'),
-        os.path.join(rtl_dir, 'atan2.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.sv')
     ]
     includes = []
