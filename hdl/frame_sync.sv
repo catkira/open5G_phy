@@ -51,7 +51,8 @@ module frame_sync #(
     output  wire       [1 : 0]                      state_o,
     output  wire signed   [7 : 0]                   sample_cnt_mismatch_o,
     output  wire       [15 : 0]                     missed_SSBs_o,
-    output  wire       [31 : 0]                     clks_btwn_SSBs_o
+    output  wire       [31 : 0]                     clks_btwn_SSBs_o,
+    output  wire       [31 : 0]                     num_disconnects_o
 );
 
 reg [$clog2(MAX_CP_LEN) - 1: 0] CP_len;
@@ -221,6 +222,8 @@ wire [SYMBOL_NUMBER_WIDTH - 1 : 0] sym_cnt_next = end_of_symbol ? (end_of_subfra
 wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_number_next = end_of_subframe ? (end_of_frame ? 0 : subframe_number + 1) : subframe_number;
 wire [SFN_WIDTH - 1 : 0] sfn_next = end_of_frame ? (sfn == SFN_MAX - 1 ? 0 : sfn + 1) : sfn;
 assign clear_detector_no = !(state == RESET_DETECTOR);
+reg [31 : 0] num_disconnects;
+assign num_disconnects_o = num_disconnects;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -237,6 +240,7 @@ always @(posedge clk_i) begin
         out_last <= '0;
         sample_cnt_mismatch <= '0;
         reset_fft_no <= '0;
+        num_disconnects <= '0;
     end else begin
         case (state)
             RESET_DETECTOR: begin
@@ -299,6 +303,7 @@ always @(posedge clk_i) begin
                         // go back to search mode (state 0)
                         $display("frame_sync: could not find SSB, connection is lost!");
                         state <= RESET_DETECTOR;
+                        num_disconnects <= num_disconnects + 1;
                     end
                 end else begin
                     if (N_id_2_valid_i) begin

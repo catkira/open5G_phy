@@ -61,7 +61,8 @@ module receiver_regmap #(
     input   signed  [7 : 0]                     sample_cnt_mismatch_i,
     input           [15 : 0]                    missed_SSBs_i,
     input           [2 : 0]                     ibar_SSB_i,
-    input           [31 : 0]                    clks_btwn_SSBs_i
+    input           [31 : 0]                    clks_btwn_SSBs_i,
+    input           [31 : 0]                    num_disconnects_i
 );
 
 localparam PCORE_VERSION = 'h00040069;
@@ -94,6 +95,7 @@ always @(posedge clk_i) begin
                 9'h00A: rdata <= {16'd0, missed_SSBs_i};
                 9'h00B: rdata <= {29'd0, ibar_SSB_i};
                 9'h00C: rdata <= clks_btwn_SSBs_i;
+                9'h00D: rdata <= num_disconnects_i;
                 default: rdata <= '0;
             endcase
         end

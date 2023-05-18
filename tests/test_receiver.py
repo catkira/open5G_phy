@@ -180,7 +180,7 @@ async def simple_test(dut):
     tx_cnt = 0
     sample_cnt = 0
     extra_cycle = 0
-    random_seq = (py3gpp.nrPSS(0)[:-1] + 1) // 2
+    random_seq = (py3gpp.nrPSS(0)[:-1] + 1) // 2 # only use 126 bits to get an equal number of 0s and 1s
     while clk_cnt < MAX_CLK_CNT:
         await RisingEdge(dut.clk_i)
         if (tx_cnt < MAX_TX) and (clk_div == 0 or SAMPLE_CLK_DECIMATION == 1):

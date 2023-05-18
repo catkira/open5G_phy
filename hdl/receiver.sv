@@ -203,6 +203,7 @@ wire [1 : 0] fs_state;
 wire CFO_mode;
 wire signed [7 : 0] sample_cnt_mismatch;
 wire [15: 0] missed_SSBs;
+wire [31 : 0] num_disconnects;
 
 always @(posedge clk_i) begin
     if (!reset_ni)  FIFO_out_f <= '0;
@@ -226,6 +227,7 @@ receiver_regmap_i(
     .missed_SSBs_i(missed_SSBs),
     .ibar_SSB_i(ibar_SSB_f),
     .clks_btwn_SSBs_i(clks_btwn_SSBs),
+    .num_disconnects_i(num_disconnects),
 
     .s_axi_if_awaddr(s_axi_rx_awaddr),
     .s_axi_if_awvalid(s_axi_rx_awvalid),
@@ -543,7 +545,8 @@ frame_sync_i
     .missed_SSBs_o(missed_SSBs),
     .N_id_2_o(fs_N_id_2),
     .N_id_2_valid_o(fs_N_id_2_valid),
-    .clks_btwn_SSBs_o(clks_btwn_SSBs)
+    .clks_btwn_SSBs_o(clks_btwn_SSBs),
+    .num_disconnects_o(num_disconnects)
 );
 
 wire [SAMPLE_ID_WIDTH - 1 : 0] sample_id_fifo_out_data;
