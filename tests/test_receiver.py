@@ -92,6 +92,7 @@ async def simple_test(dut):
     SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
     MAX_AMPLITUDE = (2 ** (tb.IN_DW // 2 - 1) - 1)
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
+        expect_exact_timing = False
         expected_N_id_1 = 69
         expected_N_id_2 = 2
         N_SSBs = 4
@@ -101,12 +102,24 @@ async def simple_test(dut):
         waveform *= MAX_AMPLITUDE * 0.8  # need this 0.8 because rounding errors caused overflows, nasty bug!
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
         # waveform = waveform[int(0.04 * fs_dec):]
+        expect_exact_timing = False
         expected_N_id_1 = 0x123
         expected_N_id_2 = 0
         N_SSBs = 4
         MAX_TX = int((0.01 + 0.02 * (N_SSBs - 1)) * fs_dec)
         MAX_CLK_CNT = int(MAX_TX * (SAMPLE_CLK_DECIMATION + RND_JITTER * 0.5) + 10000)
         delta_f = -4e3
+        waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
+        waveform *= 2**19
+    elif os.environ['TEST_FILE'] == '762000KHz_3840KSPS_low_gain':
+        expect_exact_timing = False
+        expected_N_id_1 = 103
+        expected_N_id_2 = 0
+        expected_ibar_SSB = 3
+        N_SSBs = 4
+        MAX_TX = int((0.01 + 0.02 * (N_SSBs - 1)) * fs_dec)
+        MAX_CLK_CNT = int(MAX_TX * (SAMPLE_CLK_DECIMATION + RND_JITTER * 0.5) + 10000)
+        delta_f = 0e3
         waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
         waveform *= 2**19
     else:
@@ -350,14 +363,12 @@ async def simple_test(dut):
 
     # verify PSS_detector
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
-        expect_exact_timing = False
         if NFFT == 8:
             # TODO: figure out why there are two possibilities
             assert received[0] == 551 #824 + DETECTOR_LATENCY
         else:
             assert False
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
-        expect_exact_timing = False
         if NFFT == 8:
             assert received[0] == 2113 #2386 + DETECTOR_LATENCY
     else:
@@ -590,7 +601,7 @@ if __name__ == '__main__':
     os.environ['SIM'] = 'verilator'
     if True:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 1, FILE = '772850KHz_3840KSPS_low_gain')
+             NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '762000KHz_3840KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
              NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)

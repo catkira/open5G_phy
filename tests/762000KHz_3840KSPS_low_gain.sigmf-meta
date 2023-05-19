@@ -1,0 +1,26 @@
+{
+  "annotations": [],
+  "captures": [
+    {
+      "core:datetime": "2023-04-27T08:54:09.470Z",
+      "core:frequency": 763450000.0,
+      "core:length": 1589248,
+      "sdrangel:sample_rate": 3840000,
+      "sdrangel:tsms": 1682585649470
+    }
+  ],
+  "global": {
+    "core:author": "SDRangel",
+    "core:datatype": "ci32_le",
+    "core:description": "SDRangel SigMF I/Q recording file",
+    "core:hw": "PlutoSDR",
+    "core:recorder": "SDRangel",
+    "core:sample_rate": 3840000.0,
+    "core:version": "0.0.2",
+    "sdrangel:arch": "x86_64",
+    "sdrangel:os": "Ubuntu 22.04.2 LTS",
+    "sdrangel:qt_version": "5.15.3",
+    "sdrangel:rx_bits": 24,
+    "sdrangel:version": "7.13.0-19-g91f484445"
+  }
+}
