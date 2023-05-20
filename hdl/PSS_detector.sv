@@ -517,7 +517,7 @@ always @(posedge clk_i) begin
     end
 end
 
-// discard first 129 or peaks
+// discard first 129 (NFFT=8) or 130 (NFFT=9) peaks
 // TODO: why not 128 ??
 localparam PEAK_DELAY_LIMIT = CIC_RATE <= 2 ? 129 : 130; 
 
@@ -536,7 +536,7 @@ wire data_fifo_ready = ((peak_fifo_valid_out || (wait_cycle_cnt > 0)) && (state 
 localparam WAIT_CNT_LEN = $clog2(MULT_REUSE >> 1) > 0 ? $clog2(MULT_REUSE >> 1) : 1;
 reg [WAIT_CNT_LEN - 1 : 0] wait_cnt;
 reg [3 : 0] wait_cycle_cnt;
-// TODO: simplift this FSM and support CIC_RATE > 2 (NFFT = 9)
+localparam WAIT_CYCLE_MAX = CIC_RATE > 2 ? CIC_RATE - 2 : 0;
 always @(posedge clk_i) begin
     if (!reset_int_n) begin
         state <= '0;
@@ -564,7 +564,7 @@ always @(posedge clk_i) begin
                 if (data_fifo_valid_out && data_fifo_ready) begin
                     if (MULT_REUSE <= 2) begin
                         if (wait_cycle_cnt == 0) begin
-                            wait_cycle_cnt <= CIC_RATE > 2 ? CIC_RATE - 2 : 0;
+                            wait_cycle_cnt <= WAIT_CYCLE_MAX;
                             state <= 0;
                         end else begin
                             wait_cnt <= (MULT_REUSE >> 1) - 2;
@@ -580,7 +580,7 @@ always @(posedge clk_i) begin
             3 : begin
                 if (wait_cnt == 0) begin
                     if (wait_cycle_cnt == 0) begin
-                        wait_cycle_cnt <= CIC_RATE > 2 ? CIC_RATE - 2 : 0;
+                        wait_cycle_cnt <= WAIT_CYCLE_MAX;
                         state <= 0;
                     end else begin
                         wait_cycle_cnt <= wait_cycle_cnt - 1;
@@ -591,7 +591,15 @@ always @(posedge clk_i) begin
         endcase
     end
 end
-wire peak_fifo_ready = ((state == 2) && data_fifo_valid_out && data_fifo_ready && (CIC_RATE > 1) && (wait_cycle_cnt == (CIC_RATE > 2 ? 2 : 0))) || ((CIC_RATE == 1) && data_fifo_valid_out);
+
+logic peak_fifo_ready;
+always_comb begin
+    if (state == 2) begin
+        peak_fifo_ready = data_fifo_valid_out && data_fifo_ready && (wait_cycle_cnt == WAIT_CYCLE_MAX);
+    end else begin
+        peak_fifo_ready = ((CIC_RATE == 1) && data_fifo_valid_out);
+    end
+end
 
 wire [2 : 0] peak_fifo_out;
 wire [31 : 0] peak_fifo_level;
