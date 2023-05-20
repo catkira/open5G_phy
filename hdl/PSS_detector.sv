@@ -541,7 +541,7 @@ always @(posedge clk_i) begin
     if (!reset_int_n) begin
         state <= '0;
         wait_cnt <= '0;
-        wait_cycle_cnt <= CIC_RATE > 2 ? CIC_RATE >> 1 : 0;
+        wait_cycle_cnt <= CIC_RATE > 2 ? CIC_RATE - 2 : 0;
     end else begin
         case (state)
             0 : begin
@@ -564,7 +564,7 @@ always @(posedge clk_i) begin
                 if (data_fifo_valid_out && data_fifo_ready) begin
                     if (MULT_REUSE <= 2) begin
                         if (wait_cycle_cnt == 0) begin
-                            wait_cycle_cnt <= CIC_RATE > 2 ? CIC_RATE >> 1 : 0;
+                            wait_cycle_cnt <= CIC_RATE > 2 ? CIC_RATE - 2 : 0;
                             state <= 0;
                         end else begin
                             wait_cnt <= (MULT_REUSE >> 1) - 2;
@@ -580,7 +580,7 @@ always @(posedge clk_i) begin
             3 : begin
                 if (wait_cnt == 0) begin
                     if (wait_cycle_cnt == 0) begin
-                        wait_cycle_cnt <= CIC_RATE > 2 ? CIC_RATE >> 1 : 0;
+                        wait_cycle_cnt <= CIC_RATE > 2 ? CIC_RATE - 2 : 0;
                         state <= 0;
                     end else begin
                         wait_cycle_cnt <= wait_cycle_cnt - 1;
