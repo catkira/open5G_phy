@@ -259,7 +259,11 @@ async def simple_test(dut):
         if NFFT == 8:
             assert peak_pos == 551
         elif NFFT == 9:
-            assert False # not yet implemented
+            assert peak_pos == 1101
+        elif NFFT == 10:
+            assert peak_pos == 2201
+        elif NFFT == 11:
+            assert peak_pos == 4401
     else:
         if NFFT == 8:
             assert peak_pos == 2113
@@ -280,10 +284,9 @@ async def simple_test(dut):
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
-# @pytest.mark.parametrize("NFFT", [8, 9])
-@pytest.mark.parametrize("NFFT", [8])
+@pytest.mark.parametrize("NFFT", [8, 9, 10])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
-@pytest.mark.parametrize("MULT_REUSE", [0, 1, 4, 8, 16, 32])
+@pytest.mark.parametrize("MULT_REUSE", [0, 1, 4, 32])
 @pytest.mark.parametrize("INITIAL_DETECTION_SHIFT", [4])
 def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP_FILE, MULT_REUSE, INITIAL_DETECTION_SHIFT, FILE = '30720KSPS_dl_signal'):
     dut = 'Decimator_Correlator_PeakDetector_FFT'
@@ -400,5 +403,5 @@ def test_recording(FILE):
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
-    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4)
+    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 11, USE_TAP_FILE = 1, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 4)
