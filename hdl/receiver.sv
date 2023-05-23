@@ -330,9 +330,9 @@ always @(posedge clk_i) begin
         DDS_phase <= '0;
         DDS_phase_valid <= '0;
         CFO_DDS_inc_f <= '0;
-        DDS_phase_valid <= 1;
     end 
     else begin
+        DDS_phase_valid <= 1;
         if (CFO_mode == 0) begin
             if (CFO_valid) begin
                 // CFO_DDS_inc_f <= '0; // deactive CFO correction for debugging
