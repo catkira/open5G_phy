@@ -29,7 +29,7 @@ module channel_estimator #(
     output  reg                                     debug_ibar_SSB_valid_o
 );
 
-reg [$clog2(MAX_CELL_ID) - 1: 0] N_id, N_id_used;
+reg [$clog2(MAX_CELL_ID) - 1: 0] N_id_used;
 reg [3 : 0] state_PBCH_DMRS;
 localparam PBCH_DMRS_LEN = 144;
 localparam NUM_PBCH_DMRS_TYPES = 8;
@@ -110,11 +110,9 @@ end
 reg [1 : 0] PBCH_DMRS_start_idx;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
-        N_id <= '0;
         PBCH_DMRS_start_idx <= '0;
     end else begin
         if (N_id_valid_i)  begin
-            N_id <= N_id_i;
             PBCH_DMRS_start_idx <= N_id_i[1 : 0];
         end
     end
