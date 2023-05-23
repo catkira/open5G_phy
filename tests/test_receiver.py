@@ -105,6 +105,7 @@ async def simple_test(dut):
         expect_exact_timing = False
         expected_N_id_1 = 0x123
         expected_N_id_2 = 0
+        expected_ibar_SSB = 0
         N_SSBs = 4
         MAX_TX = int((0.01 + 0.02 * (N_SSBs - 1)) * fs_dec)
         MAX_CLK_CNT = int(MAX_TX * (SAMPLE_CLK_DECIMATION + RND_JITTER * 0.5) + 10000)
@@ -408,7 +409,7 @@ async def simple_test(dut):
 
     # verify channel_estimator and demap
     # try to decode PBCH
-    ibar_SSB = 0 # TODO grab this from hdl
+    ibar_SSB = expected_ibar_SSB # TODO grab this from hdl
     nVar = 1
     corrected_PBCH = np.array(corrected_PBCH)[:432]
     for mode in ['hard', 'soft', 'hdl']:
@@ -438,9 +439,7 @@ async def simple_test(dut):
             print('nrPolarDecode: PBCH CRC ok')
         else:
             print('nrPolarDecode: PBCH CRC failed')
-        # disable crc assert for recorded data, until list aided polar decoder is implemented
-        # decoder performance without list aided is too bad for low SNR recordings
-        assert (crc_result == 0) or (expect_exact_timing is False)
+        assert crc_result == 0
 
 @pytest.mark.parametrize('IN_DW', [32])
 @pytest.mark.parametrize('OUT_DW', [32])
