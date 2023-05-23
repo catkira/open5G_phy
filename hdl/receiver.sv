@@ -211,6 +211,7 @@ always @(posedge clk_i) begin
 end
 
 wire [31 : 0] clks_btwn_SSBs;
+wire [31 : 0] N_id_used;
 receiver_regmap #(
     .ID(0),
     .ADDRESS_WIDTH(AXI_ADDRESS_WIDTH)
@@ -228,6 +229,7 @@ receiver_regmap_i(
     .ibar_SSB_i(ibar_SSB_f),
     .clks_btwn_SSBs_i(clks_btwn_SSBs),
     .num_disconnects_i(num_disconnects),
+    .N_id_used_i(N_id_used),
 
     .s_axi_if_awaddr(s_axi_rx_awaddr),
     .s_axi_if_awvalid(s_axi_rx_awvalid),
@@ -675,7 +677,8 @@ channel_estimator_i(
     .m_axis_out_tvalid(m_axis_cest_out_tvalid),
 
     .debug_ibar_SSB_o(ibar_SSB),
-    .debug_ibar_SSB_valid_o(ibar_SSB_valid)
+    .debug_ibar_SSB_valid_o(ibar_SSB_valid),
+    .debug_N_id_used_o(N_id_used)
 );
 
 always @(posedge clk_i) begin

@@ -26,10 +26,12 @@ module channel_estimator #(
     output  reg        [1 : 0]                      debug_PBCH_DMRS_o,
     output  reg                                     debug_PBCH_DMRS_valid_o,
     output  reg        [2 : 0]                      debug_ibar_SSB_o,
-    output  reg                                     debug_ibar_SSB_valid_o
+    output  reg                                     debug_ibar_SSB_valid_o,
+    output             [31 : 0]                     debug_N_id_used_o
 );
 
 reg [$clog2(MAX_CELL_ID) - 1: 0] N_id_used;
+assign debug_N_id_used_o = N_id_used;
 reg [3 : 0] state_PBCH_DMRS;
 localparam PBCH_DMRS_LEN = 144;
 localparam NUM_PBCH_DMRS_TYPES = 8;
