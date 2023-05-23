@@ -88,13 +88,11 @@ for (ii = 0; ii < 8; ii = ii + 1) begin : LFSR_1
 
     always @(posedge clk_i) begin
         if (!reset_ni) begin
-            for (integer i = 0; i < NUM_PBCH_DMRS_TYPES; i = i + 1) begin
-                PBCH_DMRS[ii][i] = '0;
-            end
+            c_init <= '0;
         end else begin
             if (N_id_valid_i) begin
                 N_id_used <= N_id_i;
-                c_init = (((ibar_SSB + 1) * ((N_id_i >> 2) + 1)) << 11) +  ((ibar_SSB + 1) << 6) + (N_id_i[1 : 0] % 4);
+                c_init <= (((ibar_SSB + 1) * ((N_id_i >> 2) + 1)) << 11) +  ((ibar_SSB + 1) << 6) + (N_id_i[1 : 0] % 4);
                 // $display("cinit = %x", c_init);
             end
             if (state_PBCH_DMRS == 3) begin
