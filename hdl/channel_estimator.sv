@@ -392,7 +392,7 @@ localparam MIN_PILOT_SPACING = 4;
 reg [$clog2(FFT_LEN * MAX_SYM_PER_BURST / MIN_PILOT_SPACING) - 1 : 0] pilot_SC_idx;
 reg [1 : 0] start_idx;  // buffer start idx so that it cannot change within one symbol
 wire [$clog2(FFT_LEN) : 0] SC_idx_plus_start = SC_cnt - start_idx;
-reg [10 : 0]    symbol_cnt;
+reg [10 : 0]    SSB_cnt;
 localparam SYMS_BTWN_SSB = 14 * 20;
 localparam ZERO_CARRIERS = 16;
 reg  signed [PHASE_DW - 1 : 0] corr_angle_DDS_in;
@@ -416,7 +416,7 @@ always @(posedge clk_i) begin
         state_corrector <= WAIT_FOR_INPUTS;
         SC_cnt <= '0;
         pilot_SC_idx <= '0;
-        symbol_cnt <= '0;
+        SSB_cnt <= '0;
         corr_angle_DDS_in <= '0;
         corr_angle_DDS_valid_in <= '0;
         symbol_type <= SYMBOL_TYPE_OTHER;
@@ -475,7 +475,7 @@ always @(posedge clk_i) begin
 
                 if (angle_FIFO_valid && in_fifo_valid && angle_fifo_ready) begin
                     corr_data_fifo_in_data <= in_fifo_data;
-                    // if (symbol_cnt == 0)  $display("data %x  angle %f", in_fifo_data, $itor(angle_FIFO_data) / DEG45 * 45);
+                    // if (SSB_cnt == 0)  $display("data %x  angle %f", in_fifo_data, $itor(angle_FIFO_data) / DEG45 * 45);
                     if (SC_idx_plus_start[1:0] == 0) begin
                         // we are at a pilot location, calculate correction factor
                         // one corr_angle has to be used for 4 corr_data, because pilots are every 4th SC
@@ -486,7 +486,7 @@ always @(posedge clk_i) begin
                             2'b10 : pilot_angle = DEG135;
                             2'b11 : pilot_angle = -DEG135;
                         endcase
-                        // if (symbol_cnt == 0)  $display("pilot = %x", PBCH_DMRS[ibar_SSB_buf][pilot_SC_idx]);
+                        // if (SSB_cnt == 0)  $display("pilot = %x", PBCH_DMRS[ibar_SSB_buf][pilot_SC_idx]);
                         
                         if ((remaining_syms == 1) && ((SC_cnt >= 47) && (SC_cnt <= 191))) begin
                             // This is a special case for the 2nd PBCH symbol
@@ -498,7 +498,7 @@ always @(posedge clk_i) begin
                             corr_angle_DDS_in <= -(angle_FIFO_data - pilot_angle);
                             corr_angle_DDS_valid_in <= 1;
                             corr_data_fifo_in_valid <= 0;                            
-                            if (symbol_cnt == 0)  $display("pilot at SC %d, rx angle = %f deg, ideal angle = %f, delta = %f", SC_cnt,
+                            if (SSB_cnt == 0)  $display("pilot at SC %d, rx angle = %f deg, ideal angle = %f, delta = %f", SC_cnt,
                                 $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
                             pilot_SC_idx <= pilot_SC_idx + 1;
                         end
@@ -520,7 +520,7 @@ always @(posedge clk_i) begin
                             SC_cnt <= '0;
                         end else begin
                             state_corrector <= WAIT_FOR_INPUTS;
-                            symbol_cnt <= symbol_cnt + 1;
+                            SSB_cnt <= SSB_cnt + 1;
                         end
                     end else begin
                         corr_data_fifo_in_last <= '0;
@@ -559,8 +559,6 @@ always @(posedge clk_i) begin
                     if (SC_cnt == FFT_LEN - 1 - ZERO_CARRIERS) begin
                         corr_data_fifo_in_last <= remaining_syms == 0;
                         state_corrector <= WAIT_FOR_INPUTS;
-                        if (symbol_cnt == SYMS_BTWN_SSB - 1)    symbol_cnt <= '0;
-                        else                                    symbol_cnt <= symbol_cnt + 1;
                     end else begin
                         corr_data_fifo_in_last <= '0;
                         corr_data_fifo_in_tuser <= symbol_type;
