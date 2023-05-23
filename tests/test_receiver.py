@@ -95,6 +95,7 @@ async def simple_test(dut):
         expect_exact_timing = False
         expected_N_id_1 = 69
         expected_N_id_2 = 2
+        expected_ibar_SSB = 0
         N_SSBs = 4
         MAX_TX = int((0.005 + 0.02 * (N_SSBs - 1)) * fs_dec)
         MAX_CLK_CNT = int(MAX_TX * (SAMPLE_CLK_DECIMATION + RND_JITTER * 0.5) + 10000)
@@ -105,7 +106,7 @@ async def simple_test(dut):
         expect_exact_timing = False
         expected_N_id_1 = 0x123
         expected_N_id_2 = 0
-        expected_ibar_SSB = 0
+        expected_ibar_SSB = 3
         N_SSBs = 4
         MAX_TX = int((0.01 + 0.02 * (N_SSBs - 1)) * fs_dec)
         MAX_CLK_CNT = int(MAX_TX * (SAMPLE_CLK_DECIMATION + RND_JITTER * 0.5) + 10000)
@@ -598,7 +599,7 @@ def test_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    if True:
+    if False:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
              NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '772850KHz_3840KSPS_low_gain')
     else:
