@@ -108,7 +108,9 @@ module receiver
     output  wire    [IN_DW - 1 : 0]                 m_axis_PSS_out_tdata,
     output  wire                                    m_axis_PSS_out_tvalid,
     output  wire    [15:0]                          sync_wait_counter_debug_o,
-    output  wire                                    peak_detected_debug_o
+    output  wire                                    peak_detected_debug_o,
+    output  wire    [2 : 0]                         ibar_SSB_o,
+    output  wire                                    ibar_SSB_valid_o
 );
 
 localparam OFFSET_ADDR_WIDTH = ADDRESS_WIDTH - 2;
@@ -504,6 +506,8 @@ reg fs_out_symbol_start;
 wire fs_out_tlast;
 wire [2 : 0] ibar_SSB;
 wire ibar_SSB_valid;
+assign ibar_SSB_o = ibar_SSB;
+assign ibar_SSB_valid_o = ibar_SSB_valid;
 reg [2 : 0] ibar_SSB_f;
 localparam N_ID_MAX = 1007;
 reg [$clog2(N_ID_MAX) - 1 : 0] N_id;

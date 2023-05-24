@@ -180,6 +180,7 @@ async def simple_test(dut):
     corrected_PBCH = []
     received_PBCH_LLR = []
     received_N_ids = []
+    received_ibar_SSB = []
     FFT_OUT_DW = 16
     SYMBOL_LEN = 240
     NUM_TIMESTAMP_SAMPLES = 64 // FFT_OUT_DW
@@ -215,6 +216,9 @@ async def simple_test(dut):
                 clk_div += 1
 
         clk_cnt += 1
+
+        if dut.ibar_SSB_valid_o.value.integer:
+            received_ibar_SSB.append(dut.ibar_SSB_o.value.integer)
 
         if dut.peak_detected_debug_o.value.integer:
             received.append(sample_cnt)
@@ -270,6 +274,7 @@ async def simple_test(dut):
     assert len(corrected_PBCH) == 432 * (N_SSBs - 1), print('received PBCH does not have correct length!')
     assert len(received_PBCH_LLR) == 432 * 2 * (N_SSBs - 1), print('received PBCH LLRs do not have correct length!')
     assert not np.array_equal(np.array(received_PBCH_LLR), np.zeros(len(received_PBCH_LLR)))
+    assert received_ibar_SSB[0] == expected_ibar_SSB, print('wrong ibar_SSB detected!')
 
     fifo_data = []
     if USE_COCOTB_AXI:
@@ -410,7 +415,7 @@ async def simple_test(dut):
 
     # verify channel_estimator and demap
     # try to decode PBCH
-    ibar_SSB = expected_ibar_SSB # TODO grab this from hdl
+    ibar_SSB = expected_ibar_SSB
     nVar = 1
     corrected_PBCH = np.array(corrected_PBCH)[:432]
     for mode in ['hard', 'soft', 'hdl']:
