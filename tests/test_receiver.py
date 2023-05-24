@@ -235,26 +235,27 @@ async def simple_test(dut):
         if dut.m_axis_llr_out_tvalid.value == 1 and dut.m_axis_llr_out_tuser.value == 1:
             received_PBCH_LLR.append(_twos_comp(dut.m_axis_llr_out_tdata.value.integer & (2 ** (tb.LLR_DW) - 1), tb.LLR_DW))
 
-        if dut.m_axis_cest_out_tvalid.value == 1 and dut.m_axis_cest_out_tuser.value == 1:
-            corrected_PBCH.append(_twos_comp(dut.m_axis_cest_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.m_axis_cest_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
+        if dut.m_axis_cest_out_tvalid.value == 1 and ((dut.m_axis_cest_out_tuser.value & 0x03) == 1):
+            blk_exp = dut.m_axis_cest_out_tuser.value.integer >> 2
+            corrected_PBCH.append((_twos_comp(dut.m_axis_cest_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+                + 1j * _twos_comp((dut.m_axis_cest_out_tdata.value.integer >> (FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)) / (2 ** blk_exp))
 
         if dut.PBCH_valid_o.value.integer == 1:
             # print(f"rx PBCH[{len(received_PBCH):3d}] re = {dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1):4x} " \
             #     "im = {(dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1):4x}")
             received_PBCH.append(_twos_comp(dut.m_axis_demod_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
+                + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer >> (FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
         if dut.SSS_valid_o.value.integer == 1:
             received_SSS.append(_twos_comp(dut.m_axis_demod_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
+                + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer >> (FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
         if dut.m_axis_out_tvalid.value.integer:
             if rgs_sc_idx < 1 + NUM_TIMESTAMP_SAMPLES:
                 received_rgs[num_rgs_symbols, rgs_sc_idx] = dut.m_axis_out_tdata.value.integer
             else:
                 received_rgs[num_rgs_symbols, rgs_sc_idx] = _twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2) \
-                    + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+                    + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer >> (FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
             if dut.m_axis_out_tlast.value.integer:
                 num_rgs_symbols += 1
                 assert rgs_sc_idx == RGS_TRANSFER_LEN - 1, print('Error: received from number of bytes from ressource_grid_subscriber!')

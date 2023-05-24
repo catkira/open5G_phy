@@ -2,6 +2,7 @@
 
 module channel_estimator #(
     parameter IN_DW = 32,           // input data width
+    parameter BLK_EXP_LEN = 8,    
     localparam OUT_DW = IN_DW,
     localparam NFFT = 8,
     localparam FFT_LEN = 2 ** NFFT,
@@ -12,13 +13,13 @@ module channel_estimator #(
     input                                           clk_i,
     input                                           reset_ni,
     input   wire       [IN_DW - 1 : 0]              s_axis_in_tdata,
-    input   wire                                    s_axis_in_tuser,     // 1 bit, 1 -> PBCH message, 0 -> other
+    input   wire       [BLK_EXP_LEN + 1 - 1 : 0]    s_axis_in_tuser,     // bit 0: 1 -> PBCH message, 0 -> other
     input                                           s_axis_in_tvalid,
     input   wire       [$clog2(MAX_CELL_ID) - 1: 0] N_id_i,
     input                                           N_id_valid_i,
 
     output  reg        [OUT_DW - 1 : 0]             m_axis_out_tdata,
-    output  reg        [1 : 0]                      m_axis_out_tuser,    // 2 bits, 1 -> PBCH message, 0 -> other
+    output  reg        [BLK_EXP_LEN + 2 - 1 : 0]    m_axis_out_tuser,    // bit 0-1: symbol type, bit 2: BLK_EXP
     output  reg                                     m_axis_out_tlast,
     output  reg                                     m_axis_out_tvalid,
 
@@ -229,7 +230,7 @@ always @(posedge clk_i) begin
         case (state_det_ibar)
             0: begin
                 debug_ibar_SSB_valid_o <= 0;
-                if (s_axis_in_tuser && PBCH_DMRS_ready) begin
+                if (s_axis_in_tuser[0] && PBCH_DMRS_ready) begin
                     pilots_ready <= '0;
                     state_det_ibar <= 1;
                     PBCH_sym_idx <= '0;
@@ -298,13 +299,13 @@ end
 reg [IN_DW - 1 : 0] in_fifo_data;
 reg                 in_fifo_valid;
 // wire                 in_fifo_ready;
-reg                 in_fifo_user;
+reg [BLK_EXP_LEN + 1 - 1 : 0] in_fifo_user;
 localparam EXTRA_LEN = FFT_LEN;  // for the atan2 latency, FIFO_LEN has to be power of 2, therefore increase by FFT_LEN !
 reg [$clog2(FFT_LEN + EXTRA_LEN) - 1 : 0]  in_fifo_level;
 AXIS_FIFO #(
     .DATA_WIDTH(IN_DW),
     .FIFO_LEN(FFT_LEN + EXTRA_LEN),
-    .USER_WIDTH(1),
+    .USER_WIDTH(BLK_EXP_LEN + 1),
     .ASYNC(0)
 )
 data_FIFO_i(
@@ -405,7 +406,7 @@ localparam                     SYMS_PER_PBCH = 3;
 localparam                     SYMS_PER_OTHER = 3;
 reg [IN_DW - 1 : 0]            corr_data_fifo_in_data;
 reg                            corr_data_fifo_in_valid;
-reg [1 : 0]                    corr_data_fifo_in_tuser;
+reg [BLK_EXP_LEN + 1 : 0]      corr_data_fifo_in_tuser;
 reg                            corr_data_fifo_in_last;
 
 wire in_fifo_ready = angle_FIFO_valid && in_fifo_valid && (SC_cnt != FFT_LEN - ZERO_CARRIERS) && (state_corrector != WAIT_FOR_INPUTS);
@@ -447,13 +448,13 @@ always @(posedge clk_i) begin
                 end else if (in_fifo_valid && PBCH_DMRS_ready) begin
                     // in_fifo_user signals start of a new burst if its != 0
                     // the symbol type depends on the position of the set bit
-                    if ((in_fifo_user == 1) && pilots_ready)  begin  // pilots become ready withing 256 clks, so we can wait here, FIFOs are large enough
+                    if ((in_fifo_user[0] == 1) && pilots_ready)  begin  // pilots become ready withing 256 clks, so we can wait here, FIFOs are large enough
                         $display("calculate_phase: PBCH symbol");
                         remaining_syms <= SYMS_PER_PBCH - 1;  
                         symbol_type <= SYMBOL_TYPE_PBCH;
                         state_corrector <= CALC_CORRECTION;
                         ibar_SSB_buf <= ibar_SSB_detected;
-                    end else if (in_fifo_user == 0) begin
+                    end else if (in_fifo_user[0] == 0) begin
                         // $display("calculate_phase: data symbol");
                         remaining_syms <= SYMS_PER_OTHER - 1;
                         symbol_type <= SYMBOL_TYPE_OTHER;
@@ -524,7 +525,7 @@ always @(posedge clk_i) begin
                         end
                     end else begin
                         corr_data_fifo_in_last <= '0;
-                        corr_data_fifo_in_tuser <= symbol_type;
+                        corr_data_fifo_in_tuser <= {in_fifo_user[BLK_EXP_LEN : 1], symbol_type};
                         SC_cnt <= SC_cnt + 1;
                     end
                 end else begin
@@ -561,7 +562,7 @@ always @(posedge clk_i) begin
                         state_corrector <= WAIT_FOR_INPUTS;
                     end else begin
                         corr_data_fifo_in_last <= '0;
-                        corr_data_fifo_in_tuser <= symbol_type;
+                        corr_data_fifo_in_tuser <= {in_fifo_user[BLK_EXP_LEN : 1], symbol_type};
                         SC_cnt <= SC_cnt + 1;
                     end
                 end
@@ -631,11 +632,11 @@ reg corr_data_fifo_out_empty;
 wire corr_data_fifo_out_ready;
 reg corr_data_fifo_out_last;
 reg [$clog2(FFT_LEN) - 1 : 0] corr_data_fifo_out_level;
-reg [1 : 0] corr_data_fifo_out_symbol_type;
+reg [BLK_EXP_LEN + 1 : 0] corr_data_fifo_out_user;
 AXIS_FIFO #(
     .DATA_WIDTH(IN_DW),
     .FIFO_LEN(FFT_LEN),
-    .USER_WIDTH(2),
+    .USER_WIDTH(BLK_EXP_LEN + 2),
     .ASYNC(0)
 )
 corr_data_fifo_i(
@@ -651,7 +652,7 @@ corr_data_fifo_i(
     .m_axis_out_tdata(corr_data_fifo_out_data),
     .m_axis_out_tvalid(corr_data_fifo_out_valid),
     .m_axis_out_tempty(corr_data_fifo_out_empty),
-    .m_axis_out_tuser(corr_data_fifo_out_symbol_type),
+    .m_axis_out_tuser(corr_data_fifo_out_user),
     .m_axis_out_tlast(corr_data_fifo_out_last),
     .m_axis_out_tlevel(corr_data_fifo_out_level)
 );
@@ -661,21 +662,21 @@ corr_data_fifo_i(
 localparam COMPLEX_MULT_DELAY = 6;
 localparam CORR_DATA_DELAY = 4 - 1;
 localparam CORR_DELAY = CORR_DATA_DELAY + COMPLEX_MULT_DELAY;
-reg [1 : 0] symbol_type_delayed [0 : CORR_DELAY - 1];
+reg [BLK_EXP_LEN + 1 : 0] user_delayed [0 : CORR_DELAY - 1];
 reg         tlast_delayed [0 : CORR_DELAY - 1];
-assign m_axis_out_tuser = symbol_type_delayed[CORR_DELAY - 1];
+assign m_axis_out_tuser = user_delayed[CORR_DELAY - 1];
 assign m_axis_out_tlast = tlast_delayed[CORR_DELAY - 1];
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         for (integer i = 0; i < CORR_DELAY; i = i + 1) begin
-            symbol_type_delayed[i] <= '0;
+            user_delayed[i] <= '0;
             tlast_delayed[i] <= '0;
         end
     end else begin
-        symbol_type_delayed[0] <= corr_data_fifo_out_symbol_type;
+        user_delayed[0] <= corr_data_fifo_out_user;
         tlast_delayed[0] <= corr_data_fifo_out_last;
         for (integer i = 0; i < CORR_DELAY - 1; i = i + 1)  begin
-            symbol_type_delayed[i + 1] <= symbol_type_delayed[i];
+            user_delayed[i + 1] <= user_delayed[i];
             tlast_delayed[i + 1] <= tlast_delayed[i];
         end
     end
