@@ -175,9 +175,9 @@ end
 
 reg [3 : 0] state_det_ibar;
 reg [2 : 0] PBCH_sym_idx;
-reg [$clog2(256) : 0] PBCH_SC_idx;
-reg [$clog2(256) : 0] PBCH_SC_used_idx;
-wire [$clog2(256) : 0] PBCH_SC_idx_plus_start = PBCH_SC_used_idx - PBCH_DMRS_start_idx;
+reg [$clog2(FFT_LEN) : 0] PBCH_SC_idx;
+reg [$clog2(FFT_LEN) : 0] PBCH_SC_used_idx;
+wire [$clog2(FFT_LEN) : 0] PBCH_SC_idx_plus_start = PBCH_SC_used_idx - PBCH_DMRS_start_idx;
 reg [$clog2(64) : 0] PBCH_DMRS_idx;
 reg signed [$clog2(60*2) + 1 : 0] DMRS_corr [0 : 7];  // one symbol has max 60 pilots
 reg signed [$clog2(60*2) + 1 : 0] DMRS_corr_rot [0 : 7];  // one symbol has max 60 pilots
@@ -240,7 +240,7 @@ always @(posedge clk_i) begin
                 end
             end
             1: begin // compare 1st PBCH symbol
-                if (PBCH_SC_idx == 255) begin
+                if (PBCH_SC_idx == FFT_LEN - 1) begin
                     if (PBCH_sym_idx == 0) begin
                         ibar_idx <= '0;
                         ibar_SSB_detected <= '0;
@@ -254,7 +254,7 @@ always @(posedge clk_i) begin
                     end
                 end else begin
                     if (valid_in) begin
-                        // $display("rx 0/2 %d + j%d -> %b", in_re, in_im, in_demod);
+                        $display("rx 0/2 %d + j%d -> %b", in_re, in_im, in_demod);
                         if (PBCH_SC_idx_plus_start[1 : 0] == 0) begin
                             // $display("compare [%d] %b to %b, %b, %b, %b, %b, %b, %b, %b", PBCH_DMRS_idx, in_demod, 
                             //     PBCH_DMRS[0][PBCH_DMRS_idx], PBCH_DMRS[1][PBCH_DMRS_idx], PBCH_DMRS[2][PBCH_DMRS_idx], PBCH_DMRS[3][PBCH_DMRS_idx],
@@ -395,7 +395,7 @@ reg [1 : 0] start_idx;  // buffer start idx so that it cannot change within one 
 wire [$clog2(FFT_LEN) : 0] SC_idx_plus_start = SC_cnt - start_idx;
 reg [10 : 0]    SSB_cnt;
 localparam SYMS_BTWN_SSB = 14 * 20;
-localparam ZERO_CARRIERS = 16;
+localparam ZERO_CARRIERS = NFFT == 8 ? 16 : 272;
 reg  signed [PHASE_DW - 1 : 0] corr_angle_DDS_in;
 reg                            corr_angle_DDS_valid_in;
 localparam  [1 : 0]            SYMBOL_TYPE_OTHER = 0;
@@ -448,7 +448,7 @@ always @(posedge clk_i) begin
                 end else if (in_fifo_valid && PBCH_DMRS_ready) begin
                     // in_fifo_user signals start of a new burst if its != 0
                     // the symbol type depends on the position of the set bit
-                    if ((in_fifo_user[0] == 1) && pilots_ready)  begin  // pilots become ready withing 256 clks, so we can wait here, FIFOs are large enough
+                    if ((in_fifo_user[0] == 1) && pilots_ready)  begin  // pilots become ready withing FFT_LEN clks, so we can wait here, FIFOs are large enough
                         $display("calculate_phase: PBCH symbol");
                         remaining_syms <= SYMS_PER_PBCH - 1;  
                         symbol_type <= SYMBOL_TYPE_PBCH;
@@ -509,6 +509,8 @@ always @(posedge clk_i) begin
                         else begin
                             corr_data_fifo_in_valid <= 1;
                             // $display("store data sample from SC %d", SC_cnt);
+                            // if (SSB_cnt == 0)  $display("  data at SC %d, rx angle = %f deg", SC_cnt,
+                                // $itor(angle_FIFO_data) / DEG45 * 45);
                         end
                     end
 

@@ -197,7 +197,7 @@ always @(posedge clk_i) begin
                 out_cnt <= out_cnt + 1;
             end
 
-            PBCH_valid <= valid_SC && is_PBCH_symbol; // only used for debugging
+            PBCH_valid <= valid_PBCH_SC && is_PBCH_symbol; // only used for debugging
             SSS_valid  <= valid_SSS_SC && is_SSS_symbol; // only used for debugging
         end else begin
             PBCH_valid <= '0;

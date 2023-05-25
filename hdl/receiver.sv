@@ -586,6 +586,7 @@ sample_id_fifo_i(
 );
 
 localparam FFT_DEMOD_OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1;
+localparam BWP_LEN = NFFT == 8 ? 240 : 300;
 wire [FFT_OUT_DW - 1 : 0]                   fft_demod_out_tdata;
 wire [FFT_DEMOD_OUT_USER_WIDTH - 1 : 0]     fft_demod_out_tuser;
 wire                                        fft_demod_out_tvalid;
@@ -598,6 +599,7 @@ FFT_demod #(
     .OUT_DW(FFT_OUT_DW),
     .HALF_CP_ADVANCE(HALF_CP_ADVANCE),
     .NFFT(NFFT),
+    .BWP_LEN(BWP_LEN),
     .BLK_EXP_LEN(BLK_EXP_LEN),
     .XSERIES(XSERIES),
     .USE_TAP_FILE(USE_TAP_FILE),
@@ -673,7 +675,7 @@ channel_estimator_i(
     .N_id_i(N_id),
     .N_id_valid_i(N_id_valid),
     .s_axis_in_tdata(fft_demod_out_tdata),
-    .s_axis_in_tuser(fft_demod_out_tuser[BLK_EXP_LEN + 1 - 1: 0]),
+    .s_axis_in_tuser(fft_demod_out_tuser[BLK_EXP_LEN + 1 - 1 : 0]),
     .s_axis_in_tvalid(fft_demod_out_tvalid),
 
     .m_axis_out_tdata(m_axis_cest_out_tdata),
