@@ -145,10 +145,10 @@ FFT_demod_i(
     .s_axis_in_tlast(fs_out_tlast),
     .s_axis_in_tuser(fs_out_tuser),
     .s_axis_in_tvalid(fs_out_tvalid),
-    .m_axis_out_tdata(m_axis_out_tdata),
-    .m_axis_out_tuser(),
-    .m_axis_out_tlast(),
-    .m_axis_out_tvalid(m_axis_out_tvalid)
+    .m_axis_out_tdata(fft_demod_out_tdata),
+    .m_axis_out_tuser(fft_demod_out_tuser),
+    .m_axis_out_tlast(fft_demod_out_tlast),
+    .m_axis_out_tvalid(fft_demod_out_tvalid)
 );
 
 BWP_extractor #(
