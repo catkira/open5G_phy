@@ -646,6 +646,30 @@ ressource_grid_subscriber_i(
     .overflow_o(rgs_overflow)
 );
 
+wire [FFT_OUT_DW - 1 : 0] ssb_tdata;
+wire ssb_tvalid;
+wire [FFT_DEMOD_OUT_USER_WIDTH - 1 : 0] ssb_tuser;
+wire ssb_tlast;
+SSB_extractor #(
+    .IN_DW(FFT_OUT_DW),
+    .NFFT(NFFT),
+    .BLK_EXP_LEN(BLK_EXP_LEN)
+)
+SSB_extractor_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_fft_demod_n),
+
+    .s_axis_in_tdata(fft_demod_out_tdata),
+    .s_axis_in_tuser(fft_demod_out_tuser),
+    .s_axis_in_tvalid(fft_demod_out_tvalid),
+    .s_axis_in_tlast(fft_demod_out_tlast),
+
+    .m_axis_out_tdata(ssb_tdata),
+    .m_axis_out_tuser(ssb_tuser),
+    .m_axis_out_tvalid(ssb_tvalid),
+    .m_axis_out_tlast(ssb_tlast)
+);
+
 SSS_detector #(
     .IN_DW(FFT_OUT_DW)
 )

@@ -514,7 +514,8 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
         os.path.join(rtl_dir, 'FFT/buffers/outbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v'),
         os.path.join(rtl_dir, 'FFT/buffers/dynamic_block_scaling.v'),
-        os.path.join(rtl_dir, 'ressource_grid_subscriber.sv')
+        os.path.join(rtl_dir, 'ressource_grid_subscriber.sv'),
+        os.path.join(rtl_dir, 'SSB_extractor.sv'),
     ]
     if os.environ.get('SIM') != 'verilator':
         verilog_sources.append(os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v'))
@@ -612,4 +613,4 @@ if __name__ == '__main__':
              NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '772850KHz_3840KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 9, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)
+             NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)
