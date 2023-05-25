@@ -337,11 +337,6 @@ async def simple_test(dut):
         ax.set_title('hdl used SCs I/Q constellation')
         ax.plot(np.real(received_SSS[:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'r.')
         ax.plot(np.real(received_SSS[SSS_LEN:][:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'b.')
-
-        # ax = plt.subplot(2, 4, 8)
-        # ax.plot(np.real(corrected_PBCH[:180]), np.imag(corrected_PBCH[:180]), 'r.')
-        # ax.plot(np.real(corrected_PBCH[180:][:72]), np.imag(corrected_PBCH[180:][:72]), 'g.')
-        # ax.plot(np.real(corrected_PBCH[180 + 72:]), np.imag(corrected_PBCH[180 + 72:]), 'b.')
         plt.show()
 
     received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_LEN]))
@@ -381,7 +376,7 @@ async def simple_test(dut):
             assert False
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
         if NFFT == 8:
-            assert received[0] == 2113 #2386 + DETECTOR_LATENCY
+            assert received[0] == 2113
         else:
             assert False
     else:
@@ -608,6 +603,14 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 def test_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
          NFFT = 8, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
+    
+@pytest.mark.parametrize('FILE', ['30720KSPS_dl_signal'])
+@pytest.mark.parametrize('HALF_CP_ADVANCE', [1])
+@pytest.mark.parametrize('MULT_REUSE', [4])
+@pytest.mark.parametrize('RND_JITTER', [1])
+def test_NFFT9(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
+         NFFT = 9, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
