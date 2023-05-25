@@ -214,14 +214,12 @@ fft(
 if (HALF_CP_ADVANCE) begin
     localparam MULT_DELAY = 6;
     reg [MULT_DELAY - 1 : 0] last_SC_delay;
-    // reg [MULT_DELAY - 1 : 0] PBCH_symbol_delay;
     reg [USER_WIDTH_OUT - 1 : 0] meta_delay [MULT_DELAY - 1 : 0];
 
     reg [OUT_DW - 1 : 0] coeff [0 : 2**NFFT - 1];
     reg [NFFT - 1 : 0] coeff_idx;
 
     reg last_SC_f;
-    // reg PBCH_symbol_f;
     reg [USER_WIDTH_OUT - 1 : 0] meta_delay_f;
     assign m_axis_out_tuser = meta_delay_f;
     assign m_axis_out_tlast = last_SC_f;
