@@ -3,7 +3,6 @@ module FFT_demod #(
     parameter HALF_CP_ADVANCE = 1,
     parameter OUT_DW = 16,
     parameter NFFT = 8,
-    parameter BWP_LEN = 240,
     parameter BLK_EXP_LEN = 8,
     parameter XSERIES = "OLD",    // use "OLD" for Zynq7, "NEW" for MPSoC
     parameter USE_TAP_FILE = 0,
@@ -140,8 +139,6 @@ end
 
 
 // This process generates sync signals at the FFT output
-// BPW start and end for PDCCH and PDSCH symbols
-localparam SC_START = FFT_LEN / 2 - BWP_LEN / 2;
 
 reg [$clog2(SYMS_BTWN_SSB) - 1 : 0] current_out_symbol;
 reg PBCH_symbol;
@@ -163,7 +160,7 @@ always @(posedge clk_i) begin
             last_SC <= (out_cnt == FFT_LEN - 1);
 
             // PBCH_symbol <= (current_out_symbol == 0);
-            meta_FIFO_out_ready <= out_cnt == (FFT_LEN - 1 - SC_START);
+            meta_FIFO_out_ready <= out_cnt == (FFT_LEN - 2);
             if (meta_FIFO_valid_out)  meta_out <= {meta_FIFO_out_data, blk_exp, is_PBCH_symbol};
             
             if (out_cnt == (FFT_LEN - 1)) begin
