@@ -146,13 +146,6 @@ async def simple_test(dut):
         # sample_cnt = clk_cnt // SAMPLE_CLK_DECIMATION if SAMPLE_CLK_DECIMATION > 1 else clk_cnt
         received.append(dut.peak_detected_debug_o.value.integer)
         rx_counter += 1
-        # if dut.peak_detected_debug_o.value.integer == 1:
-        #     print(f'{rx_counter}: peak detected')
-
-        # if dut.sync_wait_counter.value.integer != 0:
-        #     print(f'{rx_counter}: wait_counter = {dut.sync_wait_counter.value.integer}')
-
-        # print(f'{dut.m_axis_out_tvalid.value.binstr}  {dut.m_axis_out_tdata.value.binstr}')
 
         if dut.peak_detected_debug_o.value.integer == 1:
             peaks.append(sample_cnt)
@@ -177,9 +170,6 @@ async def simple_test(dut):
 
     assert clk_cnt < MAX_CLK_CNT, "timeout, did not receive enough data"
     assert len(received_SSS) == SSS_LEN
-
-    # for i in range(SSS_LEN):
-    #     print(f'SSS[{i}] = {int(received_SSS[i].real > 0)}')
 
     print(f'first peak at = {peaks[0]}')
     rx_ADC_data = waveform[peaks[0] + CP_LEN + FFT_LEN - 1:]
