@@ -618,18 +618,18 @@ FFT_demod_i(
     .m_axis_out_tvalid(fft_demod_out_tvalid)
 );
 
-wire [FFT_OUT_DW - 1 : 0] ssb_tdata;
-wire ssb_tvalid;
-assign m_axis_demod_out_tdata = ssb_tdata;
-assign m_axis_demod_out_tvalid = ssb_tvalid;
-wire [FFT_DEMOD_OUT_USER_WIDTH - 1 : 0] ssb_tuser;
+wire [FFT_OUT_DW - 1 : 0] bwp_tdata;
+wire bwp_tvalid;
+assign m_axis_demod_out_tdata = bwp_tdata;
+assign m_axis_demod_out_tvalid = bwp_tvalid;
+wire [FFT_DEMOD_OUT_USER_WIDTH - 1 : 0] bwp_tuser;
 wire ssb_tlast;
-SSB_extractor #(
+BWP_extractor #(
     .IN_DW(FFT_OUT_DW),
     .NFFT(NFFT),
     .BLK_EXP_LEN(BLK_EXP_LEN)
 )
-SSB_extractor_i(
+BWB_extractor_i(
     .clk_i(clk_i),
     .reset_ni(reset_fft_demod_n),
 
@@ -638,10 +638,10 @@ SSB_extractor_i(
     .s_axis_in_tvalid(fft_demod_out_tvalid),
     .s_axis_in_tlast(fft_demod_out_tlast),
 
-    .m_axis_out_tdata(ssb_tdata),
-    .m_axis_out_tuser(ssb_tuser),
-    .m_axis_out_tvalid(ssb_tvalid),
-    .m_axis_out_tlast(ssb_tlast),
+    .m_axis_out_tdata(bwp_tdata),
+    .m_axis_out_tuser(bwp_tuser),
+    .m_axis_out_tvalid(bwp_tvalid),
+    .m_axis_out_tlast(bwp_tlast),
     .PBCH_valid_o(PBCH_valid_o),
     .SSS_valid_o(SSS_valid_o)
 );
@@ -655,10 +655,10 @@ ressource_grid_subscriber_i(
     .clk_i(clk_i),
     .reset_ni(reset_fft_demod_n),
 
-    .s_axis_iq_tdata(ssb_tdata),
-    .s_axis_iq_tuser(ssb_tuser),
-    .s_axis_iq_tvalid(ssb_tvalid),
-    .s_axis_iq_tlast(ssb_tlast),
+    .s_axis_iq_tdata(bwp_tdata),
+    .s_axis_iq_tuser(bwp_tuser),
+    .s_axis_iq_tvalid(bwp_tvalid),
+    .s_axis_iq_tlast(bwp_tlast),
 
     .sample_id_data(sample_id_fifo_out_data),
     .sample_id_valid(sample_id_fifo_out_valid),
@@ -678,7 +678,7 @@ SSS_detector_i(
     .reset_ni(reset_fft_demod_n),
     .N_id_2_i(fs_N_id_2),
     .N_id_2_valid_i(fs_N_id_2_valid),
-    .s_axis_in_tdata(ssb_tdata),
+    .s_axis_in_tdata(bwp_tdata),
     .s_axis_in_tvalid(SSS_valid_o),
     .m_axis_out_tdata(m_axis_SSS_tdata),
     .m_axis_out_tvalid(m_axis_SSS_tvalid),
@@ -698,9 +698,9 @@ channel_estimator_i(
     .reset_ni(reset_fft_demod_n),
     .N_id_i(N_id),
     .N_id_valid_i(N_id_valid),
-    .s_axis_in_tdata(ssb_tdata),
-    .s_axis_in_tuser(ssb_tuser[BLK_EXP_LEN + 1 - 1 : 0]),
-    .s_axis_in_tvalid(ssb_tvalid),
+    .s_axis_in_tdata(bwp_tdata),
+    .s_axis_in_tuser(bwp_tuser[BLK_EXP_LEN + 1 - 1 : 0]),
+    .s_axis_in_tvalid(bwp_tvalid),
 
     .m_axis_out_tdata(m_axis_cest_out_tdata),
     .m_axis_out_tuser(m_axis_cest_out_tuser),

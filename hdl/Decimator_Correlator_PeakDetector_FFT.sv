@@ -155,12 +155,12 @@ FFT_demod_i(
     .m_axis_out_tvalid(fft_demod_out_tvalid)
 );
 
-SSB_extractor #(
+BWP_extractor #(
     .IN_DW(FFT_OUT_DW),
     .NFFT(NFFT),
     .BLK_EXP_LEN(BLK_EXP_LEN)
 )
-SSB_extractor_i(
+BWP_extractor_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
 
