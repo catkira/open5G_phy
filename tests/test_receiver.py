@@ -173,7 +173,6 @@ async def simple_test(dut):
 
     clk_cnt = 0
     received = []
-    received_fft_demod = []
     rx_ADC_data = []
     received_PBCH = []
     received_SSS = []
@@ -263,11 +262,6 @@ async def simple_test(dut):
                 received_rgs = np.vstack((received_rgs, np.zeros((1, RGS_TRANSFER_LEN), 'complex')))
             else:
                 rgs_sc_idx += 1
-
-        if dut.m_axis_demod_out_tvalid.value.integer == 1:
-            # this is not used anymore, can be deleted in the future
-            received_fft_demod.append(_twos_comp(dut.m_axis_demod_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
     print(f'received {len(corrected_PBCH)} PBCH IQ samples')
     print(f'received {len(received_PBCH_LLR)} PBCH LLRs samples')
