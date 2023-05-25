@@ -128,7 +128,7 @@ frame_sync_i
 );
 
 localparam BLK_EXP_LEN = 8;
-localparam FFT_DEMOD_OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1;
+localparam FFT_DEMOD_OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN;
 wire [FFT_OUT_DW - 1 : 0] fft_demod_out_tdata;
 wire [FFT_DEMOD_OUT_USER_WIDTH - 1 : 0] fft_demod_out_tuser;
 wire fft_demod_out_tvalid;

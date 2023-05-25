@@ -585,7 +585,7 @@ sample_id_fifo_i(
     .m_axis_out_tempty()
 );
 
-localparam FFT_DEMOD_OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1;
+localparam FFT_DEMOD_OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN;
 wire [FFT_OUT_DW - 1 : 0]                   fft_demod_out_tdata;
 wire [FFT_DEMOD_OUT_USER_WIDTH - 1 : 0]     fft_demod_out_tuser;
 wire                                        fft_demod_out_tvalid;
@@ -618,9 +618,11 @@ FFT_demod_i(
 
 wire [FFT_OUT_DW - 1 : 0] bwp_tdata;
 wire bwp_tvalid;
+wire bwp_tlast;
 assign m_axis_demod_out_tdata = bwp_tdata;
 assign m_axis_demod_out_tvalid = bwp_tvalid;
-wire [FFT_DEMOD_OUT_USER_WIDTH - 1 : 0] bwp_tuser;
+localparam BWP_EXTRACTOR_OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1;
+wire [BWP_EXTRACTOR_OUT_USER_WIDTH - 1 : 0] bwp_tuser;
 wire ssb_tlast;
 BWP_extractor #(
     .IN_DW(FFT_OUT_DW),

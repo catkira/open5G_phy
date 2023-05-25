@@ -20,7 +20,7 @@ module FFT_demod #(
     localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1),
     localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1),
     localparam USER_WIDTH_IN = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + $clog2(MAX_CP_LEN),
-    localparam USER_WIDTH_OUT = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1
+    localparam USER_WIDTH_OUT = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN
 )
 (
     input                                       clk_i,
@@ -148,20 +148,16 @@ reg [USER_WIDTH_OUT - 1 : 0] meta_out;
 wire fft_val;
 reg fft_val_f;
 wire [BLK_EXP_LEN - 1 : 0] blk_exp;
-wire is_PBCH_symbol = (meta_out_sym == 3) && (meta_out_subframe == 0);
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         out_cnt <= '0;
-        // PBCH_symbol <= '0;
         current_out_symbol <= '0;
         meta_FIFO_out_ready <= '0;
     end else begin
         if (fft_val) begin
             last_SC <= (out_cnt == FFT_LEN - 1);
-
-            // PBCH_symbol <= (current_out_symbol == 0);
             meta_FIFO_out_ready <= out_cnt == (FFT_LEN - 2);
-            if (meta_FIFO_valid_out)  meta_out <= {meta_FIFO_out_data, blk_exp, is_PBCH_symbol};
+            if (meta_FIFO_valid_out)  meta_out <= {meta_FIFO_out_data, blk_exp};
             
             if (out_cnt == (FFT_LEN - 1)) begin
                 if (current_out_symbol == SYMS_BTWN_SSB - 1) begin

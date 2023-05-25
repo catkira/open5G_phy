@@ -9,26 +9,27 @@ module BWP_extractor #(
     localparam SFN_WIDTH = $clog2(SFN_MAX),
     localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1),
     localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1),
-    localparam USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1
+    localparam USER_WIDTH_IN = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN,
+    localparam USER_WIDTH_OUT = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1
 )
 (
     input                                       clk_i,
     input                                       reset_ni,
     input   wire       [IN_DW - 1 : 0]          s_axis_in_tdata,
-    input   wire       [USER_WIDTH - 1 : 0]     s_axis_in_tuser,    
+    input   wire       [USER_WIDTH_IN - 1 : 0]  s_axis_in_tuser,    
     input                                       s_axis_in_tlast,
     input                                       s_axis_in_tvalid,
 
     output  reg        [IN_DW - 1 : 0]          m_axis_out_tdata,
-    output  reg        [USER_WIDTH - 1 : 0]     m_axis_out_tuser,
+    output  reg        [USER_WIDTH_OUT - 1 : 0] m_axis_out_tuser,
     output  reg                                 m_axis_out_tlast,
     output  reg                                 m_axis_out_tvalid,
     output  reg                                 PBCH_valid_o,
     output  reg                                 SSS_valid_o
 );
 
-wire [SYMBOL_NUMBER_WIDTH - 1 : 0] sym = s_axis_in_tuser[SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN -: SYMBOL_NUMBER_WIDTH];
-wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe = s_axis_in_tuser[SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN -: SUBFRAME_NUMBER_WIDTH];
+wire [SYMBOL_NUMBER_WIDTH - 1 : 0] sym = s_axis_in_tuser[SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN - 1 -: SYMBOL_NUMBER_WIDTH];
+wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe = s_axis_in_tuser[SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN - 1 -: SUBFRAME_NUMBER_WIDTH];
 localparam FFT_LEN = 2 ** NFFT;
 reg [$clog2(FFT_LEN) - 1 : 0] sc_cnt;
 wire is_PBCH_symbol = (sym == 3) && (subframe == 0);
@@ -59,7 +60,7 @@ always @(posedge clk_i) begin
         PBCH_valid_o <= valid_PBCH_SC && is_PBCH_symbol;
         m_axis_out_tvalid <= valid_SC && s_axis_in_tvalid;
         m_axis_out_tdata <= s_axis_in_tdata;
-        m_axis_out_tuser <= s_axis_in_tuser;
+        m_axis_out_tuser <= {s_axis_in_tuser, is_PBCH_symbol};
         m_axis_out_tlast <= s_axis_in_tvalid && (sc_cnt == (FFT_LEN - 1 - SC_START));
 
         if (s_axis_in_tvalid) begin
