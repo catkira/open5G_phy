@@ -55,7 +55,7 @@ module receiver
     output                                          SSS_valid_o,
 
     output          [FFT_OUT_DW - 1 : 0]            m_axis_cest_out_tdata,
-    output          [1 : 0]                         m_axis_cest_out_tuser,
+    output          [BLK_EXP_LEN + 1 : 0]           m_axis_cest_out_tuser,
     output                                          m_axis_cest_out_tlast,
     output                                          m_axis_cest_out_tvalid,
 
@@ -664,7 +664,8 @@ assign N_id_o = N_id;
 assign N_id_valid_o = N_id_valid;
 
 channel_estimator #(
-    .IN_DW(FFT_OUT_DW)
+    .IN_DW(FFT_OUT_DW),
+    .BLK_EXP_LEN(BLK_EXP_LEN)
 )
 channel_estimator_i(
     .clk_i(clk_i),
@@ -672,7 +673,7 @@ channel_estimator_i(
     .N_id_i(N_id),
     .N_id_valid_i(N_id_valid),
     .s_axis_in_tdata(fft_demod_out_tdata),
-    .s_axis_in_tuser(fft_demod_out_tuser[0]),
+    .s_axis_in_tuser(fft_demod_out_tuser[BLK_EXP_LEN + 1 - 1: 0]),
     .s_axis_in_tvalid(fft_demod_out_tvalid),
 
     .m_axis_out_tdata(m_axis_cest_out_tdata),
@@ -699,7 +700,7 @@ demap_i(
     .reset_ni(reset_fft_demod_n),
 
     .s_axis_in_tdata(m_axis_cest_out_tdata),
-    .s_axis_in_tuser(m_axis_cest_out_tuser),
+    .s_axis_in_tuser(m_axis_cest_out_tuser[1 : 0]),
     .s_axis_in_tlast(m_axis_cest_out_tlast),
     .s_axis_in_tvalid(m_axis_cest_out_tvalid),
 
