@@ -254,7 +254,7 @@ always @(posedge clk_i) begin
                     end
                 end else begin
                     if (valid_in) begin
-                        $display("rx 0/2 %d + j%d -> %b", in_re, in_im, in_demod);
+                        // $display("rx 0/2 %d + j%d -> %b", in_re, in_im, in_demod);
                         if (PBCH_SC_idx_plus_start[1 : 0] == 0) begin
                             // $display("compare [%d] %b to %b, %b, %b, %b, %b, %b, %b, %b", PBCH_DMRS_idx, in_demod, 
                             //     PBCH_DMRS[0][PBCH_DMRS_idx], PBCH_DMRS[1][PBCH_DMRS_idx], PBCH_DMRS[2][PBCH_DMRS_idx], PBCH_DMRS[3][PBCH_DMRS_idx],

@@ -185,8 +185,9 @@ async def simple_test(dut):
     elif NFFT == 9:
         N_RB = 25
     FFT_OUT_DW = 16
-    SYMBOL_LEN = N_RB * 12
-    PBCH_SYMBOL_LEN = 240
+    SYMBOL_LEN = 20 * 12
+    N_RB_PBCH = 20
+    PBCH_SYMBOL_LEN = N_RB_PBCH * 12
     NUM_TIMESTAMP_SAMPLES = 64 // FFT_OUT_DW
     RGS_TRANSFER_LEN = SYMBOL_LEN + NUM_TIMESTAMP_SAMPLES + 1
     print(RGS_TRANSFER_LEN)
@@ -276,7 +277,7 @@ async def simple_test(dut):
     assert len(corrected_PBCH) == 432 * (N_SSBs - 1), print('received PBCH does not have correct length!')
     assert len(received_PBCH_LLR) == 432 * 2 * (N_SSBs - 1), print('received PBCH LLRs do not have correct length!')
     assert not np.array_equal(np.array(received_PBCH_LLR), np.zeros(len(received_PBCH_LLR)))
-    # assert received_ibar_SSB[0] == expected_ibar_SSB, print('wrong ibar_SSB detected!')
+    assert received_ibar_SSB[0] == expected_ibar_SSB, print('wrong ibar_SSB detected!')
 
     fifo_data = []
     if USE_COCOTB_AXI:
@@ -373,13 +374,16 @@ async def simple_test(dut):
     # verify PSS_detector
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
         if NFFT == 8:
-            # TODO: figure out why there are two possibilities
-            assert received[0] == 551 #824 + DETECTOR_LATENCY
+            assert received[0] == 551
+        elif NFFT == 9:
+            assert received[0] == 1101
         else:
             assert False
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
         if NFFT == 8:
             assert received[0] == 2113 #2386 + DETECTOR_LATENCY
+        else:
+            assert False
     else:
         assert False
 
@@ -613,4 +617,4 @@ if __name__ == '__main__':
              NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '772850KHz_3840KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)
+             NFFT = 9, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)
