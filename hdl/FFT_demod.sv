@@ -329,7 +329,7 @@ if (HALF_CP_ADVANCE) begin
             last_SC_f <= '0;
             // PBCH_symbol_f <= '0;
         end else begin
-            fft_val_f <= fft_val && valid_SC;
+            fft_val_f <= fft_val;
             out_data_f <= {fft_result_im, fft_result_re};
             SSS_valid_delay[0] <= SSS_valid;
             PBCH_valid_delay[0] <= PBCH_valid;
@@ -367,7 +367,7 @@ end else begin
             m_axis_out_tdata <= {fft_result_im, fft_result_re};
             m_axis_out_tlast <= fft_val && (out_cnt == (FFT_LEN - 1 - SC_START));
             m_axis_out_tuser <= meta_out;
-            m_axis_out_tvalid <= fft_val && valid_SC;
+            m_axis_out_tvalid <= fft_val;
         end
     end
 end
