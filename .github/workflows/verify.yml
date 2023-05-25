@@ -49,7 +49,7 @@ jobs:
         SIM=verilator pytest -v tests/test_receiver.py
         SIM=verilator pytest -v tests/test_Decimator_to_SSS_detector.py
 
-    - name: Verify with cocotb & icarus
+    - name: Verify with iVerilog
       run: |
         pytest -v --workers=10 tests/test_PSS_correlator.py
         pytest -v --workers=10 tests/test_PSS_correlator_mr.py
