@@ -60,7 +60,7 @@ always @(posedge clk_i) begin
         m_axis_out_tvalid <= valid_SC && s_axis_in_tvalid;
         m_axis_out_tdata <= s_axis_in_tdata;
         m_axis_out_tuser <= s_axis_in_tuser;
-        m_axis_out_tlast <= s_axis_in_tlast;
+        m_axis_out_tlast <= s_axis_in_tvalid && (sc_cnt == (FFT_LEN - 1 - SC_START));
 
         if (s_axis_in_tvalid) begin
             if (sc_cnt == FFT_LEN - 1)  sc_cnt <= '0;

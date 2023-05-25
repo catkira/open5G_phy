@@ -152,9 +152,7 @@ FFT_demod_i(
     .m_axis_out_tdata(fft_demod_out_tdata),
     .m_axis_out_tuser(fft_demod_out_tuser),
     .m_axis_out_tlast(fft_demod_out_tlast),
-    .m_axis_out_tvalid(fft_demod_out_tvalid),
-    .PBCH_valid_o(),
-    .SSS_valid_o()
+    .m_axis_out_tvalid(fft_demod_out_tvalid)
 );
 
 SSB_extractor #(
