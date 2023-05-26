@@ -117,19 +117,19 @@ async def simple_test(dut):
     SSS_START = FFT_LEN // 2 - (SSS_LEN + 1) // 2
     PBCH_LEN = 240
     PBCH_START = FFT_LEN // 2 - (PBCH_LEN + 1) // 2
-    FREE_CYCLES = int(fs // 1920000)
-    print(f'FREE_CYCLES = {FREE_CYCLES}')
-    SAMPLE_CLK_DECIMATION = 1 if FREE_CYCLES >= tb.MULT_REUSE else tb.MULT_REUSE // FREE_CYCLES
-    print(f'additional idle cycles per sample: {SAMPLE_CLK_DECIMATION - 1}')
+    PSS_IDLE_CLKS = int(fs // 1920000)
+    print(f'FREE_CYCLES = {PSS_IDLE_CLKS}')
+    EXTRA_IDLE_CLKS = 0 if PSS_IDLE_CLKS >= tb.MULT_REUSE else tb.MULT_REUSE // PSS_IDLE_CLKS - 1 # insert additional valid 0 cycles if needed
+    print(f'additional idle cycles per sample: {EXTRA_IDLE_CLKS}')
     clk_div = 0
-    MAX_CLK_CNT = 10000 * FFT_LEN // 256 * SAMPLE_CLK_DECIMATION
+    MAX_CLK_CNT = 10000 * FFT_LEN // 256 * (1 + EXTRA_IDLE_CLKS)
     peaks = []
 
     tx_cnt = 0
     sample_cnt = 0
     while (len(received_SSS) < SSS_LEN) and (clk_cnt < MAX_CLK_CNT):
         await RisingEdge(dut.clk_i)
-        if (clk_div == 0 or SAMPLE_CLK_DECIMATION == 1):
+        if (clk_div == 0 or EXTRA_IDLE_CLKS == 0):
             data = (((int(waveform[tx_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
                 + ((int(waveform[tx_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
             dut.s_axis_in_tdata.value = data
@@ -138,7 +138,7 @@ async def simple_test(dut):
             tx_cnt += 1
         else:
             dut.s_axis_in_tvalid.value = 0
-            if clk_div == SAMPLE_CLK_DECIMATION - 1:
+            if clk_div == EXTRA_IDLE_CLKS:
                 clk_div = 0
             else:
                 clk_div += 1

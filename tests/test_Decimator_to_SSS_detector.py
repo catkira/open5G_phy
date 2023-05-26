@@ -107,6 +107,8 @@ async def simple_test(dut):
     waveform *= (2 ** (tb.IN_DW // 2 - 1) - 1)
     waveform = waveform.real.astype(int) + 1j * waveform.imag.astype(int)
 
+    assert tb.MULT_REUSE <= 2, print('MULT_REUSE > 2 is not implemented in this test!')
+
     await tb.cycle_reset()
 
     rx_counter = 0
