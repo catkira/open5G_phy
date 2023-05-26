@@ -3,7 +3,6 @@ module FFT_demod #(
     parameter HALF_CP_ADVANCE = 1,
     parameter OUT_DW = 16,
     parameter NFFT = 8,
-    parameter BWP_LEN = 240,
     parameter BLK_EXP_LEN = 8,
     parameter XSERIES = "OLD",    // use "OLD" for Zynq7, "NEW" for MPSoC
     parameter USE_TAP_FILE = 0,
@@ -21,7 +20,7 @@ module FFT_demod #(
     localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1),
     localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1),
     localparam USER_WIDTH_IN = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + $clog2(MAX_CP_LEN),
-    localparam USER_WIDTH_OUT = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1
+    localparam USER_WIDTH_OUT = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN
 )
 (
     input                                       clk_i,
@@ -34,9 +33,7 @@ module FFT_demod #(
     output  reg        [OUT_DW - 1 : 0]         m_axis_out_tdata,
     output  reg        [USER_WIDTH_OUT -1  : 0] m_axis_out_tuser,
     output  reg                                 m_axis_out_tlast,
-    output  reg                                 m_axis_out_tvalid,
-    output                                      PBCH_valid_o,
-    output                                      SSS_valid_o
+    output  reg                                 m_axis_out_tvalid
 );
 
 // frame information (sfn, subframe number, symbol_number) go into this FIFO because FFT_core does not have tuser
@@ -142,48 +139,25 @@ end
 
 
 // This process generates sync signals at the FFT output
-// BPW start and end for PDCCH and PDSCH symbols
-localparam SC_START = FFT_LEN / 2 - BWP_LEN / 2;
-localparam SC_END = SC_START + BWP_LEN;
-
-// BPW start and len for SSS and PBCH symbols
-localparam PBCH_LEN = 240;
-localparam PBCH_START = FFT_LEN / 2 - PBCH_LEN / 2;
-
-localparam SSS_LEN = 127;
-localparam SSS_START = FFT_LEN / 2 - (SSS_LEN + 1) / 2;
 
 reg [$clog2(SYMS_BTWN_SSB) - 1 : 0] current_out_symbol;
-reg PBCH_valid;
-reg SSS_valid;
 reg PBCH_symbol;
 reg last_SC;
 reg [$clog2(FFT_LEN) - 1 : 0] out_cnt;
 reg [USER_WIDTH_OUT - 1 : 0] meta_out;
-wire valid_SC = (out_cnt >= SC_START) && (out_cnt <= SC_END - 1);
-wire valid_PBCH_SC = (out_cnt >= PBCH_START) && (out_cnt <= PBCH_START + PBCH_LEN - 1);
-wire valid_SSS_SC = (out_cnt >= SSS_START) && (out_cnt <= SSS_START + SSS_LEN - 1);
 wire fft_val;
 reg fft_val_f;
 wire [BLK_EXP_LEN - 1 : 0] blk_exp;
-wire is_PBCH_symbol = (meta_out_sym == 3) && (meta_out_subframe == 0);
-wire is_SSS_symbol = (meta_out_sym == 4) && (meta_out_subframe == 0);
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         out_cnt <= '0;
-        SSS_valid <= '0;
-        PBCH_valid <= '0;
-        // PBCH_symbol <= '0;
         current_out_symbol <= '0;
-        last_SC <= '0;
         meta_FIFO_out_ready <= '0;
     end else begin
         if (fft_val) begin
-            last_SC <= (out_cnt == (FFT_LEN - 1 - SC_START));
-
-            // PBCH_symbol <= (current_out_symbol == 0);
-            meta_FIFO_out_ready <= out_cnt == (FFT_LEN - 1 - SC_START);
-            if (meta_FIFO_valid_out)  meta_out <= {meta_FIFO_out_data, blk_exp, is_PBCH_symbol};
+            last_SC <= (out_cnt == FFT_LEN - 1);
+            meta_FIFO_out_ready <= out_cnt == (FFT_LEN - 2);
+            if (meta_FIFO_valid_out)  meta_out <= {meta_FIFO_out_data, blk_exp};
             
             if (out_cnt == (FFT_LEN - 1)) begin
                 if (current_out_symbol == SYMS_BTWN_SSB - 1) begin
@@ -196,12 +170,7 @@ always @(posedge clk_i) begin
             end else begin
                 out_cnt <= out_cnt + 1;
             end
-
-            PBCH_valid <= valid_SC && is_PBCH_symbol; // only used for debugging
-            SSS_valid  <= valid_SSS_SC && is_SSS_symbol; // only used for debugging
         end else begin
-            PBCH_valid <= '0;
-            SSS_valid <= '0;
             last_SC <= '0;
         end
     end
@@ -244,22 +213,14 @@ fft(
 // This process corrects 'phase CFO' caused by CP
 if (HALF_CP_ADVANCE) begin
     localparam MULT_DELAY = 6;
-    reg [MULT_DELAY - 1 : 0] PBCH_valid_delay;
-    reg [MULT_DELAY - 1 : 0] SSS_valid_delay;
     reg [MULT_DELAY - 1 : 0] last_SC_delay;
-    // reg [MULT_DELAY - 1 : 0] PBCH_symbol_delay;
     reg [USER_WIDTH_OUT - 1 : 0] meta_delay [MULT_DELAY - 1 : 0];
 
     reg [OUT_DW - 1 : 0] coeff [0 : 2**NFFT - 1];
     reg [NFFT - 1 : 0] coeff_idx;
 
-    reg PBCH_valid_f;
-    reg SSS_valid_f;
     reg last_SC_f;
-    // reg PBCH_symbol_f;
     reg [USER_WIDTH_OUT - 1 : 0] meta_delay_f;
-    assign PBCH_valid_o = PBCH_valid_f;
-    assign SSS_valid_o = SSS_valid_f;
     assign m_axis_out_tuser = meta_delay_f;
     assign m_axis_out_tlast = last_SC_f;
 
@@ -320,31 +281,21 @@ if (HALF_CP_ADVANCE) begin
             coeff_idx <= '0;
             fft_val_f <= '0;
             out_data_f <= '0;
-            PBCH_valid_delay <= '0;
-            SSS_valid_delay <= '0;
             last_SC_delay <= '0;
             for (integer i = 0; i < MULT_DELAY; i = i + 1) meta_delay[i] <= '0;
-            SSS_valid_f <= '0;
-            PBCH_valid_f <= '0;
             last_SC_f <= '0;
             // PBCH_symbol_f <= '0;
         end else begin
-            fft_val_f <= fft_val && valid_SC;
+            fft_val_f <= fft_val;
             out_data_f <= {fft_result_im, fft_result_re};
-            SSS_valid_delay[0] <= SSS_valid;
-            PBCH_valid_delay[0] <= PBCH_valid;
             last_SC_delay[0] <= last_SC;
             // PBCH_symbol_delay[0] <= PBCH_symbol;
             meta_delay[0] <= meta_out;
             for (integer i = 0; i < (MULT_DELAY - 1); i = i + 1) begin
-                SSS_valid_delay[i+1] <= SSS_valid_delay[i];
-                PBCH_valid_delay[i+1] <= PBCH_valid_delay[i];
                 last_SC_delay[i+1] <= last_SC_delay[i];
                 // PBCH_symbol_delay[i+1] <= PBCH_symbol_delay[i];
                 meta_delay[i+1] <= meta_delay[i];
             end
-            SSS_valid_f <= SSS_valid_delay[MULT_DELAY - 1];
-            PBCH_valid_f <= PBCH_valid_delay[MULT_DELAY - 1];
             last_SC_f <= last_SC_delay[MULT_DELAY - 1];
             // PBCH_symbol_f <= PBCH_symbol_delay[MULT_DELAY - 1];
             meta_delay_f <= meta_delay[MULT_DELAY - 1];
@@ -354,9 +305,6 @@ if (HALF_CP_ADVANCE) begin
         end
     end
 end else begin
-    assign SSS_valid_o = SSS_valid;
-    assign PBCH_valid_o = PBCH_valid;
-
     always @(posedge clk_i) begin
         if (!reset_ni) begin
             m_axis_out_tdata <= '0;
@@ -365,9 +313,9 @@ end else begin
             m_axis_out_tvalid <= '0;
         end else begin
             m_axis_out_tdata <= {fft_result_im, fft_result_re};
-            m_axis_out_tlast <= fft_val && (out_cnt == (FFT_LEN - 1 - SC_START));
+            m_axis_out_tlast <= fft_val && (out_cnt == (FFT_LEN - 1));
             m_axis_out_tuser <= meta_out;
-            m_axis_out_tvalid <= fft_val && valid_SC;
+            m_axis_out_tvalid <= fft_val;
         end
     end
 end

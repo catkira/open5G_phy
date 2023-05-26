@@ -84,7 +84,7 @@ async def simple_test(dut):
     print(f'sample_rate = {fs}, decimation_factor = {dec_factor}')
     if dec_factor > 1:
         fs_dec = fs // dec_factor
-        waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')  # decimate to 3.840 MSPS (if NFFT = 8)
+        waveform = scipy.signal.decimate(waveform, dec_factor, ftype='fir')
     else:
         fs_dec = fs
 
@@ -173,7 +173,6 @@ async def simple_test(dut):
 
     clk_cnt = 0
     received = []
-    received_fft_demod = []
     rx_ADC_data = []
     received_PBCH = []
     received_SSS = []
@@ -181,10 +180,17 @@ async def simple_test(dut):
     received_PBCH_LLR = []
     received_N_ids = []
     received_ibar_SSB = []
+    if NFFT == 8:
+        N_RB = 20
+    elif NFFT == 9:
+        N_RB = 25
     FFT_OUT_DW = 16
-    SYMBOL_LEN = 240
+    SYMBOL_LEN = 20 * 12
+    N_RB_PBCH = 20
+    PBCH_SYMBOL_LEN = N_RB_PBCH * 12
     NUM_TIMESTAMP_SAMPLES = 64 // FFT_OUT_DW
     RGS_TRANSFER_LEN = SYMBOL_LEN + NUM_TIMESTAMP_SAMPLES + 1
+    print(RGS_TRANSFER_LEN)
     received_rgs = np.zeros((1, RGS_TRANSFER_LEN), 'complex')
     num_rgs_symbols = 0
     rgs_sc_idx = 0
@@ -256,18 +262,14 @@ async def simple_test(dut):
             else:
                 received_rgs[num_rgs_symbols, rgs_sc_idx] = _twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2) \
                     + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer >> (FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+
             if dut.m_axis_out_tlast.value.integer:
                 num_rgs_symbols += 1
-                assert rgs_sc_idx == RGS_TRANSFER_LEN - 1, print('Error: received from number of bytes from ressource_grid_subscriber!')
+                assert rgs_sc_idx == RGS_TRANSFER_LEN - 1, print('Error: wrong received number of bytes from ressource_grid_subscriber!')
                 rgs_sc_idx = 0
                 received_rgs = np.vstack((received_rgs, np.zeros((1, RGS_TRANSFER_LEN), 'complex')))
             else:
                 rgs_sc_idx += 1
-
-        if dut.m_axis_demod_out_tvalid.value.integer == 1:
-            # this is not used anymore, can be deleted in the future
-            received_fft_demod.append(_twos_comp(dut.m_axis_demod_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.m_axis_demod_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
     print(f'received {len(corrected_PBCH)} PBCH IQ samples')
     print(f'received {len(received_PBCH_LLR)} PBCH LLRs samples')
@@ -335,16 +337,11 @@ async def simple_test(dut):
         ax.set_title('hdl used SCs I/Q constellation')
         ax.plot(np.real(received_SSS[:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'r.')
         ax.plot(np.real(received_SSS[SSS_LEN:][:SSS_LEN]), np.imag(received_SSS[:SSS_LEN]), 'b.')
-
-        # ax = plt.subplot(2, 4, 8)
-        # ax.plot(np.real(corrected_PBCH[:180]), np.imag(corrected_PBCH[:180]), 'r.')
-        # ax.plot(np.real(corrected_PBCH[180:][:72]), np.imag(corrected_PBCH[180:][:72]), 'g.')
-        # ax.plot(np.real(corrected_PBCH[180 + 72:]), np.imag(corrected_PBCH[180 + 72:]), 'b.')
         plt.show()
 
     received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_LEN]))
     received_PBCH_ideal *= np.exp(1j * ( 2 * np.pi * (CP2_LEN - CP_ADVANCE) / FFT_LEN * np.arange(FFT_LEN) + np.pi * (CP2_LEN - CP_ADVANCE)))
-    received_PBCH_ideal = received_PBCH_ideal[8:][:SYMBOL_LEN]
+    received_PBCH_ideal = received_PBCH_ideal[8:][:PBCH_SYMBOL_LEN]
     received_PBCH_ideal = (received_PBCH_ideal.real.astype(int) + 1j * received_PBCH_ideal.imag.astype(int))
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         _, axs = plt.subplots(1, 3, figsize=(10, 5))
@@ -353,9 +350,9 @@ async def simple_test(dut):
         axs[0].plot(np.real(received_SSS)[SSS_LEN:][:SSS_LEN], np.imag(received_SSS)[SSS_LEN:][:SSS_LEN], 'b.')
 
         axs[1].set_title('CFO corrected PBCH')
-        axs[1].plot(np.real(received_PBCH[:SYMBOL_LEN]), np.imag(received_PBCH[:SYMBOL_LEN]), 'r.')
-        axs[1].plot(np.real(received_PBCH[SYMBOL_LEN:][:SYMBOL_LEN]), np.imag(received_PBCH[SYMBOL_LEN:][:SYMBOL_LEN]), 'g.')
-        axs[1].plot(np.real(received_PBCH[2*SYMBOL_LEN:][:SYMBOL_LEN]), np.imag(received_PBCH[2*SYMBOL_LEN:][:SYMBOL_LEN]), 'b.')
+        axs[1].plot(np.real(received_PBCH[:PBCH_SYMBOL_LEN]), np.imag(received_PBCH[:PBCH_SYMBOL_LEN]), 'r.')
+        axs[1].plot(np.real(received_PBCH[PBCH_SYMBOL_LEN:][:PBCH_SYMBOL_LEN]), np.imag(received_PBCH[PBCH_SYMBOL_LEN:][:PBCH_SYMBOL_LEN]), 'g.')
+        axs[1].plot(np.real(received_PBCH[2*PBCH_SYMBOL_LEN:][:PBCH_SYMBOL_LEN]), np.imag(received_PBCH[2*PBCH_SYMBOL_LEN:][:PBCH_SYMBOL_LEN]), 'b.')
         #axs[2].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), 'y.')
 
         axs[2].set_title('CFO and channel corrected PBCH')
@@ -372,13 +369,16 @@ async def simple_test(dut):
     # verify PSS_detector
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
         if NFFT == 8:
-            # TODO: figure out why there are two possibilities
-            assert received[0] == 551 #824 + DETECTOR_LATENCY
+            assert received[0] == 551
+        elif NFFT == 9:
+            assert received[0] == 1101
         else:
             assert False
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
         if NFFT == 8:
-            assert received[0] == 2113 #2386 + DETECTOR_LATENCY
+            assert received[0] == 2113
+        else:
+            assert False
     else:
         assert False
 
@@ -513,7 +513,8 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
         os.path.join(rtl_dir, 'FFT/buffers/outbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v'),
         os.path.join(rtl_dir, 'FFT/buffers/dynamic_block_scaling.v'),
-        os.path.join(rtl_dir, 'ressource_grid_subscriber.sv')
+        os.path.join(rtl_dir, 'ressource_grid_subscriber.sv'),
+        os.path.join(rtl_dir, 'BWP_extractor.sv'),
     ]
     if os.environ.get('SIM') != 'verilator':
         verilog_sources.append(os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v'))
@@ -524,9 +525,10 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     ]
 
     PSS_LEN = 128
-    CLK_FREQ = str(int(3840000 * (MULT_REUSE // 2 + 0.5 * RND_JITTER))) if MULT_REUSE > 2 else str(3840000)
+    SAMPLE_RATE = 3840000 * 2 ** (NFFT) // 256
+    CLK_FREQ = str(int(SAMPLE_RATE * (MULT_REUSE // 2 + 0.5 * RND_JITTER))) if MULT_REUSE > 2 else str(SAMPLE_RATE)
     print(f'system clock frequency = {CLK_FREQ}')
-    print('sample clock frequency = 3840000')
+    print(f'sample clock frequency = {SAMPLE_RATE}')
     parameters = {}
     parameters['IN_DW'] = IN_DW
     parameters['OUT_DW'] = OUT_DW
@@ -601,6 +603,14 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 def test_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
          NFFT = 8, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
+    
+@pytest.mark.parametrize('FILE', ['30720KSPS_dl_signal'])
+@pytest.mark.parametrize('HALF_CP_ADVANCE', [1])
+@pytest.mark.parametrize('MULT_REUSE', [4])
+@pytest.mark.parametrize('RND_JITTER', [1])
+def test_NFFT9(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
+         NFFT = 9, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
@@ -610,4 +620,4 @@ if __name__ == '__main__':
              NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '772850KHz_3840KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)
+             NFFT = 9, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)

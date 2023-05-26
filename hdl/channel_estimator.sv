@@ -4,8 +4,6 @@ module channel_estimator #(
     parameter IN_DW = 32,           // input data width
     parameter BLK_EXP_LEN = 8,    
     localparam OUT_DW = IN_DW,
-    localparam NFFT = 8,
-    localparam FFT_LEN = 2 ** NFFT,
     localparam MAX_CELL_ID = 1007,
     localparam PHASE_DW = 12        // LUT size inside DDS is 2 ** (PHASE_DW - 2)
 )
@@ -175,9 +173,10 @@ end
 
 reg [3 : 0] state_det_ibar;
 reg [2 : 0] PBCH_sym_idx;
-reg [$clog2(256) : 0] PBCH_SC_idx;
-reg [$clog2(256) : 0] PBCH_SC_used_idx;
-wire [$clog2(256) : 0] PBCH_SC_idx_plus_start = PBCH_SC_used_idx - PBCH_DMRS_start_idx;
+localparam SYMBOL_LEN = 240;
+reg [$clog2(SYMBOL_LEN) : 0] PBCH_SC_idx;
+reg [$clog2(SYMBOL_LEN) : 0] PBCH_SC_used_idx;
+wire [$clog2(SYMBOL_LEN) : 0] PBCH_SC_idx_plus_start = PBCH_SC_used_idx - PBCH_DMRS_start_idx;
 reg [$clog2(64) : 0] PBCH_DMRS_idx;
 reg signed [$clog2(60*2) + 1 : 0] DMRS_corr [0 : 7];  // one symbol has max 60 pilots
 reg signed [$clog2(60*2) + 1 : 0] DMRS_corr_rot [0 : 7];  // one symbol has max 60 pilots
@@ -240,7 +239,7 @@ always @(posedge clk_i) begin
                 end
             end
             1: begin // compare 1st PBCH symbol
-                if (PBCH_SC_idx == 255) begin
+                if (PBCH_SC_idx == SYMBOL_LEN - 1) begin
                     if (PBCH_sym_idx == 0) begin
                         ibar_idx <= '0;
                         ibar_SSB_detected <= '0;
@@ -294,17 +293,17 @@ always @(posedge clk_i) begin
 end
 
 // Put incoming data into a FIFO to give enough time for PBCH DRMS detection
-// Length of FIFO has to be at least FFT_LEN samples, because 1 symbol is used 
+// Length of FIFO has to be at least SYMBOL_LEN samples, because 1 symbol is used 
 // to detect the PBCH DRMS
 reg [IN_DW - 1 : 0] in_fifo_data;
 reg                 in_fifo_valid;
 // wire                 in_fifo_ready;
 reg [BLK_EXP_LEN + 1 - 1 : 0] in_fifo_user;
-localparam EXTRA_LEN = FFT_LEN;  // for the atan2 latency, FIFO_LEN has to be power of 2, therefore increase by FFT_LEN !
-reg [$clog2(FFT_LEN + EXTRA_LEN) - 1 : 0]  in_fifo_level;
+localparam EXTRA_LEN = 256;  // for the atan2 latency, FIFO_LEN has to be power of 2, therefore increase by 256 !
+reg [$clog2(256 + EXTRA_LEN) - 1 : 0]  in_fifo_level;
 AXIS_FIFO #(
     .DATA_WIDTH(IN_DW),
-    .FIFO_LEN(FFT_LEN + EXTRA_LEN),
+    .FIFO_LEN(256 + EXTRA_LEN),
     .USER_WIDTH(BLK_EXP_LEN + 1),
     .ASYNC(0)
 )
@@ -348,11 +347,11 @@ atan2_i(
 // Put all calculated phases into a FIFO
 // wire  angle_FIFO_ready;
 reg  angle_FIFO_valid;
-reg  [$clog2(FFT_LEN) - 1 : 0] angle_FIFO_level;
+reg  [$clog2(256) - 1 : 0] angle_FIFO_level;
 reg  signed [PHASE_DW - 1 : 0] angle_FIFO_data;
 AXIS_FIFO #(
     .DATA_WIDTH(PHASE_DW),
-    .FIFO_LEN(FFT_LEN),
+    .FIFO_LEN(256),
     .ASYNC(0)
 )
 angle_FIFO_i(
@@ -380,7 +379,7 @@ localparam [2 : 0]              CALC_CORRECTION = 1;
 localparam [2 : 0]              PASS_THROUGH = 2;
 reg                             in_data_ready;
 reg                             angles_ready;
-reg [$clog2(FFT_LEN) - 1 : 0]   SC_cnt;
+reg [$clog2(SYMBOL_LEN) - 1 : 0]   SC_cnt;
 
 localparam                              MAX_PHASE = (2**(PHASE_DW - 1) - 1);
 localparam signed [PHASE_DW - 1 : 0]    DEG45 = MAX_PHASE / 4;
@@ -390,12 +389,11 @@ reg [2 : 0]                             ibar_SSB_buf;
 
 localparam MAX_SYM_PER_BURST = 3;
 localparam MIN_PILOT_SPACING = 4;
-reg [$clog2(FFT_LEN * MAX_SYM_PER_BURST / MIN_PILOT_SPACING) - 1 : 0] pilot_SC_idx;
+reg [$clog2(256 * MAX_SYM_PER_BURST / MIN_PILOT_SPACING) - 1 : 0] pilot_SC_idx;
 reg [1 : 0] start_idx;  // buffer start idx so that it cannot change within one symbol
-wire [$clog2(FFT_LEN) : 0] SC_idx_plus_start = SC_cnt - start_idx;
+wire [$clog2(SYMBOL_LEN) : 0] SC_idx_plus_start = SC_cnt - start_idx;
 reg [10 : 0]    SSB_cnt;
 localparam SYMS_BTWN_SSB = 14 * 20;
-localparam ZERO_CARRIERS = 16;
 reg  signed [PHASE_DW - 1 : 0] corr_angle_DDS_in;
 reg                            corr_angle_DDS_valid_in;
 localparam  [1 : 0]            SYMBOL_TYPE_OTHER = 0;
@@ -409,8 +407,8 @@ reg                            corr_data_fifo_in_valid;
 reg [BLK_EXP_LEN + 1 : 0]      corr_data_fifo_in_tuser;
 reg                            corr_data_fifo_in_last;
 
-wire in_fifo_ready = angle_FIFO_valid && in_fifo_valid && (SC_cnt != FFT_LEN - ZERO_CARRIERS) && (state_corrector != WAIT_FOR_INPUTS);
-wire angle_fifo_ready = angle_FIFO_valid && in_fifo_valid && (SC_cnt != FFT_LEN - ZERO_CARRIERS) && (state_corrector != WAIT_FOR_INPUTS);
+wire in_fifo_ready = angle_FIFO_valid && in_fifo_valid && (SC_cnt != SYMBOL_LEN) && (state_corrector != WAIT_FOR_INPUTS);
+wire angle_fifo_ready = angle_FIFO_valid && in_fifo_valid && (SC_cnt != SYMBOL_LEN) && (state_corrector != WAIT_FOR_INPUTS);
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -466,7 +464,7 @@ always @(posedge clk_i) begin
             end
             CALC_CORRECTION : begin
                 // only need to check angle_FIFO because, it becomes always later ready than data_FIFO
-                if (angle_FIFO_valid && in_fifo_valid && (SC_cnt != FFT_LEN - 1 - ZERO_CARRIERS)) begin
+                if (angle_FIFO_valid && in_fifo_valid && (SC_cnt != SYMBOL_LEN - 1)) begin
                     // in_fifo_ready <= 1;
                     // angle_FIFO_ready <= 1;              
                 end else begin
@@ -509,10 +507,12 @@ always @(posedge clk_i) begin
                         else begin
                             corr_data_fifo_in_valid <= 1;
                             // $display("store data sample from SC %d", SC_cnt);
+                            // if (SSB_cnt == 0)  $display("  data at SC %d, rx angle = %f deg", SC_cnt,
+                                // $itor(angle_FIFO_data) / DEG45 * 45);
                         end
                     end
 
-                    if (SC_cnt == FFT_LEN - 1 - ZERO_CARRIERS) begin
+                    if (SC_cnt == SYMBOL_LEN - 1) begin
                         corr_data_fifo_in_last <= remaining_syms == 0;
                         if (remaining_syms > 0) begin
                             // if (symbol_type == SYMBOL_TYPE_PBCH)  $display("starting with PBCH symbol %d", SYMS_PER_PBCH - remaining_syms);
@@ -536,15 +536,6 @@ always @(posedge clk_i) begin
 
             end
             PASS_THROUGH : begin
-                // only need to check angle_FIFO because, it becomes always later ready than data_FIFO
-                // if (angle_FIFO_valid && in_fifo_valid && (SC_cnt != FFT_LEN - 1 - ZERO_CARRIERS)) begin
-                //     in_fifo_ready <= 1;
-                //     angle_FIFO_ready <= 1;              
-                // end else begin
-                //     in_fifo_ready <= 0;
-                //     angle_FIFO_ready <= 0;
-                // end                
-
                 if (angle_FIFO_valid && in_fifo_valid && angle_fifo_ready) begin
                     corr_data_fifo_in_data <= in_fifo_data;
                     if (SC_idx_plus_start[1:0] == 0) begin
@@ -557,7 +548,7 @@ always @(posedge clk_i) begin
                         corr_data_fifo_in_valid <= 1;          
                     end
 
-                    if (SC_cnt == FFT_LEN - 1 - ZERO_CARRIERS) begin
+                    if (SC_cnt == SYMBOL_LEN - 1) begin
                         corr_data_fifo_in_last <= remaining_syms == 0;
                         state_corrector <= WAIT_FOR_INPUTS;
                     end else begin
@@ -608,7 +599,7 @@ reg                             corr_angle_fifo_out_empty;
 wire                            corr_angle_fifo_out_ready;
 AXIS_FIFO #(
     .DATA_WIDTH(DDS_OUT_DW),
-    .FIFO_LEN(FFT_LEN),
+    .FIFO_LEN(256),
     .USER_WIDTH(0),
     .ASYNC(0)
 )
@@ -631,11 +622,11 @@ reg corr_data_fifo_out_valid;
 reg corr_data_fifo_out_empty;
 wire corr_data_fifo_out_ready;
 reg corr_data_fifo_out_last;
-reg [$clog2(FFT_LEN) - 1 : 0] corr_data_fifo_out_level;
+reg [$clog2(256) - 1 : 0] corr_data_fifo_out_level;
 reg [BLK_EXP_LEN + 1 : 0] corr_data_fifo_out_user;
 AXIS_FIFO #(
     .DATA_WIDTH(IN_DW),
-    .FIFO_LEN(FFT_LEN),
+    .FIFO_LEN(256),
     .USER_WIDTH(BLK_EXP_LEN + 2),
     .ASYNC(0)
 )

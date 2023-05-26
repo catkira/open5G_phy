@@ -146,13 +146,6 @@ async def simple_test(dut):
         # sample_cnt = clk_cnt // SAMPLE_CLK_DECIMATION if SAMPLE_CLK_DECIMATION > 1 else clk_cnt
         received.append(dut.peak_detected_debug_o.value.integer)
         rx_counter += 1
-        # if dut.peak_detected_debug_o.value.integer == 1:
-        #     print(f'{rx_counter}: peak detected')
-
-        # if dut.sync_wait_counter.value.integer != 0:
-        #     print(f'{rx_counter}: wait_counter = {dut.sync_wait_counter.value.integer}')
-
-        # print(f'{dut.m_axis_out_tvalid.value.binstr}  {dut.m_axis_out_tdata.value.binstr}')
 
         if dut.peak_detected_debug_o.value.integer == 1:
             peaks.append(sample_cnt)
@@ -177,9 +170,6 @@ async def simple_test(dut):
 
     assert clk_cnt < MAX_CLK_CNT, "timeout, did not receive enough data"
     assert len(received_SSS) == SSS_LEN
-
-    # for i in range(SSS_LEN):
-    #     print(f'SSS[{i}] = {int(received_SSS[i].real > 0)}')
 
     print(f'first peak at = {peaks[0]}')
     rx_ADC_data = waveform[peaks[0] + CP_LEN + FFT_LEN - 1:]
@@ -324,7 +314,8 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
         os.path.join(rtl_dir, 'FFT/buffers/inbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/outbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v'),
-        os.path.join(rtl_dir, 'FFT/buffers/dynamic_block_scaling.v')
+        os.path.join(rtl_dir, 'FFT/buffers/dynamic_block_scaling.v'),
+        os.path.join(rtl_dir, 'BWP_extractor.sv')
     ]
     if os.environ.get('SIM') != 'verilator':
         verilog_sources.append(os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v'))
@@ -402,4 +393,4 @@ if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
     # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 9, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4)

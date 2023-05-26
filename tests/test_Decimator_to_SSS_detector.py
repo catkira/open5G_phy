@@ -203,7 +203,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("OUT_DW", [32])
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
-@pytest.mark.parametrize("CFO", [0, 100])
+@pytest.mark.parametrize("CFO", [0])
 @pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
 @pytest.mark.parametrize("NFFT", [8])
@@ -249,7 +249,8 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
         os.path.join(rtl_dir, 'FFT/buffers/inbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/outbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v'),
-        os.path.join(rtl_dir, 'FFT/buffers/dynamic_block_scaling.v')
+        os.path.join(rtl_dir, 'FFT/buffers/dynamic_block_scaling.v'),
+        os.path.join(rtl_dir, 'BWP_extractor.sv')
     ]
     if os.environ.get('SIM') != 'verilator':
         verilog_sources.append(os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v'))

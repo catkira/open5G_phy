@@ -585,13 +585,11 @@ sample_id_fifo_i(
     .m_axis_out_tempty()
 );
 
-localparam FFT_DEMOD_OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1;
+localparam FFT_DEMOD_OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN;
 wire [FFT_OUT_DW - 1 : 0]                   fft_demod_out_tdata;
 wire [FFT_DEMOD_OUT_USER_WIDTH - 1 : 0]     fft_demod_out_tuser;
 wire                                        fft_demod_out_tvalid;
 wire                                        fft_demod_out_tlast;
-assign m_axis_demod_out_tdata = fft_demod_out_tdata;
-assign m_axis_demod_out_tvalid = fft_demod_out_tvalid;
 wire reset_fft_demod_n = reset_fft_n && reset_ni;
 FFT_demod #(
     .IN_DW(IN_DW),
@@ -615,7 +613,35 @@ FFT_demod_i(
     .m_axis_out_tdata(fft_demod_out_tdata),
     .m_axis_out_tuser(fft_demod_out_tuser),
     .m_axis_out_tlast(fft_demod_out_tlast),
-    .m_axis_out_tvalid(fft_demod_out_tvalid),
+    .m_axis_out_tvalid(fft_demod_out_tvalid)
+);
+
+wire [FFT_OUT_DW - 1 : 0] bwp_tdata;
+wire bwp_tvalid;
+wire bwp_tlast;
+assign m_axis_demod_out_tdata = bwp_tdata;
+assign m_axis_demod_out_tvalid = bwp_tvalid;
+localparam BWP_EXTRACTOR_OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1;
+wire [BWP_EXTRACTOR_OUT_USER_WIDTH - 1 : 0] bwp_tuser;
+wire ssb_tlast;
+BWP_extractor #(
+    .IN_DW(FFT_OUT_DW),
+    .NFFT(NFFT),
+    .BLK_EXP_LEN(BLK_EXP_LEN)
+)
+BWB_extractor_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_fft_demod_n),
+
+    .s_axis_in_tdata(fft_demod_out_tdata),
+    .s_axis_in_tuser(fft_demod_out_tuser),
+    .s_axis_in_tvalid(fft_demod_out_tvalid),
+    .s_axis_in_tlast(fft_demod_out_tlast),
+
+    .m_axis_out_tdata(bwp_tdata),
+    .m_axis_out_tuser(bwp_tuser),
+    .m_axis_out_tvalid(bwp_tvalid),
+    .m_axis_out_tlast(bwp_tlast),
     .PBCH_valid_o(PBCH_valid_o),
     .SSS_valid_o(SSS_valid_o)
 );
@@ -629,10 +655,10 @@ ressource_grid_subscriber_i(
     .clk_i(clk_i),
     .reset_ni(reset_fft_demod_n),
 
-    .s_axis_iq_tdata(fft_demod_out_tdata),
-    .s_axis_iq_tuser(fft_demod_out_tuser),
-    .s_axis_iq_tvalid(fft_demod_out_tvalid),
-    .s_axis_iq_tlast(fft_demod_out_tlast),
+    .s_axis_iq_tdata(bwp_tdata),
+    .s_axis_iq_tuser(bwp_tuser),
+    .s_axis_iq_tvalid(bwp_tvalid),
+    .s_axis_iq_tlast(bwp_tlast),
 
     .sample_id_data(sample_id_fifo_out_data),
     .sample_id_valid(sample_id_fifo_out_valid),
@@ -652,7 +678,7 @@ SSS_detector_i(
     .reset_ni(reset_fft_demod_n),
     .N_id_2_i(fs_N_id_2),
     .N_id_2_valid_i(fs_N_id_2_valid),
-    .s_axis_in_tdata(fft_demod_out_tdata),
+    .s_axis_in_tdata(bwp_tdata),
     .s_axis_in_tvalid(SSS_valid_o),
     .m_axis_out_tdata(m_axis_SSS_tdata),
     .m_axis_out_tvalid(m_axis_SSS_tvalid),
@@ -672,9 +698,9 @@ channel_estimator_i(
     .reset_ni(reset_fft_demod_n),
     .N_id_i(N_id),
     .N_id_valid_i(N_id_valid),
-    .s_axis_in_tdata(fft_demod_out_tdata),
-    .s_axis_in_tuser(fft_demod_out_tuser[BLK_EXP_LEN + 1 - 1: 0]),
-    .s_axis_in_tvalid(fft_demod_out_tvalid),
+    .s_axis_in_tdata(bwp_tdata),
+    .s_axis_in_tuser(bwp_tuser[BLK_EXP_LEN + 1 - 1 : 0]),
+    .s_axis_in_tvalid(bwp_tvalid),
 
     .m_axis_out_tdata(m_axis_cest_out_tdata),
     .m_axis_out_tuser(m_axis_cest_out_tuser),
