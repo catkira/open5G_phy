@@ -613,7 +613,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
         extra_env=extra_env,
         testcase='simple_test',
         force_compile=True,
-        waves = os.environ['WAVES'] == '1',
+        waves = os.environ.get('WAVES') == '1',
         defines = ['LUT_PATH=\"../../tests\"'],   # used by DDS core
         compile_args = compile_args
     )
