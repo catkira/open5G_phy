@@ -517,9 +517,8 @@ always @(posedge clk_i) begin
     end
 end
 
-// discard first 129 (NFFT=8) or 130 (NFFT=9) peaks
-// TODO: why not 128 ??
-localparam PEAK_DELAY_LIMIT = CIC_RATE <= 2 ? 129 : 130; 
+// discard first 129 peaks, TODO: why not 128 ??
+localparam PEAK_DELAY_LIMIT = 129; 
 
 reg [10 : 0] peak_delay;
 always @(posedge clk_i) begin
@@ -532,7 +531,8 @@ always @(posedge clk_i) peak_valid_f <= (!reset_int_n) ? '0 : peak_valid && (pea
 
 reg [1 : 0] state;
 wire peak_fifo_valid_out;
-wire data_fifo_ready = ((peak_fifo_valid_out || (wait_cycle_cnt > 0)) && (state == 2)) || (state == 0);
+wire data_fifo_ready = peak_fifo_valid_out  && ((state == 2) || (state == 0));
+wire data_fifo_rd_hs = data_fifo_ready && data_fifo_valid_out;
 localparam WAIT_CNT_LEN = $clog2(MULT_REUSE >> 1) > 0 ? $clog2(MULT_REUSE >> 1) : 1;
 reg [WAIT_CNT_LEN : 0] wait_cnt;
 localparam WAIT_CYCLE_MAX = CIC_RATE > 2 ? CIC_RATE - 2 : 0;
@@ -545,7 +545,7 @@ always @(posedge clk_i) begin
     end else begin
         case (state)
             0 : begin
-                if (data_fifo_valid_out && data_fifo_ready) begin
+                if (data_fifo_rd_hs) begin
                     if (MULT_REUSE <= 2) state <= CIC_RATE > 1 ? 2 : 0;
                     else begin
                         wait_cnt <= (MULT_REUSE >> 1) - 2;
@@ -561,7 +561,7 @@ always @(posedge clk_i) begin
                 else wait_cnt <= wait_cnt - 1;
             end
             2 : begin
-                if (data_fifo_valid_out && data_fifo_ready) begin
+                if (data_fifo_rd_hs) begin
                     if (MULT_REUSE <= 2) begin
                         if (wait_cycle_cnt == 0) begin
                             wait_cycle_cnt <= WAIT_CYCLE_MAX;
@@ -595,7 +595,7 @@ end
 logic peak_fifo_ready;
 always_comb begin
     if (state == 2) begin
-        peak_fifo_ready = data_fifo_valid_out && data_fifo_ready && (wait_cycle_cnt == WAIT_CYCLE_MAX);
+        peak_fifo_ready = data_fifo_rd_hs && (wait_cycle_cnt == WAIT_CYCLE_MAX);
     end else begin
         peak_fifo_ready = ((CIC_RATE == 1) && data_fifo_valid_out);
     end
