@@ -124,6 +124,17 @@ async def simple_test(dut):
         delta_f = 0e3
         waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
         waveform *= 2**19
+    elif os.environ['TEST_FILE'] == '763450KHz_7680KSPS_low_gain':
+        expect_exact_timing = False
+        expected_N_id_1 = 103
+        expected_N_id_2 = 0
+        expected_ibar_SSB = 3
+        N_SSBs = 4
+        MAX_TX = int((0.01 + 0.02 * (N_SSBs - 1)) * fs_dec)
+        MAX_CLK_CNT = int(MAX_TX * (SAMPLE_CLK_DECIMATION + RND_JITTER * 0.5) + 10000)
+        delta_f = 0e3
+        waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
+        waveform *= 2**19
     else:
         file_string = os.environ['TEST_FILE']
         assert False, f'test file {file_string} is not supported'
@@ -379,6 +390,11 @@ async def simple_test(dut):
             assert received[0] == 2113
         else:
             assert False
+    elif os.environ['TEST_FILE'] == '763450KHz_7680KSPS_low_gain':
+        if NFFT == 9:
+            assert received[0] == 56773
+        else:
+            assert False
     else:
         assert False
 
@@ -407,10 +423,11 @@ async def simple_test(dut):
     for i in range(1, num_rgs_symbols):
         delta_samples = extract_timestamp(received_rgs[i, :]) - timestamp
         # print(f'delta_samples = {delta_samples}')
+        corr_factor = 2 ** (NFFT - 8)
         if expect_exact_timing:
-            assert delta_samples in [274, 276], print('Error: symbol timestamps don\'t align!') # depending on cp1 or cp2
+            assert delta_samples in [274 * corr_factor, 276 * corr_factor], print('Error: symbol timestamps don\'t align!') # depending on cp1 or cp2
         else:
-            if delta_samples not in [274, 276]:
+            if delta_samples not in [274 * corr_factor, 276 * corr_factor]:
                 print(f'timing deviation: delta_samples = {delta_samples}')
         timestamp = extract_timestamp(received_rgs[i, :])
 
@@ -600,7 +617,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 @pytest.mark.parametrize('HALF_CP_ADVANCE', [0, 1])
 @pytest.mark.parametrize('MULT_REUSE', [4])
 @pytest.mark.parametrize('RND_JITTER', [1])
-def test_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
+def test_NFFT8_3840KSPS_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
          NFFT = 8, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
     
@@ -608,16 +625,24 @@ def test_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
 @pytest.mark.parametrize('HALF_CP_ADVANCE', [1])
 @pytest.mark.parametrize('MULT_REUSE', [4])
 @pytest.mark.parametrize('RND_JITTER', [1])
-def test_NFFT9(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
+def test_NFFT9_7680KSPS_ideal(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
+         NFFT = 9, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
+    
+@pytest.mark.parametrize('FILE', ['763450KHz_7680KSPS_low_gain'])
+@pytest.mark.parametrize('HALF_CP_ADVANCE', [1])
+@pytest.mark.parametrize('MULT_REUSE', [4])
+@pytest.mark.parametrize('RND_JITTER', [1])
+def test_NFFT9_7680KSPS_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
          NFFT = 9, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
 
 if __name__ == '__main__':
     os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    if False:
+    if True:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '772850KHz_3840KSPS_low_gain')
+             NFFT = 9, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '763450KHz_7680KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
              NFFT = 9, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)
