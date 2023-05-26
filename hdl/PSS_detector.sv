@@ -20,6 +20,7 @@ module PSS_detector
     parameter CFO_DW = 24,
     parameter DDS_DW = 20,
     parameter MULT_REUSE = 1,
+    parameter MULT_REUSE_FFT = 1,
     parameter PEAK_COUNTER = 1,
     parameter VARIABLE_NOISE_LIMIT = 0,
     parameter VARIABLE_DETECTION_FACTOR = 0,
@@ -533,7 +534,7 @@ reg [1 : 0] state;
 wire peak_fifo_valid_out;
 wire data_fifo_ready = peak_fifo_valid_out  && ((state == 2) || (state == 0));
 wire data_fifo_rd_hs = data_fifo_ready && data_fifo_valid_out;
-localparam WAIT_CNT_LEN = $clog2(MULT_REUSE >> 1) > 0 ? $clog2(MULT_REUSE >> 1) : 1;
+localparam WAIT_CNT_LEN = $clog2(MULT_REUSE_FFT >> 1) > 0 ? $clog2(MULT_REUSE_FFT >> 1) : 1;
 reg [WAIT_CNT_LEN : 0] wait_cnt;
 localparam WAIT_CYCLE_MAX = CIC_RATE > 2 ? CIC_RATE - 2 : 0;
 reg [$clog2(WAIT_CYCLE_MAX) + 1 : 0] wait_cycle_cnt;
@@ -546,9 +547,9 @@ always @(posedge clk_i) begin
         case (state)
             0 : begin
                 if (data_fifo_rd_hs) begin
-                    if (MULT_REUSE <= 2) state <= CIC_RATE > 1 ? 2 : 0;
+                    if (MULT_REUSE_FFT <= 2) state <= CIC_RATE > 1 ? 2 : 0;
                     else begin
-                        wait_cnt <= (MULT_REUSE >> 1) - 2;
+                        wait_cnt <= (MULT_REUSE_FFT >> 1) - 2;
                         state <= 1;
                     end
                 end
@@ -562,17 +563,17 @@ always @(posedge clk_i) begin
             end
             2 : begin
                 if (data_fifo_rd_hs) begin
-                    if (MULT_REUSE <= 2) begin
+                    if (MULT_REUSE_FFT <= 2) begin
                         if (wait_cycle_cnt == 0) begin
                             wait_cycle_cnt <= WAIT_CYCLE_MAX;
                             state <= 0;
                         end else begin
-                            wait_cnt <= (MULT_REUSE >> 1) - 2;
+                            wait_cnt <= (MULT_REUSE_FFT >> 1) - 2;
                             wait_cycle_cnt <= wait_cycle_cnt - 1;
                             state <= 2;
                         end
                     end else begin
-                        wait_cnt <= (MULT_REUSE >> 1) - 2;
+                        wait_cnt <= (MULT_REUSE_FFT >> 1) - 2;
                         state <= 3;
                     end
                 end
@@ -631,9 +632,8 @@ assign N_id_2_valid_o = peak_fifo_valid_out && peak_fifo_ready && peak_fifo_out[
 wire data_fifo_valid_out;
 wire [31 : 0] data_fifo_level;
 
-// 512 as factor was not large enough for MULT_REUSE = 32 and NFFT = 9
 // TODO: make length calculation more systematic
-localparam DATA_FIFO_LEN = 4 * 512 * (CIC_RATE > 1 ? CIC_RATE / 2 : 1);
+localparam DATA_FIFO_LEN = 512 * (CIC_RATE > 1 ? CIC_RATE / 2 : 1);
 
 AXIS_FIFO #(
     .DATA_WIDTH(IN_DW),

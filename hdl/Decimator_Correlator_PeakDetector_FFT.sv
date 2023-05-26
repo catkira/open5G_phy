@@ -16,6 +16,7 @@ module Decimator_Correlator_PeakDetector_FFT
     parameter USE_TAP_FILE = 1,
     parameter TAP_FILE = "",
     parameter MULT_REUSE = 0,
+    parameter MULT_REUSE_FFT = 1,
     parameter INITIAL_DETECTION_SHIFT = 4,
 
     localparam FFT_OUT_DW = 32,
@@ -58,6 +59,7 @@ PSS_detector #(
     .ALGO(ALGO),
     .USE_TAP_FILE(USE_TAP_FILE),
     .MULT_REUSE(MULT_REUSE),
+    .MULT_REUSE_FFT(MULT_REUSE_FFT),
     .INITIAL_DETECTION_SHIFT(INITIAL_DETECTION_SHIFT),
     .CIC_RATE(CIC_RATE)
 )

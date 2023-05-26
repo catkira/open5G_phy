@@ -89,7 +89,10 @@ async def simple_test(dut):
         fs_dec = fs
 
     RND_JITTER = int(os.getenv('RND_JITTER'))
-    SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
+    FREE_CYCLES = int(fs // 1920000)
+    print(f'FREE_CYCLES = {FREE_CYCLES}')
+    SAMPLE_CLK_DECIMATION = 1 if FREE_CYCLES >= tb.MULT_REUSE else tb.MULT_REUSE // FREE_CYCLES
+    print(f'additional idle cycles per sample: {SAMPLE_CLK_DECIMATION - 1}')
     MAX_AMPLITUDE = (2 ** (tb.IN_DW // 2 - 1) - 1)
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
         expect_exact_timing = False
@@ -284,7 +287,7 @@ async def simple_test(dut):
 
     print(f'received {len(corrected_PBCH)} PBCH IQ samples')
     print(f'received {len(received_PBCH_LLR)} PBCH LLRs samples')
-    assert len(received_SSS) == N_SSBs * SSS_LEN
+    assert len(received_SSS) == N_SSBs * SSS_LEN, print(f'expected {N_SSBs * SSS_LEN} SSS carrier but received {len(received_SSS)}')
     assert len(corrected_PBCH) == 432 * (N_SSBs - 1), print('received PBCH does not have correct length!')
     assert len(received_PBCH_LLR) == 432 * 2 * (N_SSBs - 1), print('received PBCH LLRs do not have correct length!')
     assert not np.array_equal(np.array(received_PBCH_LLR), np.zeros(len(received_PBCH_LLR)))
@@ -542,10 +545,11 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     ]
 
     PSS_LEN = 128
-    SAMPLE_RATE = 3840000 * 2 ** (NFFT) // 256
-    CLK_FREQ = str(int(SAMPLE_RATE * (MULT_REUSE // 2 + 0.5 * RND_JITTER))) if MULT_REUSE > 2 else str(SAMPLE_RATE)
-    print(f'system clock frequency = {CLK_FREQ}')
-    print(f'sample clock frequency = {SAMPLE_RATE}')
+    SAMPLE_RATE = 3840000 * (2 ** NFFT) // 256
+    MULT_REUSE_FFT = MULT_REUSE // 2 if MULT_REUSE > 2 else 1
+    CLK_FREQ = str(int(SAMPLE_RATE * MULT_REUSE_FFT))
+    print(f'system clock frequency = {CLK_FREQ} Hz')
+    print(f'sample clock frequency = {SAMPLE_RATE} Hz')
     parameters = {}
     parameters['IN_DW'] = IN_DW
     parameters['OUT_DW'] = OUT_DW
@@ -560,6 +564,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     parameters['CLK_FREQ'] = CLK_FREQ
     parameters['INITIAL_DETECTION_SHIFT'] = INITIAL_DETECTION_SHIFT
     parameters['INITIAL_CFO_MODE'] = INITIAL_CFO_MODE
+    parameters['MULT_REUSE_FFT'] = MULT_REUSE_FFT
     os.environ['CFO'] = str(CFO)
     os.environ['RND_JITTER'] = str(RND_JITTER)
     parameters_dirname = parameters.copy()
@@ -608,7 +613,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
         extra_env=extra_env,
         testcase='simple_test',
         force_compile=True,
-        waves=True,
+        waves = os.environ['WAVES'] == '1',
         defines = ['LUT_PATH=\"../../tests\"'],   # used by DDS core
         compile_args = compile_args
     )
@@ -616,7 +621,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 @pytest.mark.parametrize('FILE', ['772850KHz_3840KSPS_low_gain'])
 @pytest.mark.parametrize('HALF_CP_ADVANCE', [0, 1])
 @pytest.mark.parametrize('MULT_REUSE', [4])
-@pytest.mark.parametrize('RND_JITTER', [1])
+@pytest.mark.parametrize('RND_JITTER', [0])  # disable RND_JITTER for now
 def test_NFFT8_3840KSPS_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
          NFFT = 8, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
@@ -624,7 +629,7 @@ def test_NFFT8_3840KSPS_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER)
 @pytest.mark.parametrize('FILE', ['30720KSPS_dl_signal'])
 @pytest.mark.parametrize('HALF_CP_ADVANCE', [1])
 @pytest.mark.parametrize('MULT_REUSE', [4])
-@pytest.mark.parametrize('RND_JITTER', [1])
+@pytest.mark.parametrize('RND_JITTER', [0])
 def test_NFFT9_7680KSPS_ideal(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
          NFFT = 9, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
@@ -632,17 +637,18 @@ def test_NFFT9_7680KSPS_ideal(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
 @pytest.mark.parametrize('FILE', ['763450KHz_7680KSPS_low_gain'])
 @pytest.mark.parametrize('HALF_CP_ADVANCE', [1])
 @pytest.mark.parametrize('MULT_REUSE', [4])
-@pytest.mark.parametrize('RND_JITTER', [1])
+@pytest.mark.parametrize('RND_JITTER', [0])
 def test_NFFT9_7680KSPS_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
          NFFT = 9, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
 
 if __name__ == '__main__':
-    os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
-    if True:
+    os.environ['PLOTS'] = '1'
+    os.environ['WAVES'] = '1'
+    if False:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 9, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '763450KHz_7680KSPS_low_gain')
+             NFFT = 9, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '763450KHz_7680KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 9, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)
+             NFFT = 9, MULT_REUSE = 1, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)

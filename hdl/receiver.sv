@@ -21,6 +21,7 @@ module receiver
     parameter NFFT = 8,
     parameter XSERIES = "OLD",        // use "OLD" for Zynq7, "NEW" for MPSoC
     parameter MULT_REUSE = 0,
+    parameter MULT_REUSE_FFT = 1,
     parameter CLK_FREQ = 3840000,
     parameter SEPARATE_IQ_IN = 0,
     parameter VARIABLE_DETECTION_FACTOR = 1,
@@ -429,6 +430,7 @@ PSS_detector #(
     .TAP_FILE_2(TAP_FILE_2),
     .TAP_FILE_PATH(TAP_FILE_PATH),
     .MULT_REUSE(MULT_REUSE),
+    .MULT_REUSE_FFT(MULT_REUSE_FFT),
     .VARIABLE_DETECTION_FACTOR(VARIABLE_DETECTION_FACTOR),
     .VARIABLE_NOISE_LIMIT(VARIABLE_NOISE_LIMIT),
     .INITIAL_DETECTION_SHIFT(INITIAL_DETECTION_SHIFT),
