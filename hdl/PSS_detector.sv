@@ -530,18 +530,18 @@ end
 reg peak_valid_f;
 always @(posedge clk_i) peak_valid_f <= (!reset_int_n) ? '0 : peak_valid && (peak_delay == PEAK_DELAY_LIMIT);
 
-reg [2 : 0] state;
+reg [1 : 0] state;
 wire peak_fifo_valid_out;
 wire data_fifo_ready = ((peak_fifo_valid_out || (wait_cycle_cnt > 0)) && (state == 2)) || (state == 0);
 localparam WAIT_CNT_LEN = $clog2(MULT_REUSE >> 1) > 0 ? $clog2(MULT_REUSE >> 1) : 1;
-reg [WAIT_CNT_LEN - 1 : 0] wait_cnt;
-reg [3 : 0] wait_cycle_cnt;
+reg [WAIT_CNT_LEN : 0] wait_cnt;
 localparam WAIT_CYCLE_MAX = CIC_RATE > 2 ? CIC_RATE - 2 : 0;
+reg [$clog2(WAIT_CYCLE_MAX) + 1 : 0] wait_cycle_cnt;
 always @(posedge clk_i) begin
     if (!reset_int_n) begin
         state <= '0;
         wait_cnt <= '0;
-        wait_cycle_cnt <= CIC_RATE > 2 ? CIC_RATE - 2 : 0;
+        wait_cycle_cnt <= WAIT_CYCLE_MAX;
     end else begin
         case (state)
             0 : begin
@@ -630,9 +630,14 @@ assign N_id_2_valid_o = peak_fifo_valid_out && peak_fifo_ready && peak_fifo_out[
 
 wire data_fifo_valid_out;
 wire [31 : 0] data_fifo_level;
+
+// 512 as factor was not large enough for MULT_REUSE = 32 and NFFT = 9
+// TODO: make length calculation more systematic
+localparam DATA_FIFO_LEN = 4 * 512 * (CIC_RATE > 1 ? CIC_RATE / 2 : 1);
+
 AXIS_FIFO #(
     .DATA_WIDTH(IN_DW),
-    .FIFO_LEN(512 * (CIC_RATE > 1 ? CIC_RATE / 2 : 1)),
+    .FIFO_LEN(DATA_FIFO_LEN),
     .ASYNC(0),
     .USER_WIDTH(0)
 )

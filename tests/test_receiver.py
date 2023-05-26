@@ -642,7 +642,7 @@ if __name__ == '__main__':
     os.environ['SIM'] = 'verilator'
     if True:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 9, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '763450KHz_7680KSPS_low_gain')
+             NFFT = 9, MULT_REUSE = 32, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '763450KHz_7680KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
              NFFT = 9, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)
