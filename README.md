@@ -1,13 +1,12 @@
 [![Verify](https://github.com/catkira/open5G_rx/actions/workflows/verify.yml/badge.svg)](https://github.com/catkira/open5G_rx/actions/workflows/verify.yml)
 
 # Overview
-This is a synthesizable verilog HDL core for a 5G NR lower phy receiver, intended to be used in a UE (user equipment). It is optimized for low ressource usage so that it can run on a [PlutoSDR](https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/adalm-pluto.html), which has a Xilinx® Zynq Z-7010 with only 80 DSP slices and 28K logic cells. Since this design is optimized for low ressource usage, it can run at 3.84 MSPS (256-FFT), in that case 20 RBs (Ressource Blocks) are usable. Another option is to run this design at 7.68 MSPS (512-FFT), in that case 40 RBs (a 5 MHz channel would use only 25 of 40 RBs) are usable which is enough to accomodate the smallest possible CORESET which uses 24 RBs according to the standard. A ressource block in 5G consists of 12 subcarriers. A 256 point FFT contains 20\*12=240 usable subcarriers, which leaves 8 zero carriers on each side of the spectrum. A 512 point FFT contains 40*12=480 usable subcarriers.<br>
-The FFT size can easily be increased by a parameter in the code, but it will need a larger FPGA then.
+This is a customizable synthesizable 5G NR lower phy written in Verilog intended to be used in a UE (user equipment). It can run on an [AntSDR e310]([https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/adalm-pluto.html](https://de.aliexpress.com/item/1005003181244737.html)), which has a Xilinx® Zynq Z-7020 with only 220 DSP slices and 85K logic cells, at 7.68 MSPS (512-FFT). In this configuration 25 PRBs (physical ressource blocks) can be used, which results in a so called '5 MHz' 5G channel (the usable bandwidth is actually 4.5 MHz) which could be made 5G-NR RedCap compliant.
 <br>
 Cell search is limited to 1 frequency offset range. Within this frequency offset range, the PSS correlator works up to a CFO of about += 10 kHz.
 Each PSS correlator only detects one of the possible three different PSS sequences. If a general cell search for all 3 possible N_id_2's is needed, 3 PSS correlators need to be instanciated in parallel. If CFOs larger than the detection range of the PSS correlator are expected, the different CFO possibilities can be tried sequentially by configuring the receiver via its AXI-lite interface.
 <br>
-Interface to upper layers is currently implemented via AXI-lite for configuration and register access and AXI-MM for data transfer. Since the lower phy split chosen in this design is identical with the O-RAN 7.2x option, it should be possible to implement a [eCPRI](http://www.cpri.info/downloads/eCPRI_v_2.0_2019_05_10c.pdf) interface which is [O-RAN FH](https://www.etsi.org/deliver/etsi_ts/103800_103899/103859/07.00.02_60/ts_103859v070002p.pdf) compatible for this core.
+Interface to upper layers is currently implemented via AXI-lite for configuration and register access and AXI-MM for data transfer. Since the lower phy split chosen in this design is identical with the O-RAN 7.2x option, it should be possible to implement a [eCPRI](http://www.cpri.info/downloads/eCPRI_v_2.0_2019_05_10c.pdf) interface which is [O-RAN FH](https://www.etsi.org/deliver/etsi_ts/103800_103899/103859/07.00.02_60/ts_103859v070002p.pdf) compatible for this core. However since O-RAN interfaces are mainly a thing for eNBs, this is not a priority for now.
 
 Implemented so far:<br>
 * Decimator [detailed description below](https://github.com/catkira/open5G_rx#decimator)
@@ -21,11 +20,6 @@ Implemented so far:<br>
 * Ressource grid subscriber [detailed description below](https://github.com/catkira/open5G_rx#ressource-grid-subscriber)
 * AXI-DMAC [detailed description below](https://github.com/catkira/open5G_rx#axi-dmac)
 
-<b>Limitation:</b> The current design is not yet fully 5G NR compliant, because it assumes that the SSB is always in the center of the ressource grid bandwidth (see [this](https://github.com/catkira/open5G_rx/issues/10) issue). 
-This design implements only the lower phy. It can be used in combination with a CPU that runs the higher layers to implement full 5G functionality, or at least the reduced capability (RedCap) subset which is defined in 5G NR Release 17. A nice project would also be to interface this lower Phy to the higher Phy and MAC from the [srsRAN Project](https://github.com/srsran/srsRAN_Project). However one has to keep in mind that the srsRAN project does not include a UE anymore while this lower phy is intended to be used on the UE side.
-<br><br>
-<b>Note:</b> 3GPP Rel 18 introduced RedCap with 5 MHz channnels (see [Study on RedCap Phase 2](https://www.3gpp.org/ftp/Specs/archive/23_series/23.700-68/23700-68-i10.zip)) and there are discussions about reducing the required channel bandwidth even more (see [RP-222645](https://www.3gpp.org/ftp/tsg_ran/TSG_RAN/TSGR_97e/Docs/RP-222645.zip)).
-
 <br>
 <b>Disclaimer:</b> This design is not intended for very high data rate applications, like 400 MHz massive MIMO channels or so. It is instead intended to use this as a basis for experiments with mobile data links that are '5G like' i.e. for UAV communication or HAM radio. The main goal of this design is to achieve a digital data link with fairly high data rates while using minimal ressources so that it can be used in portable battery powered devices. </b>
 <br><br>
@@ -33,9 +27,7 @@ This design implements only the lower phy. It can be used in combination with a 
 ![Overview diagram](doc/overview.jpg)
 
 <b>TODO:</b>
-* (optional) implement amplitude correction in channel_estimator
-* (optional) implement PDCCH DMRS in channel_estimator
-* (optional) implement QAM demod for PDSCH
+* (optional) implement amplitude correction in PBCH channel estimator
 * (optional) refactor PBCH DMRS generation and PBCH DMRS detection into separate cores
 * (optional) optimize PSS correlator further like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
 
@@ -130,7 +122,7 @@ This core sends the ressource grid via DMA to the CPU. The core can be configure
 Starting with a defined symbol is necessary, because the AXI-DMA core cannot transfer any meta information with the payload. (It is however considered to insert the {Frame, Subframe, Symbol)-number, this would only increase the data rate slightly but provide an extra level of robustness.)
 Each symbol has the block exponent inserted at the beginning, which can be used for AGC (automatic gain control). The block exponent occupies the same space as one IQ sample.
 <br>
-The data rate at the output of this core is 100 frames/s * 10 subframes/frame * 14 symbols/subframe * (240 + 1) SC/symbol * 2 byte/SC = 6.72 MB/s when using a BWP (bandwidth part) of 20 RBs.
+The data rate at the output of this core is 100 frames/s * 10 subframes/frame * 14 symbols/subframe * 300 SC/symbol * 2 byte/SC = 8.4 MB/s when using a BWP (bandwidth part) of 25 RBs like in a 5 MHz channel.
 <br>
 A non-continuous mode will possibly be added in the future. In the non-continuous mode it can be configured which symbols and subcarriers should be forwarded. This feature would need to scatter-gather functionality in order two forward two different blocks that are close to each other on the time axis.
 
@@ -142,9 +134,9 @@ The CPU part of the phy allocates blocks that have the size of a single frame, t
 Tricky situation: When the FPGA loses synchronizations, it signals this via an IRQ from frame_sync to the CPU. The CPU then aborts all pending DMA transfers and after that initiated another sync procedure by writing via AXI-lite to the frame_sync core. Pending transfers can be aborted with iio_buffer_set_enabled(...) when using libiio, or by writing to the "enable" device attribute when using the iio sysfs interface directly. 
 
 # Channel estimator
-The channel estimator currently only corrects the phase angles, this is enough for BPSK and QPSK demodulation. It also detects the PBCH DMRS (DeModulation Reference Sequence) by comparing the incoming pilots with the 8 possible ibar_SSB configurations. The 5G standard recommends to blind decode the received PBCH for all 8 possible ibar_SSBs. This has the advantage of knowing whether a valid PBCH was received. Detecting ibar_SSB by comparing PBCH DMRS's only can lead to wrong detected ibar_SSB.
+The channel estimator currently only corrects the phase angles of PBCH symbols, this is enough to do the QPSK demodulation. It also detects the PBCH DMRS (DeModulation Reference Sequence) by comparing the incoming pilots with the 8 possible ibar_SSB configurations. The 5G standard recommends to blind decode the received PBCH for all 8 possible ibar_SSBs, this would be a more robust solution. This channel estimator will be obsolete once the actual upper phy is implemented on a CPU. Until then, it is useful for testing.
 <br>
 TODO: The detected ibar_SSB can be verified by setting a threshold on the correlation of the PBCH DMRS comparison. If the result is below the threshold the PSS detector should go back into search mode and search for another SSB.
 <br>
-The detected ibar_SSB is then send to the frame_sync core which uses this signal to align itself to the right subframe number.
+The detected ibar_SSB is send to the frame_sync core which uses this signal to align itself to the right subframe number.
 ![Channel estimator diagram](doc/channel_estimator.jpg)
