@@ -210,7 +210,12 @@ localparam [1 : 0] WAIT_FOR_SSB = 0;
 localparam [1 : 0] WAIT_FOR_IBAR = 1; // not used
 localparam [1 : 0] SYNCED = 2;
 localparam [1 : 0] RESET_DETECTOR = 3;
-localparam FIND_SAMPLES_TOLERANCE = 4;
+localparam CIC_RATE = 2 ** (NFFT - 7);
+
+// 2 samples at 1.92 MSPS
+// because PSS detector has precision +- 1 sample at 1.92 MSPS
+localparam FIND_SAMPLES_TOLERANCE = 2 * CIC_RATE;
+
 reg signed [7 : 0] sample_cnt_mismatch;
 assign sample_cnt_mismatch_o = sample_cnt_mismatch;
 wire end_of_symbol_ = sample_cnt == (FFT_LEN + current_CP_len - 1);
