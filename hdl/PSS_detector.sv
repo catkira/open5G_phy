@@ -86,6 +86,8 @@ module PSS_detector
     output                 [TAP_DW - 1 : 0]     taps_2_o [0 : PSS_LEN - 1]
 );
 
+initial $display("PSS_detector: CIC_RATE = %d", CIC_RATE);
+
 localparam C_DW = IN_DW + TAP_DW + 2 + 2 * $clog2(PSS_LEN);  
 
 wire [OUT_DW - 1 : 0] correlator_0_tdata, correlator_1_tdata, correlator_2_tdata;
