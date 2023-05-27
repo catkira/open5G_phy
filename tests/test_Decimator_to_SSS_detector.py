@@ -107,6 +107,8 @@ async def simple_test(dut):
     waveform *= (2 ** (tb.IN_DW // 2 - 1) - 1)
     waveform = waveform.real.astype(int) + 1j * waveform.imag.astype(int)
 
+    assert tb.MULT_REUSE <= 2, print('MULT_REUSE > 2 is not implemented in this test!')
+
     await tb.cycle_reset()
 
     rx_counter = 0
@@ -316,7 +318,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
         testcase='simple_test',
         force_compile=True,
         compile_args = compile_args,
-        waves=True
+        waves = os.environ.get('WAVES') == '1'
     )
 
 @pytest.mark.parametrize("FILE", ["772850KHz_3840KSPS_low_gain"])
@@ -325,8 +327,9 @@ def test_recording(FILE):
         MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = FILE)
 
 if __name__ == '__main__':
-    os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
+    os.environ['PLOTS'] = '1'
+    os.environ['WAVES'] = '1'
     # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, NFFT = 8,
         # MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, CFO=0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, NFFT = 8,

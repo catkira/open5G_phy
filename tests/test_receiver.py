@@ -89,7 +89,10 @@ async def simple_test(dut):
         fs_dec = fs
 
     RND_JITTER = int(os.getenv('RND_JITTER'))
-    SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
+    PSS_IDLE_CLKS = int(fs_dec // 1920000)
+    print(f'FREE_CYCLES = {PSS_IDLE_CLKS}')
+    EXTRA_IDLE_CLKS = 0 if PSS_IDLE_CLKS >= tb.MULT_REUSE else tb.MULT_REUSE // PSS_IDLE_CLKS - 1 # insert additional valid 0 cycles if needed
+    print(f'additional idle cycles per sample: {EXTRA_IDLE_CLKS}')
     MAX_AMPLITUDE = (2 ** (tb.IN_DW // 2 - 1) - 1)
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
         expect_exact_timing = False
@@ -98,7 +101,7 @@ async def simple_test(dut):
         expected_ibar_SSB = 0
         N_SSBs = 4
         MAX_TX = int((0.005 + 0.02 * (N_SSBs - 1)) * fs_dec)
-        MAX_CLK_CNT = int(MAX_TX * (SAMPLE_CLK_DECIMATION + RND_JITTER * 0.5) + 10000)
+        MAX_CLK_CNT = int(MAX_TX * (1 + EXTRA_IDLE_CLKS + RND_JITTER * 0.5) + 10000)
         waveform /= max(np.abs(waveform.real.max()), np.abs(waveform.imag.max()))
         waveform *= MAX_AMPLITUDE * 0.8  # need this 0.8 because rounding errors caused overflows, nasty bug!
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
@@ -109,7 +112,7 @@ async def simple_test(dut):
         expected_ibar_SSB = 3
         N_SSBs = 4
         MAX_TX = int((0.01 + 0.02 * (N_SSBs - 1)) * fs_dec)
-        MAX_CLK_CNT = int(MAX_TX * (SAMPLE_CLK_DECIMATION + RND_JITTER * 0.5) + 10000)
+        MAX_CLK_CNT = int(MAX_TX * (1 + EXTRA_IDLE_CLKS + RND_JITTER * 0.5) + 10000)
         delta_f = -4e3
         waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
         waveform *= 2**19
@@ -120,7 +123,7 @@ async def simple_test(dut):
         expected_ibar_SSB = 3
         N_SSBs = 4
         MAX_TX = int((0.01 + 0.02 * (N_SSBs - 1)) * fs_dec)
-        MAX_CLK_CNT = int(MAX_TX * (SAMPLE_CLK_DECIMATION + RND_JITTER * 0.5) + 10000)
+        MAX_CLK_CNT = int(MAX_TX * (1 + EXTRA_IDLE_CLKS + RND_JITTER * 0.5) + 10000)
         delta_f = 0e3
         waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
         waveform *= 2**19
@@ -131,7 +134,7 @@ async def simple_test(dut):
         expected_ibar_SSB = 3
         N_SSBs = 4
         MAX_TX = int((0.01 + 0.02 * (N_SSBs - 1)) * fs_dec)
-        MAX_CLK_CNT = int(MAX_TX * (SAMPLE_CLK_DECIMATION + RND_JITTER * 0.5) + 10000)
+        MAX_CLK_CNT = int(MAX_TX * (1 + EXTRA_IDLE_CLKS + RND_JITTER * 0.5) + 10000)
         delta_f = 0e3
         waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs_dec*np.arange(waveform.shape[0])))
         waveform *= 2**19
@@ -212,11 +215,11 @@ async def simple_test(dut):
     clk_div = 0
     tx_cnt = 0
     sample_cnt = 0
-    extra_cycle = 0
+    random_extra_cycle = 0
     random_seq = (py3gpp.nrPSS(0)[:-1] + 1) // 2 # only use 126 bits to get an equal number of 0s and 1s
     while clk_cnt < MAX_CLK_CNT:
         await RisingEdge(dut.clk_i)
-        if (tx_cnt < MAX_TX) and (clk_div == 0 or SAMPLE_CLK_DECIMATION == 1):
+        if (tx_cnt < MAX_TX) and (clk_div == 0 or EXTRA_IDLE_CLKS == 0):
             clk_div += 1
             data = (((int(waveform[tx_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
                 + ((int(waveform[tx_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
@@ -225,10 +228,10 @@ async def simple_test(dut):
             dut.s_axis_in_tvalid.value = 1
         else:
             dut.s_axis_in_tvalid.value = 0
-            if clk_div == SAMPLE_CLK_DECIMATION - 1 + extra_cycle:
+            if clk_div == EXTRA_IDLE_CLKS + random_extra_cycle:
                 clk_div = 0
                 if RND_JITTER:
-                    extra_cycle = random_seq[clk_cnt % 126]
+                    random_extra_cycle = random_seq[clk_cnt % 126]
             else:
                 clk_div += 1
 
@@ -284,7 +287,7 @@ async def simple_test(dut):
 
     print(f'received {len(corrected_PBCH)} PBCH IQ samples')
     print(f'received {len(received_PBCH_LLR)} PBCH LLRs samples')
-    assert len(received_SSS) == N_SSBs * SSS_LEN
+    assert len(received_SSS) == N_SSBs * SSS_LEN, print(f'expected {N_SSBs * SSS_LEN} SSS carrier but received {len(received_SSS)}')
     assert len(corrected_PBCH) == 432 * (N_SSBs - 1), print('received PBCH does not have correct length!')
     assert len(received_PBCH_LLR) == 432 * 2 * (N_SSBs - 1), print('received PBCH LLRs do not have correct length!')
     assert not np.array_equal(np.array(received_PBCH_LLR), np.zeros(len(received_PBCH_LLR)))
@@ -542,10 +545,13 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     ]
 
     PSS_LEN = 128
-    SAMPLE_RATE = 3840000 * 2 ** (NFFT) // 256
-    CLK_FREQ = str(int(SAMPLE_RATE * (MULT_REUSE // 2 + 0.5 * RND_JITTER))) if MULT_REUSE > 2 else str(SAMPLE_RATE)
-    print(f'system clock frequency = {CLK_FREQ}')
-    print(f'sample clock frequency = {SAMPLE_RATE}')
+    SAMPLE_RATE = 3840000 * (2 ** NFFT) // 256
+    CIC_DEC = SAMPLE_RATE // 1920000
+    print(f'CIC decimation = {CIC_DEC}')
+    MULT_REUSE_FFT = MULT_REUSE // CIC_DEC if MULT_REUSE > 2 else 1 # insert valid = 0 cycles if needed
+    CLK_FREQ = str(int(SAMPLE_RATE * MULT_REUSE_FFT))
+    print(f'system clock frequency = {CLK_FREQ} Hz')
+    print(f'sample clock frequency = {SAMPLE_RATE} Hz')
     parameters = {}
     parameters['IN_DW'] = IN_DW
     parameters['OUT_DW'] = OUT_DW
@@ -560,6 +566,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     parameters['CLK_FREQ'] = CLK_FREQ
     parameters['INITIAL_DETECTION_SHIFT'] = INITIAL_DETECTION_SHIFT
     parameters['INITIAL_CFO_MODE'] = INITIAL_CFO_MODE
+    parameters['MULT_REUSE_FFT'] = MULT_REUSE_FFT
     os.environ['CFO'] = str(CFO)
     os.environ['RND_JITTER'] = str(RND_JITTER)
     parameters_dirname = parameters.copy()
@@ -608,7 +615,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
         extra_env=extra_env,
         testcase='simple_test',
         force_compile=True,
-        waves=True,
+        waves = os.environ.get('WAVES') == '1',
         defines = ['LUT_PATH=\"../../tests\"'],   # used by DDS core
         compile_args = compile_args
     )
@@ -616,15 +623,15 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 @pytest.mark.parametrize('FILE', ['772850KHz_3840KSPS_low_gain'])
 @pytest.mark.parametrize('HALF_CP_ADVANCE', [0, 1])
 @pytest.mark.parametrize('MULT_REUSE', [4])
-@pytest.mark.parametrize('RND_JITTER', [1])
+@pytest.mark.parametrize('RND_JITTER', [0])  # disable RND_JITTER for now
 def test_NFFT8_3840KSPS_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
          NFFT = 8, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
-    
+
 @pytest.mark.parametrize('FILE', ['30720KSPS_dl_signal'])
 @pytest.mark.parametrize('HALF_CP_ADVANCE', [1])
 @pytest.mark.parametrize('MULT_REUSE', [4])
-@pytest.mark.parametrize('RND_JITTER', [1])
+@pytest.mark.parametrize('RND_JITTER', [0])
 def test_NFFT9_7680KSPS_ideal(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
          NFFT = 9, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
@@ -632,17 +639,18 @@ def test_NFFT9_7680KSPS_ideal(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
 @pytest.mark.parametrize('FILE', ['763450KHz_7680KSPS_low_gain'])
 @pytest.mark.parametrize('HALF_CP_ADVANCE', [1])
 @pytest.mark.parametrize('MULT_REUSE', [4])
-@pytest.mark.parametrize('RND_JITTER', [1])
+@pytest.mark.parametrize('RND_JITTER', [0])
 def test_NFFT9_7680KSPS_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
          NFFT = 9, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
 
 if __name__ == '__main__':
-    os.environ['PLOTS'] = '1'
     os.environ['SIM'] = 'verilator'
+    os.environ['PLOTS'] = '1'
+    os.environ['WAVES'] = '1'
     if True:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 9, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '763450KHz_7680KSPS_low_gain')
+             NFFT = 9, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '763450KHz_7680KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 9, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)
+             NFFT = 8, MULT_REUSE = 8, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)

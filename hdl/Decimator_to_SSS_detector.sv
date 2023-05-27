@@ -18,6 +18,7 @@ module Decimator_to_SSS_detector
     parameter TAP_FILE_2 = "",
     parameter NFFT = 8,
     parameter MULT_REUSE = 0,
+    parameter MULT_REUSE_FFT = 1,
     parameter INITIAL_DETECTION_SHIFT = 4,
 
     localparam FFT_LEN = 2 ** NFFT,
@@ -67,6 +68,7 @@ PSS_detector #(
     .ALGO(ALGO),
     .USE_TAP_FILE(USE_TAP_FILE),
     .MULT_REUSE(MULT_REUSE),
+    .MULT_REUSE_FFT(MULT_REUSE_FFT),
     .INITIAL_DETECTION_SHIFT(INITIAL_DETECTION_SHIFT),
     .CIC_RATE(CIC_RATE)
 )

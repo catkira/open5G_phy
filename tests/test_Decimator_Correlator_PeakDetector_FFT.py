@@ -117,16 +117,19 @@ async def simple_test(dut):
     SSS_START = FFT_LEN // 2 - (SSS_LEN + 1) // 2
     PBCH_LEN = 240
     PBCH_START = FFT_LEN // 2 - (PBCH_LEN + 1) // 2
-    SAMPLE_CLK_DECIMATION = tb.MULT_REUSE // 2 if tb.MULT_REUSE > 2 else 1
+    PSS_IDLE_CLKS = int(fs // 1920000)
+    print(f'FREE_CYCLES = {PSS_IDLE_CLKS}')
+    EXTRA_IDLE_CLKS = 0 if PSS_IDLE_CLKS >= tb.MULT_REUSE else tb.MULT_REUSE // PSS_IDLE_CLKS - 1 # insert additional valid 0 cycles if needed
+    print(f'additional idle cycles per sample: {EXTRA_IDLE_CLKS}')
     clk_div = 0
-    MAX_CLK_CNT = 10000 * FFT_LEN // 256 * SAMPLE_CLK_DECIMATION
+    MAX_CLK_CNT = 10000 * FFT_LEN // 256 * (1 + EXTRA_IDLE_CLKS)
     peaks = []
 
     tx_cnt = 0
     sample_cnt = 0
     while (len(received_SSS) < SSS_LEN) and (clk_cnt < MAX_CLK_CNT):
         await RisingEdge(dut.clk_i)
-        if (clk_div == 0 or SAMPLE_CLK_DECIMATION == 1):
+        if (clk_div == 0 or EXTRA_IDLE_CLKS == 0):
             data = (((int(waveform[tx_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
                 + ((int(waveform[tx_cnt].real)) & ((2 ** (tb.IN_DW // 2)) - 1))) & ((2 ** tb.IN_DW) - 1)
             dut.s_axis_in_tdata.value = data
@@ -135,7 +138,7 @@ async def simple_test(dut):
             tx_cnt += 1
         else:
             dut.s_axis_in_tvalid.value = 0
-            if clk_div == SAMPLE_CLK_DECIMATION - 1:
+            if clk_div == EXTRA_IDLE_CLKS:
                 clk_div = 0
             else:
                 clk_div += 1
@@ -338,6 +341,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
     parameters['MULT_REUSE'] = MULT_REUSE
     parameters['INITIAL_DETECTION_SHIFT'] = INITIAL_DETECTION_SHIFT
     parameters_no_taps = parameters.copy()
+    parameters['MULT_REUSE_FFT'] = MULT_REUSE // 2 if MULT_REUSE > 2 else 1
     folder = 'Decimator_to_FFT_' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items())) + '_' + FILE
     sim_build= os.path.join('sim_build', folder)
     os.environ['TEST_FILE'] = FILE
@@ -393,4 +397,4 @@ if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
     # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 9, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 8, INITIAL_DETECTION_SHIFT = 4)
