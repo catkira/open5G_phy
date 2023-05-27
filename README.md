@@ -31,6 +31,15 @@ Implemented so far:<br>
 * (optional) refactor PBCH DMRS generation and PBCH DMRS detection into separate cores
 * (optional) optimize PSS correlator further like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
 
+# Getting Started
+- install Vivado + Vitis 2022.2
+- clone [https://github.com/catkira/adi-hdl](https://github.com/catkira/plutosdr-fw) with branch antsdr_5G and do 'git submodule update --recursive --init'
+- run 'source setup_env_2022.2.sh'
+- run 'make'
+- copy content from 'build_sdimg' onto a SD-card and insert it into the AntSDR e310
+- clone https://github.com/catkira/open5G_tools and run the gui_client
+- use SDRangel to tune on to a 5G-NR SA channel (the FPGA code still containts all the original PlutoSDR cores, so it can be used like a normal PlutoSDR)
+
 # Ressource usage
 * CFO correction            :  3 DSP slices
 * Decimator                 :  0 DSP slices
