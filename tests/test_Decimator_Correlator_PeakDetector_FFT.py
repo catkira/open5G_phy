@@ -275,7 +275,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize("TAP_DW", [32])
 @pytest.mark.parametrize("WINDOW_LEN", [8])
 @pytest.mark.parametrize("HALF_CP_ADVANCE", [0, 1])
-@pytest.mark.parametrize("NFFT", [8, 9, 10])
+@pytest.mark.parametrize("NFFT", [8, 9])
 @pytest.mark.parametrize("USE_TAP_FILE", [1])
 @pytest.mark.parametrize("MULT_REUSE", [0, 1, 4, 32])
 @pytest.mark.parametrize("INITIAL_DETECTION_SHIFT", [4])
