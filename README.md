@@ -27,6 +27,7 @@ Implemented so far:<br>
 ![Overview diagram](doc/overview.jpg)
 
 <b>TODO:</b>
+* implement tx
 * (optional) implement amplitude correction in PBCH channel estimator
 * (optional) refactor PBCH DMRS generation and PBCH DMRS detection into separate cores
 * (optional) optimize PSS correlator further like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
