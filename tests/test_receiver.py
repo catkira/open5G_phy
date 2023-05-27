@@ -546,7 +546,9 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 
     PSS_LEN = 128
     SAMPLE_RATE = 3840000 * (2 ** NFFT) // 256
-    MULT_REUSE_FFT = MULT_REUSE // 2 if MULT_REUSE > 2 else 1 # insert valid = 0 cycles if needed
+    CIC_DEC = SAMPLE_RATE // 1920000
+    print(f'CIC decimation = {CIC_DEC}')
+    MULT_REUSE_FFT = MULT_REUSE // CIC_DEC if MULT_REUSE > 2 else 1 # insert valid = 0 cycles if needed
     CLK_FREQ = str(int(SAMPLE_RATE * MULT_REUSE_FFT))
     print(f'system clock frequency = {CLK_FREQ} Hz')
     print(f'sample clock frequency = {SAMPLE_RATE} Hz')
@@ -646,7 +648,7 @@ if __name__ == '__main__':
     os.environ['SIM'] = 'verilator'
     os.environ['PLOTS'] = '1'
     os.environ['WAVES'] = '1'
-    if False:
+    if True:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
              NFFT = 9, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '763450KHz_7680KSPS_low_gain')
     else:
