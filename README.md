@@ -25,6 +25,7 @@ Implemented so far:<br>
 <br><br>
 
 ![Overview diagram](doc/overview.jpg)
+(details such as timestamp logic are not shown in this diagram)
 
 <b>TODO:</b>
 * implement tx
