@@ -649,11 +649,11 @@ BWB_extractor_i(
 );
 
 wire rgs_overflow;
-ressource_grid_subscriber #(
+ressource_grid_framer #(
     .IQ_WIDTH(FFT_OUT_DW),
     .BLK_EXP_LEN(BLK_EXP_LEN)
 )
-ressource_grid_subscriber_i(
+ressource_grid_framer_i(
     .clk_i(clk_i),
     .reset_ni(reset_fft_demod_n),
 

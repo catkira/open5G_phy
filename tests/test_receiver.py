@@ -533,7 +533,7 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
         os.path.join(rtl_dir, 'FFT/buffers/outbuf_half_path.v'),
         os.path.join(rtl_dir, 'FFT/buffers/int_bitrev_order.v'),
         os.path.join(rtl_dir, 'FFT/buffers/dynamic_block_scaling.v'),
-        os.path.join(rtl_dir, 'ressource_grid_subscriber.sv'),
+        os.path.join(rtl_dir, 'ressource_grid_framer.sv'),
         os.path.join(rtl_dir, 'BWP_extractor.sv'),
     ]
     if os.environ.get('SIM') != 'verilator':

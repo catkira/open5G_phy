@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-module ressource_grid_subscriber #(
+module ressource_grid_framer #(
     parameter IQ_WIDTH = 16,
     parameter BLK_EXP_LEN = 8,
 
