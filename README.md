@@ -17,7 +17,7 @@ Implemented so far:<br>
 * SSS detector [detailed description below](https://github.com/catkira/open5G_rx#sss-detector)
 * Frame sync [detailed description below](https://github.com/catkira/open5G_rx#frame-sync)
 * Channel estimator [detailed description below](https://github.com/catkira/open5G_rx#channel-estimator)
-* Ressource grid subscriber [detailed description below](https://github.com/catkira/open5G_rx#ressource-grid-subscriber)
+* Ressource grid framer [detailed description below](https://github.com/catkira/open5G_rx#ressource-grid-framer)
 * AXI-DMAC [detailed description below](https://github.com/catkira/open5G_rx#axi-dmac)
 
 <br>
@@ -50,7 +50,7 @@ Implemented so far:<br>
 * FFT demodulator           :  (3 \* NFFT or 1 \* NFFT) DSP slices
 * SSS detector              :  0 DSP slices
 * Channel estimator         :  3 DSP slices
-* Ressource Grid Subscriber :  0 DSP slices
+* Ressource Grid Framer     :  0 DSP slices
 * AXI-DMAC                  :  0 DSP slices
 
 # Tests
@@ -128,12 +128,11 @@ Frame sync outputs IQ samples in an AXI stream interface. The tuser field contai
 <br>
 <b>Important: after detection of the first SSB, sfn strats at 0. After decoding the MIB from the PBCH on the CPU, this core needs to receive the sfn of the SSB in order to output correct frame information in tuser. </b>
 
-# Ressource Grid Subscriber (RGS)
-This core sends the ressource grid via DMA to the CPU. The core can be configured to start with a certain {Frame, Subframe, Symbol)-number. The core also monitors possible overflows, this should not happen if the DMA configuration of the CPU is correct. In case of an overflow, this core will stop forwarding symbols and set an overflow flag. Forwarding can then be reenabled by setting the start {Frame, Subframe, Symbol)-number again.
-Starting with a defined symbol is necessary, because the AXI-DMA core cannot transfer any meta information with the payload. (It is however considered to insert the {Frame, Subframe, Symbol)-number, this would only increase the data rate slightly but provide an extra level of robustness.)
-Each symbol has the block exponent inserted at the beginning, which can be used for AGC (automatic gain control). The block exponent occupies the same space as one IQ sample.
+# Ressource Grid Framer
+This core sends the ressource grid via DMA to the CPU. The core can be configured to start with a certain {Frame, Subframe, Symbol)-number. The core also monitors possible overflows, this should not happen if the DMA configuration of the CPU is correct. In case of an overflow, this core will stop forwarding symbols and set an overflow flag. The core always starts with the symbol where the PSS was detected. Starting with a defined symbol is necessary, because the AXI-DMA core does not transfer any meta information except the timestamp and block exponent with the payload. It is however considered to insert the {Frame, Subframe, Symbol)-number, this would only increase the data rate slightly but provide an extra level of robustness.
+The block exponent is inserted at the beginning, it can be used for AGC (automatic gain control).
 <br>
-The data rate at the output of this core is 100 frames/s * 10 subframes/frame * 14 symbols/subframe * 300 SC/symbol * 2 byte/SC = 8.4 MB/s when using a BWP (bandwidth part) of 25 RBs like in a 5 MHz channel.
+The data rate at the output of this core is roughly 100 frames/s * 10 subframes/frame * 14 symbols/subframe * 300 SC/symbol * 2 byte/SC = 8.4 MB/s (neglecting meta information) when using a BWP (bandwidth part) of 25 RBs like in a 5 MHz channel.
 <br>
 A non-continuous mode will possibly be added in the future. In the non-continuous mode it can be configured which symbols and subcarriers should be forwarded. This feature would need to scatter-gather functionality in order two forward two different blocks that are close to each other on the time axis.
 
