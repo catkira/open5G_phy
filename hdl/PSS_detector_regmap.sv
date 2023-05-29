@@ -71,7 +71,7 @@ module PSS_detector_regmap #(
     output reg      [7 : 0]                     detection_shift_o
 );
 
-localparam PCORE_VERSION = 'h00040069;
+localparam PCORE_VERSION = 'h00010061;
 initial $display("INITIAL_DETECTION_SHIFT = %d", INITIAL_DETECTION_SHIFT);
 
 wire rreq;
