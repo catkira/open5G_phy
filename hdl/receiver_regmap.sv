@@ -66,7 +66,7 @@ module receiver_regmap #(
     input           [31 : 0]                    N_id_used_i
 );
 
-localparam PCORE_VERSION = 'h00040069;
+localparam PCORE_VERSION = 'h00010061; // 1.0.a
 
 wire rreq;
 wire [8:0] raddr;
