@@ -171,7 +171,7 @@ async def simple_test(dut):
         addr = 0
         data = await axi_master.read_dword(addr + (1 << OFFSET_ADDR_WIDTH))
         data = int(data)
-        assert data == 0x00040069
+        assert data == 0x00010061
 
     else:
         data = await tb.read_axil(0)
@@ -183,7 +183,7 @@ async def simple_test(dut):
         OFFSET_ADDR_WIDTH = 16 - 2
         data = await tb.read_axil(0 + (1 << OFFSET_ADDR_WIDTH))
         print(f'PSS detector: id = {data:x}')
-        assert data == 0x00040069
+        assert data == 0x00010061
 
     clk_cnt = 0
     received = []
