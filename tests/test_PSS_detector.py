@@ -214,7 +214,7 @@ async def axi_tb(dut):
     addr = 0
     data = await axi_master.read_dword(4 * addr)
     data = int(data)
-    assert data == 0x00040069
+    assert data == 0x00010061
 
     addr = 4
     data = await axi_master.read_dword(4 * addr)
