@@ -42,13 +42,20 @@ localparam PBCH_LEN = 20 * SYMBOLS_PER_PRB;
 localparam PBCH_START = FFT_LEN / 2 - PBCH_LEN / 2;
 wire valid_PBCH_SC = (sc_cnt >= PBCH_START) && (sc_cnt <= PBCH_START + PBCH_LEN - 1);
 
-localparam BWP_LEN = NFFT == 8 ? 20 * SYMBOLS_PER_PRB : 25 * SYMBOLS_PER_PRB;
-initial begin
-    if (NFFT > 9) begin
-        $display("NFFT = %d is not supported!", NFFT);
-        $finish();
-    end
+function integer calc_num_prb;
+    input integer NFFT;
+begin
+    case (NFFT)
+        8 : calc_num_prb = 20;
+        9 : calc_num_prb = 25;
+        10 : calc_num_prb = 52;
+        11 : calc_num_prb = 106;
+        default: $display("NFFT = %d is not supported!", NFFT);
+    endcase
 end
+endfunction
+
+localparam BWP_LEN = calc_num_prb(NFFT) * SYMBOLS_PER_PRB;
 
 localparam SC_START = FFT_LEN / 2 - BWP_LEN / 2;
 localparam SC_END = SC_START + BWP_LEN;

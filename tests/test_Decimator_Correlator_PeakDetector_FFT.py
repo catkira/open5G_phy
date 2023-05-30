@@ -101,7 +101,6 @@ async def simple_test(dut):
     rx_counter = 0
     clk_cnt = 0
     received = []
-    received_fft_demod = []
     rx_ADC_data = []
     received_PBCH = []
     received_SSS = []
@@ -115,8 +114,8 @@ async def simple_test(dut):
 
     SSS_LEN = 127
     SSS_START = FFT_LEN // 2 - (SSS_LEN + 1) // 2
-    PBCH_LEN = 240
-    PBCH_START = FFT_LEN // 2 - (PBCH_LEN + 1) // 2
+    PBCH_SYMBOL_LEN = 240
+    PBCH_START = FFT_LEN // 2 - (PBCH_SYMBOL_LEN + 1) // 2
     PSS_IDLE_CLKS = int(fs // 1920000)
     print(f'FREE_CYCLES = {PSS_IDLE_CLKS}')
     EXTRA_IDLE_CLKS = 0 if PSS_IDLE_CLKS >= tb.MULT_REUSE else tb.MULT_REUSE // PSS_IDLE_CLKS - 1 # insert additional valid 0 cycles if needed
@@ -166,11 +165,6 @@ async def simple_test(dut):
             received_SSS.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
                 + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
 
-        if dut.m_axis_out_tvalid.value.integer == 1:
-            # print(f'{rx_counter}: fft_demod {dut.m_axis_out_tdata.value}')
-            received_fft_demod.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
-
     assert clk_cnt < MAX_CLK_CNT, "timeout, did not receive enough data"
     assert len(received_SSS) == SSS_LEN
 
@@ -211,18 +205,16 @@ async def simple_test(dut):
     #received_PBCH= received_PBCH[9:][:FFT_SIZE-8*2 - 1]
     received_PBCH_ideal = np.fft.fftshift(np.fft.fft(rx_ADC_data[CP_ADVANCE:][:FFT_LEN]))
     received_PBCH_ideal *= np.exp(1j * ( 2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_LEN * np.arange(FFT_LEN) + np.pi * (CP_LEN - CP_ADVANCE)))
-    received_PBCH_ideal = received_PBCH_ideal[PBCH_START:][:PBCH_LEN]
+    received_PBCH_ideal = received_PBCH_ideal[PBCH_START:][:PBCH_SYMBOL_LEN]
     received_PBCH_ideal = (received_PBCH_ideal.real.astype(int) + 1j * received_PBCH_ideal.imag.astype(int))
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         _, axs = plt.subplots(2, 2, figsize=(10, 10))
-        for i in range(len(received_SSS)):
-            axs[0, 0].plot(np.real(received_SSS), np.imag(received_SSS), '.')
-            axs[0, 1].plot(np.real(ideal_SSS), np.imag(ideal_SSS), '.')
+        axs[0, 0].plot(np.real(received_SSS), np.imag(received_SSS), '.')
+        axs[0, 1].plot(np.real(ideal_SSS), np.imag(ideal_SSS), '.')
         axs[0, 0].set_title('hdl SSS')
         axs[0, 1].set_title('model SSS')
-        for i in range(len(received_PBCH)):
-            axs[1, 0].plot(np.real(received_PBCH), np.imag(received_PBCH), '.')
-            axs[1, 1].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), '.')
+        axs[1, 0].plot(np.real(received_PBCH[:PBCH_SYMBOL_LEN]), np.imag(received_PBCH[:PBCH_SYMBOL_LEN]), '.')
+        axs[1, 1].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), '.')
         axs[1, 1].set_title('hdl PBCH')
         axs[1, 1].set_title('model PBCH')
         plt.show()
@@ -405,4 +397,4 @@ if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
     # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 10, USE_TAP_FILE = 1, MULT_REUSE = 8, INITIAL_DETECTION_SHIFT = 4)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 4)
