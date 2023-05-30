@@ -28,20 +28,28 @@ module BWP_extractor #(
     output  reg                                 SSS_valid_o
 );
 
+localparam SYMBOLS_PER_PRB = 12;
 wire [SYMBOL_NUMBER_WIDTH - 1 : 0] sym = s_axis_in_tuser[SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN - 1 -: SYMBOL_NUMBER_WIDTH];
 wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe = s_axis_in_tuser[SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN - 1 -: SUBFRAME_NUMBER_WIDTH];
 localparam FFT_LEN = 2 ** NFFT;
 reg [$clog2(FFT_LEN) - 1 : 0] sc_cnt;
-wire is_PBCH_symbol = (sym == 3) && (subframe == 0);
+wire is_PBCH_symbol = (sym == 3 || sym == 4 || sym == 5) && (subframe == 0);
 wire is_SSS_symbol = (sym == 4) && (subframe == 0);
 localparam SSS_LEN = 127;
 localparam SSS_START = FFT_LEN / 2 - (SSS_LEN + 1) / 2;
 wire valid_SSS_SC = (sc_cnt >= SSS_START) && (sc_cnt <= SSS_START + SSS_LEN - 1);
-localparam PBCH_LEN = 240;
+localparam PBCH_LEN = 20 * SYMBOLS_PER_PRB;
 localparam PBCH_START = FFT_LEN / 2 - PBCH_LEN / 2;
 wire valid_PBCH_SC = (sc_cnt >= PBCH_START) && (sc_cnt <= PBCH_START + PBCH_LEN - 1);
 
-localparam BWP_LEN = 240;
+localparam BWP_LEN = NFFT == 8 ? 20 * SYMBOLS_PER_PRB : 25 * SYMBOLS_PER_PRB;
+initial begin
+    if (NFFT > 9) begin
+        $display("NFFT = %d is not supported!", NFFT);
+        $finish();
+    end
+end
+
 localparam SC_START = FFT_LEN / 2 - BWP_LEN / 2;
 localparam SC_END = SC_START + BWP_LEN;
 wire valid_SC = (sc_cnt >= SC_START) && (sc_cnt <= SC_END - 1);

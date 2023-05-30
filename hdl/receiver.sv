@@ -702,7 +702,7 @@ channel_estimator_i(
     .N_id_valid_i(N_id_valid),
     .s_axis_in_tdata(bwp_tdata),
     .s_axis_in_tuser(bwp_tuser[BLK_EXP_LEN + 1 - 1 : 0]),
-    .s_axis_in_tvalid(bwp_tvalid),
+    .s_axis_in_tvalid(PBCH_valid_o),
 
     .m_axis_out_tdata(m_axis_cest_out_tdata),
     .m_axis_out_tuser(m_axis_cest_out_tuser),

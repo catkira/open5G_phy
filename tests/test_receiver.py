@@ -195,13 +195,14 @@ async def simple_test(dut):
     received_N_ids = []
     received_ibar_SSB = []
     if NFFT == 8:
-        N_RB = 20
+        N_PRB = 20
     elif NFFT == 9:
-        N_RB = 25
+        N_PRB = 25
+    SYMBOLS_PER_PRB = 12
     FFT_OUT_DW = 16
-    SYMBOL_LEN = 20 * 12
-    N_RB_PBCH = 20
-    PBCH_SYMBOL_LEN = N_RB_PBCH * 12
+    SYMBOL_LEN = N_PRB * SYMBOLS_PER_PRB
+    N_PRB_PBCH = 20
+    PBCH_SYMBOL_LEN = N_PRB_PBCH * SYMBOLS_PER_PRB
     NUM_TIMESTAMP_SAMPLES = 64 // FFT_OUT_DW
     RGS_TRANSFER_LEN = SYMBOL_LEN + NUM_TIMESTAMP_SAMPLES + 1
     print(RGS_TRANSFER_LEN)
@@ -365,8 +366,8 @@ async def simple_test(dut):
 
         axs[1].set_title('CFO corrected PBCH')
         axs[1].plot(np.real(received_PBCH[:PBCH_SYMBOL_LEN]), np.imag(received_PBCH[:PBCH_SYMBOL_LEN]), 'r.')
-        axs[1].plot(np.real(received_PBCH[PBCH_SYMBOL_LEN:][:PBCH_SYMBOL_LEN]), np.imag(received_PBCH[PBCH_SYMBOL_LEN:][:PBCH_SYMBOL_LEN]), 'g.')
-        axs[1].plot(np.real(received_PBCH[2*PBCH_SYMBOL_LEN:][:PBCH_SYMBOL_LEN]), np.imag(received_PBCH[2*PBCH_SYMBOL_LEN:][:PBCH_SYMBOL_LEN]), 'b.')
+        axs[1].plot(np.real(received_PBCH[3*PBCH_SYMBOL_LEN:][:PBCH_SYMBOL_LEN]), np.imag(received_PBCH[3*PBCH_SYMBOL_LEN:][:PBCH_SYMBOL_LEN]), 'g.')
+        axs[1].plot(np.real(received_PBCH[6*PBCH_SYMBOL_LEN:][:PBCH_SYMBOL_LEN]), np.imag(received_PBCH[6*PBCH_SYMBOL_LEN:][:PBCH_SYMBOL_LEN]), 'b.')
         #axs[2].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), 'y.')
 
         axs[2].set_title('CFO and channel corrected PBCH')
@@ -650,7 +651,7 @@ if __name__ == '__main__':
     os.environ['WAVES'] = '1'
     if True:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 9, MULT_REUSE = 4, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '763450KHz_7680KSPS_low_gain')
+             NFFT = 9, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '763450KHz_7680KSPS_low_gain')
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
              NFFT = 8, MULT_REUSE = 8, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)
