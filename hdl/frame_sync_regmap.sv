@@ -15,11 +15,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-module receiver_regmap #(
+module frame_sync_regmap #(
     parameter ID = 0,
-    parameter ADDRESS_WIDTH = 11,
-
-    localparam N_id_MAX = 1007
+    parameter ADDRESS_WIDTH = 11
 )
 (
     input clk_i,
@@ -54,10 +52,12 @@ module receiver_regmap #(
     input                                       s_axi_if_rready,
 
     // mapped registers
-    input           [31 : 0]                    rx_signal_i,
-    input           [1 : 0]                     N_id_2_i,
-    input           [$clog2(N_id_MAX) - 1 : 0]  N_id_i,
-    input           [31 : 0]                    N_id_used_i
+    input           [1 : 0]                     fs_state_i,
+    input   signed  [7 : 0]                     sample_cnt_mismatch_i,
+    input           [15 : 0]                    missed_SSBs_i,
+    input           [2 : 0]                     ibar_SSB_i,
+    input           [31 : 0]                    clks_btwn_SSBs_i,
+    input           [31 : 0]                    num_disconnects_i,
 );
 
 localparam PCORE_VERSION = 'h00010061; // 1.0.a
@@ -80,18 +80,18 @@ always @(posedge clk_i) begin
                 9'h000: rdata <= PCORE_VERSION;
                 9'h001: rdata <= ID;
                 9'h002: rdata <= '0;
-                9'h003: rdata <= 32'h52587E7E; // "RX~~"
+                9'h003: rdata <= 32'h46537E7E; // "FS~~"
                 9'h004: rdata <= 32'h69696969;
-                9'h005: rdata <= '0;
-                9'h006: rdata <= rx_signal_i;
-                9'h007: rdata <= {30'd0, N_id_2_i};
-                9'h008: rdata <= {22'd0, N_id_i};
-                9'h009: rdata <= '0;
-                9'h00A: rdata <= '0;
-                9'h00B: rdata <= '0;
-                9'h00C: rdata <= '0;
-                9'h00D: rdata <= '0;
-                9'h00E: rdata <= N_id_used_i;
+                9'h005: rdata <= {30'd0, fs_state_i};
+                9'h006: rdata <= '0;
+                9'h007: rdata <= '0;
+                9'h008: rdata <= '0;
+                9'h009: rdata <= {24'd0, sample_cnt_mismatch_i};
+                9'h00A: rdata <= {16'd0, missed_SSBs_i};
+                9'h00B: rdata <= {29'd0, ibar_SSB_i};
+                9'h00C: rdata <= clks_btwn_SSBs_i;
+                9'h00D: rdata <= num_disconnects_i;
+                9'h00E: rdata <= '0;
                 default: rdata <= '0;
             endcase
         end

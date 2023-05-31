@@ -292,6 +292,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
         os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
         os.path.join(rtl_dir, 'FFT_demod.sv'),
         os.path.join(rtl_dir, 'frame_sync.sv'),
+        os.path.join(rtl_dir, 'frame_sync_regmap.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.sv'),
         os.path.join(rtl_dir, 'CIC/cic_d.sv'),
         os.path.join(rtl_dir, 'CIC/comb.sv'),

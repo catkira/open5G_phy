@@ -48,13 +48,6 @@ module frame_sync #(
     output  reg                                     N_id_2_valid_o,
     output                                          clear_detector_no,                                     
 
-    // output to regmap
-    output  wire       [1 : 0]                      state_o,
-    output  wire signed   [7 : 0]                   sample_cnt_mismatch_o,
-    output  wire       [15 : 0]                     missed_SSBs_o,
-    output  wire       [31 : 0]                     clks_btwn_SSBs_o,
-    output  wire       [31 : 0]                     num_disconnects_o,
-
     // AXI lite interface
     // write address channel
     input           [AXI_ADDRESS_WIDTH - 1 : 0] s_axi_awaddr,
@@ -139,8 +132,6 @@ localparam [1 : 0] SEARCH_PSS = 0;
 localparam [1 : 0] FIND_PSS = 1;
 localparam [1 : 0] PAUSE_PSS = 2;
 reg [15 : 0] missed_SSBs;
-assign missed_SSBs_o = missed_SSBs;
-assign clks_btwn_SSBs_o = clks_since_SSB_f;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         PSS_state <= SEARCH_PSS;
@@ -234,7 +225,6 @@ localparam SYMS_BTWN_SSB = SUBFRAMES_PER_FRAME * SYM_PER_SF;
 reg [$clog2(SYMS_BTWN_SSB + 100) - 1 : 0] syms_since_last_SSB;
 
 reg [1 : 0] state;
-assign state_o = state;
 localparam [1 : 0] WAIT_FOR_SSB = 0;
 localparam [1 : 0] WAIT_FOR_IBAR = 1; // not used
 localparam [1 : 0] SYNCED = 2;
@@ -246,7 +236,6 @@ localparam CIC_RATE = 2 ** (NFFT - 7);
 localparam FIND_SAMPLES_TOLERANCE = 2 * CIC_RATE;
 
 reg signed [7 : 0] sample_cnt_mismatch;
-assign sample_cnt_mismatch_o = sample_cnt_mismatch;
 wire end_of_symbol_ = sample_cnt == (FFT_LEN + current_CP_len - 1);
 wire end_of_symbol = (end_of_symbol_ && !find_SSB) || (find_SSB && N_id_2_valid_i);
 wire end_of_subframe = end_of_symbol && (sym_cnt == SYM_PER_SF - 1);
@@ -257,7 +246,6 @@ wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_number_next = end_of_subframe ? (e
 wire [SFN_WIDTH - 1 : 0] sfn_next = end_of_frame ? (sfn == SFN_MAX - 1 ? 0 : sfn + 1) : sfn;
 assign clear_detector_no = !(state == RESET_DETECTOR);
 reg [31 : 0] num_disconnects;
-assign num_disconnects_o = num_disconnects;
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -417,11 +405,11 @@ end
 // store sample_id into FIFO at the beginning of each symbol
 assign sample_id_valid = symbol_start_o;
 
-receiver_regmap #(
+frame_sync_regmap #(
     .ID(0),
     .ADDRESS_WIDTH(AXI_ADDRESS_WIDTH)
 )
-receiver_regmap_i(
+frame_sync_regmap_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
 

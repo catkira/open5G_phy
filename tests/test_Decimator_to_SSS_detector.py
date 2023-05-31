@@ -232,6 +232,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_
         os.path.join(rtl_dir, 'SSS_detector.sv'),
         os.path.join(rtl_dir, 'LFSR/LFSR.sv'),
         os.path.join(rtl_dir, 'frame_sync.sv'),
+        os.path.join(rtl_dir, 'frame_sync_regmap.sv'),
         os.path.join(rtl_dir, 'AXIS_FIFO.sv'),
         os.path.join(rtl_dir, 'FFT_demod.sv'),
         os.path.join(rtl_dir, 'complex_multiplier/complex_multiplier.sv'),

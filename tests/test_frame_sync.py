@@ -143,7 +143,8 @@ def test_stream(IN_DW):
     toplevel = dut
 
     verilog_sources = [
-        os.path.join(rtl_dir, f'{dut}.sv')
+        os.path.join(rtl_dir, f'{dut}.sv'),
+        os.path.join(rtl_dir, f'frame_sync_regmap.sv')
     ]
     includes = []
     parameters = {}

@@ -188,6 +188,29 @@ wire            [ 1 : 0]                        s_axi_rx_rresp;
 wire                                            s_axi_rx_rvalid;
 wire                                            s_axi_rx_rready;
 // ------------------------------------------------------------------
+// --------------   wires for frame_sync_i  -----------------------
+wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_fs_awaddr;
+wire                                            s_axi_fs_awvalid;
+wire                                            s_axi_fs_awready;
+// write data channel
+wire            [31 : 0]                        s_axi_fs_wdata;
+wire            [ 3 : 0]                        s_axi_fs_wstrb;
+wire                                            s_axi_fs_wvalid;
+wire                                            s_axi_fs_wready;
+// write response channel
+wire            [ 1 : 0]                        s_axi_fs_bresp;
+wire                                            s_axi_fs_bvalid;
+wire                                            s_axi_fs_bready;
+// read address channel
+wire            [OFFSET_ADDR_WIDTH - 1 : 0]     s_axi_fs_araddr;
+wire                                            s_axi_fs_arvalid;
+wire                                            s_axi_fs_arready;
+// read data channel
+wire            [31 : 0]                        s_axi_fs_rdata;
+wire            [ 1 : 0]                        s_axi_fs_rresp;
+wire                                            s_axi_fs_rvalid;
+wire                                            s_axi_fs_rready;
+// ------------------------------------------------------------------
 
 reg [COMPL_MULT_OUT_DW - 1 : 0] mult_out_tdata;
 reg                             mult_out_tvalid;
@@ -205,9 +228,6 @@ wire reset_ni = reset_n; // port was renamed from reset_ni to reset_n so that Vi
 wire [1 : 0] fs_state;
 
 wire CFO_mode;
-wire signed [7 : 0] sample_cnt_mismatch;
-wire [15: 0] missed_SSBs;
-wire [31 : 0] num_disconnects;
 
 always @(posedge clk_i) begin
     if (!reset_ni)  FIFO_out_f <= '0;
@@ -228,11 +248,7 @@ receiver_regmap_i(
     .rx_signal_i(FIFO_out_f),
     .N_id_2_i(N_id_2_f),
     .N_id_i(N_id_f),
-    .sample_cnt_mismatch_i(sample_cnt_mismatch),
-    .missed_SSBs_i(missed_SSBs),
-    .ibar_SSB_i(ibar_SSB_f),
     .clks_btwn_SSBs_i(clks_btwn_SSBs),
-    .num_disconnects_i(num_disconnects),
     .N_id_used_i(N_id_used),
 
     .s_axi_if_awaddr(s_axi_rx_awaddr),
@@ -511,7 +527,6 @@ wire [2 : 0] ibar_SSB;
 wire ibar_SSB_valid;
 assign ibar_SSB_o = ibar_SSB;
 assign ibar_SSB_valid_o = ibar_SSB_valid;
-reg [2 : 0] ibar_SSB_f;
 localparam N_ID_MAX = 1007;
 reg [$clog2(N_ID_MAX) - 1 : 0] N_id;
 reg N_id_valid;
@@ -549,13 +564,28 @@ frame_sync_i
     .symbol_start_o(fs_out_symbol_start),
     .SSB_start_o(fs_out_SSB_start),
     .reset_fft_no(reset_fft_n),
-    .state_o(fs_state),
-    .sample_cnt_mismatch_o(sample_cnt_mismatch),
-    .missed_SSBs_o(missed_SSBs),
     .N_id_2_o(fs_N_id_2),
     .N_id_2_valid_o(fs_N_id_2_valid),
     .clks_btwn_SSBs_o(clks_btwn_SSBs),
-    .num_disconnects_o(num_disconnects)
+    .num_disconnects_o(num_disconnects),
+
+    .s_axi_awaddr(s_axi_fs_awaddr),
+    .s_axi_awvalid(s_axi_fs_awvalid),
+    .s_axi_awready(s_axi_fs_awready),
+    .s_axi_wdata(s_axi_fs_wdata),
+    .s_axi_wstrb(s_axi_fs_wstrb),
+    .s_axi_wvalid(s_axi_fs_wvalid),
+    .s_axi_wready(s_axi_fs_wready),
+    .s_axi_bresp(s_axi_fs_bresp),
+    .s_axi_bvalid(s_axi_fs_bvalid),
+    .s_axi_bready(s_axi_fs_bready),
+    .s_axi_araddr(s_axi_fs_araddr),
+    .s_axi_arvalid(s_axi_fs_arvalid),
+    .s_axi_arready(s_axi_fs_arready),
+    .s_axi_rdata(s_axi_fs_rdata),
+    .s_axi_rresp(s_axi_fs_rresp),
+    .s_axi_rvalid(s_axi_fs_rvalid),
+    .s_axi_rready(s_axi_fs_rready)
 );
 
 wire [SAMPLE_ID_WIDTH - 1 : 0] sample_id_fifo_out_data;
@@ -716,11 +746,6 @@ channel_estimator_i(
     .debug_N_id_used_o(N_id_used)
 );
 
-always @(posedge clk_i) begin
-    if (!reset_ni) ibar_SSB_f <= '0;
-    else if (ibar_SSB_valid) ibar_SSB_f <= ibar_SSB;
-end
-
 demap #(
     .IQ_DW(FFT_OUT_DW / 2),
     .LLR_DW(LLR_DW)
@@ -865,7 +890,25 @@ axil_interconnect_wrap_1x4_i(
     .m02_axil_rdata(s_axi_rx_rdata),
     .m02_axil_rresp(s_axi_rx_rresp),
     .m02_axil_rvalid(s_axi_rx_rvalid),
-    .m02_axil_rready(s_axi_rx_rready)
+    .m02_axil_rready(s_axi_rx_rready),
+
+    .m03_axil_awaddr(s_axi_fs_awaddr),
+    .m03_axil_awvalid(s_axi_fs_awvalid),
+    .m03_axil_awready(s_axi_fs_awready),
+    .m03_axil_wdata(s_axi_fs_wdata),
+    .m03_axil_wstrb(s_axi_fs_wstrb),
+    .m03_axil_wvalid(s_axi_fs_wvalid),
+    .m03_axil_wready(s_axi_fs_wready),
+    .m03_axil_bresp(s_axi_fs_bresp),
+    .m03_axil_bvalid(s_axi_fs_bvalid),
+    .m03_axil_bready(s_axi_fs_bready),
+    .m03_axil_araddr(s_axi_fs_araddr),
+    .m03_axil_arvalid(s_axi_fs_arvalid),
+    .m03_axil_arready(s_axi_fs_arready),
+    .m03_axil_rdata(s_axi_fs_rdata),
+    .m03_axil_rresp(s_axi_fs_rresp),
+    .m03_axil_rvalid(s_axi_fs_rvalid),
+    .m03_axil_rready(s_axi_fs_rready)
 );
 
 endmodule
