@@ -16,7 +16,8 @@ module frame_sync #(
     localparam SFN_WIDTH = $clog2(SFN_MAX),
     localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1),
     localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1),
-    localparam USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + $clog2(MAX_CP_LEN)
+    localparam USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + $clog2(MAX_CP_LEN),
+    localparam AXI_ADDRESS_WIDTH = 11
 )
 (
     input                                           clk_i,
@@ -52,7 +53,35 @@ module frame_sync #(
     output  wire signed   [7 : 0]                   sample_cnt_mismatch_o,
     output  wire       [15 : 0]                     missed_SSBs_o,
     output  wire       [31 : 0]                     clks_btwn_SSBs_o,
-    output  wire       [31 : 0]                     num_disconnects_o
+    output  wire       [31 : 0]                     num_disconnects_o,
+
+    // AXI lite interface
+    // write address channel
+    input           [AXI_ADDRESS_WIDTH - 1 : 0] s_axi_awaddr,
+    input                                       s_axi_awvalid,
+    output  reg                                 s_axi_awready,
+    
+    // write data channel
+    input           [31 : 0]                    s_axi_wdata,
+    input           [ 3 : 0]                    s_axi_wstrb,
+    input                                       s_axi_wvalid,
+    output  reg                                 s_axi_wready,
+
+    // write response channel
+    output          [ 1 : 0]                    s_axi_bresp,
+    output  reg                                 s_axi_bvalid,
+    input                                       s_axi_bready,
+
+    // read address channel
+    input           [AXI_ADDRESS_WIDTH - 1 : 0] s_axi_araddr,
+    input                                       s_axi_arvalid,
+    output  reg                                 s_axi_arready,
+
+    // read data channel
+    output  reg     [31 : 0]                    s_axi_rdata,
+    output          [ 1 : 0]                    s_axi_rresp,
+    output  reg                                 s_axi_rvalid,
+    input                                       s_axi_rready
 );
 
 reg [$clog2(MAX_CP_LEN) - 1: 0] CP_len;
@@ -387,5 +416,43 @@ end
 
 // store sample_id into FIFO at the beginning of each symbol
 assign sample_id_valid = symbol_start_o;
+
+receiver_regmap #(
+    .ID(0),
+    .ADDRESS_WIDTH(AXI_ADDRESS_WIDTH)
+)
+receiver_regmap_i(
+    .clk_i(clk_i),
+    .reset_ni(reset_ni),
+
+    .fs_state_i(state),
+    .rx_signal_i(),
+    .N_id_2_i(),
+    .N_id_i(),
+    .sample_cnt_mismatch_i(sample_cnt_mismatch),
+    .missed_SSBs_i(missed_SSBs),
+    .ibar_SSB_i(ibar_SSB),
+    .clks_btwn_SSBs_i(clks_btwn_SSBs),
+    .num_disconnects_i(num_disconnects),
+    .N_id_used_i(),
+
+    .s_axi_if_awaddr(s_axi_awaddr),
+    .s_axi_if_awvalid(s_axi_awvalid),
+    .s_axi_if_awready(s_axi_awready),
+    .s_axi_if_wdata(s_axi_wdata),
+    .s_axi_if_wstrb(s_axi_wstrb),
+    .s_axi_if_wvalid(s_axi_wvalid),
+    .s_axi_if_wready(s_axi_wready),
+    .s_axi_if_bresp(s_axi_bresp),
+    .s_axi_if_bvalid(s_axi_bvalid),
+    .s_axi_if_bready(s_axi_bready),
+    .s_axi_if_araddr(s_axi_araddr),
+    .s_axi_if_arvalid(s_axi_arvalid),
+    .s_axi_if_arready(s_axi_arready),
+    .s_axi_if_rdata(s_axi_rdata),
+    .s_axi_if_rresp(s_axi_rresp),
+    .s_axi_if_rvalid(s_axi_rvalid),
+    .s_axi_if_rready(s_axi_rready)
+);
 
 endmodule
