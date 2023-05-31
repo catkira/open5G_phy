@@ -566,8 +566,6 @@ frame_sync_i
     .reset_fft_no(reset_fft_n),
     .N_id_2_o(fs_N_id_2),
     .N_id_2_valid_o(fs_N_id_2_valid),
-    .clks_btwn_SSBs_o(clks_btwn_SSBs),
-    .num_disconnects_o(num_disconnects),
 
     .s_axi_awaddr(s_axi_fs_awaddr),
     .s_axi_awvalid(s_axi_fs_awvalid),
