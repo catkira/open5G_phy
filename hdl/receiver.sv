@@ -244,11 +244,9 @@ receiver_regmap_i(
     .clk_i(clk_i),
     .reset_ni(reset_ni),
 
-    .fs_state_i(fs_state),
     .rx_signal_i(FIFO_out_f),
     .N_id_2_i(N_id_2_f),
     .N_id_i(N_id_f),
-    .clks_btwn_SSBs_i(clks_btwn_SSBs),
     .N_id_used_i(N_id_used),
 
     .s_axi_if_awaddr(s_axi_rx_awaddr),

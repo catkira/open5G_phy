@@ -414,15 +414,11 @@ frame_sync_regmap_i(
     .reset_ni(reset_ni),
 
     .fs_state_i(state),
-    .rx_signal_i(),
-    .N_id_2_i(),
-    .N_id_i(),
     .sample_cnt_mismatch_i(sample_cnt_mismatch),
     .missed_SSBs_i(missed_SSBs),
     .ibar_SSB_i(ibar_SSB),
-    .clks_btwn_SSBs_i(clks_btwn_SSBs),
+    .clks_btwn_SSBs_i(clks_since_SSB_f),
     .num_disconnects_i(num_disconnects),
-    .N_id_used_i(),
 
     .s_axi_if_awaddr(s_axi_awaddr),
     .s_axi_if_awvalid(s_axi_awvalid),
