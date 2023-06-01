@@ -105,7 +105,7 @@ async def stream_tb(dut):
             dut.ibar_SSB_i.value = 0
             dut.ibar_SSB_valid_i.value = 1
         else:
-            dut.ibar_SSB_valid_i = 0
+            dut.ibar_SSB_valid_i.value = 0
 
         data = (((int(waveform[pos].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
             + ((int(waveform[pos].real)) & ((2 ** (tb.IN_DW // 2)) - 1)))
@@ -144,7 +144,8 @@ def test_stream(IN_DW):
 
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
-        os.path.join(rtl_dir, f'frame_sync_regmap.sv')
+        os.path.join(rtl_dir, f'frame_sync_regmap.sv'),
+        os.path.join(rtl_dir, f'AXI_lite_interface.sv')
     ]
     includes = []
     parameters = {}
