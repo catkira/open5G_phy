@@ -118,6 +118,34 @@ always @(posedge clk_i) begin
     else ibar_SSB <= ibar_SSB_valid_i ? ibar_SSB_i : ibar_SSB;
 end
 
+
+// ---------------------------------------------------------------------------------------------------//
+// FSM for controlling reconnect_mode
+wire reconnect_mode_write;
+wire [1 : 0] reconnect_mode_regmap;
+reg [1 : 0] reconnect_mode;
+localparam [1 : 0] RECONNECT_MODE_AUTO = 0;
+localparam [1 : 0] RECONNECT_MODE_ONCE = 1;
+localparam [1 : 0] RECONNECT_MODE_WAIT = 2;
+always @(posedge clk_i) begin
+    if (!reset_ni)         reconnect_mode <= RECONNECT_MODE_AUTO;
+    else begin
+        case (reconnect_mode)
+            RECONNECT_MODE_AUTO : begin
+                if (reconnect_mode_write) reconnect_mode <= reconnect_mode_regmap;
+            end
+            RECONNECT_MODE_ONCE : begin
+                if (N_id_2_valid_i) reconnect_mode <= RECONNECT_MODE_WAIT;
+                else if (reconnect_mode_write) reconnect_mode <= reconnect_mode_regmap;
+            end
+            RECONNECT_MODE_WAIT : begin 
+                if (reconnect_mode_write) reconnect_mode <= reconnect_mode_regmap;
+            end
+            default: begin end
+        endcase
+    end
+end
+
 // ---------------------------------------------------------------------------------------------------//
 // FSM for controlling PSS detector
 localparam [1 : 0] PSS_DETECTOR_MODE_SEARCH = 0;
@@ -143,7 +171,7 @@ always @(posedge clk_i) begin
         PSS_detector_mode_o <= PSS_state;
         case (PSS_state)
             SEARCH_PSS : begin  // search PSS with any N_id_2
-                if (N_id_2_valid_i) begin
+                if (N_id_2_valid_i && (reconnect_mode != RECONNECT_MODE_WAIT)) begin
                     missed_SSBs <= '0;
                     PSS_state <= PAUSE_PSS;
                     clks_since_SSB <= 1;
@@ -173,6 +201,7 @@ always @(posedge clk_i) begin
                     clks_since_SSB <= clks_since_SSB + 1;
                 end
             end
+            default : begin end
         endcase
     end
 end
@@ -271,7 +300,7 @@ always @(posedge clk_i) begin
             WAIT_FOR_SSB: begin
                 SSB_start_o <= '0;
                 find_SSB <= '0;                
-                if (N_id_2_valid_i) begin
+                if (N_id_2_valid_i && (reconnect_mode != RECONNECT_MODE_WAIT)) begin
                     sample_cnt <= 0;
                     out_valid <= s_axis_in_tvalid;
                     // SSB_pattern for case A is [2, 8, 16, 22]
@@ -419,6 +448,10 @@ frame_sync_regmap_i(
     .ibar_SSB_i(ibar_SSB),
     .clks_btwn_SSBs_i(clks_since_SSB_f),
     .num_disconnects_i(num_disconnects),
+    .reconnect_mode_i(reconnect_mode),
+
+    .reconnect_mode_o(reconnect_mode_regmap),
+    .reconnect_mode_write_o(reconnect_mode_write),
 
     .s_axi_if_awaddr(s_axi_awaddr),
     .s_axi_if_awvalid(s_axi_awvalid),
