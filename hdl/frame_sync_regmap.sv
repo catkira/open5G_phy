@@ -57,7 +57,7 @@ module frame_sync_regmap #(
     input           [15 : 0]                    missed_SSBs_i,
     input           [2 : 0]                     ibar_SSB_i,
     input           [31 : 0]                    clks_btwn_SSBs_i,
-    input           [31 : 0]                    num_disconnects_i,
+    input           [31 : 0]                    num_disconnects_i
 );
 
 localparam PCORE_VERSION = 'h00010061; // 1.0.a
