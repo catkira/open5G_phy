@@ -57,7 +57,11 @@ module frame_sync_regmap #(
     input           [15 : 0]                    missed_SSBs_i,
     input           [2 : 0]                     ibar_SSB_i,
     input           [31 : 0]                    clks_btwn_SSBs_i,
-    input           [31 : 0]                    num_disconnects_i
+    input           [31 : 0]                    num_disconnects_i,
+    input           [1 : 0]                     reconnect_mode_i,
+
+    output                                      reconnect_mode_write_o,
+    output          [1 : 0]                     reconnect_mode_o
 );
 
 localparam PCORE_VERSION = 'h00010061; // 1.0.a
@@ -83,7 +87,7 @@ always @(posedge clk_i) begin
                 9'h003: rdata <= 32'h46537E7E; // "FS~~"
                 9'h004: rdata <= 32'h69696969;
                 9'h005: rdata <= {30'd0, fs_state_i};
-                9'h006: rdata <= '0;
+                9'h006: rdata <= {30'd0, reconnect_mode_i};
                 9'h007: rdata <= '0;
                 9'h008: rdata <= '0;
                 9'h009: rdata <= {24'd0, sample_cnt_mismatch_i};
@@ -108,6 +112,8 @@ always @(posedge clk_i) begin
     else            wack <= wreq;   // ack immediately after req
 end
 
+assign reconnect_mode_write_o = wreq && (waddr == 9'h006);
+assign reconnect_mode_o = wdata[1 : 0];
 always @(posedge clk_i) begin
     if (!reset_ni) begin
     end else begin
