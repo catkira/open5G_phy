@@ -127,6 +127,7 @@ reg [1 : 0] reconnect_mode;
 localparam [1 : 0] RECONNECT_MODE_AUTO = 0;
 localparam [1 : 0] RECONNECT_MODE_ONCE = 1;
 localparam [1 : 0] RECONNECT_MODE_WAIT = 2;
+localparam [1 : 0] RECONNECT_MODE_DISC = 3;
 always @(posedge clk_i) begin
     if (!reset_ni)         reconnect_mode <= RECONNECT_MODE_AUTO;
     else begin
@@ -141,7 +142,9 @@ always @(posedge clk_i) begin
             RECONNECT_MODE_WAIT : begin 
                 if (reconnect_mode_write) reconnect_mode <= reconnect_mode_regmap;
             end
-            default: begin end
+            RECONNECT_MODE_DISC: begin
+                if (reconnect_mode_write) reconnect_mode <= reconnect_mode_regmap;
+            end
         endcase
     end
 end
@@ -182,7 +185,8 @@ always @(posedge clk_i) begin
             end
             PAUSE_PSS : begin // PAUSE until next PSS is expected    
                 if (clks_since_SSB > (CLKS_20MS - CLKS_PSS_EARLY_WAKEUP)) begin
-                    PSS_state <= FIND_PSS;
+                    if (reconnect_mode == RECONNECT_MODE_DISC)  PSS_state <= SEARCH_PSS;
+                    else                                        PSS_state <= FIND_PSS;
                 end else begin
                     clks_since_SSB <= clks_since_SSB + 1;
                 end
@@ -362,8 +366,8 @@ always @(posedge clk_i) begin
                     end
                     if (s_axis_in_tvalid) begin
                         if ((sample_cnt == FFT_LEN + current_CP_len - FIND_SAMPLES_TOLERANCE) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
-                            find_SSB <= 1;  // go into find state one SC before the symbol ends
-                            // $display("find SSB ...");
+                            if (reconnect_mode == RECONNECT_MODE_DISC)  state <= RESET_DETECTOR;
+                            else                                        find_SSB <= 1;  // go into find state one SC before the symbol ends
                         end
                     end                    
                 end
