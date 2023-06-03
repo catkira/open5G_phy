@@ -264,9 +264,9 @@ localparam [1 : 0] SYNCED = 2;
 localparam [1 : 0] RESET_DETECTOR = 3;
 localparam CIC_RATE = 2 ** (NFFT - 7);
 
-// 2 samples at 1.92 MSPS
-// because PSS detector has precision +- 1 sample at 1.92 MSPS
-localparam FIND_SAMPLES_TOLERANCE = 2 * CIC_RATE;
+// 3 samples at 1.92 MSPS
+// because PSS detector has precision +- 2 sample at 1.92 MSPS
+localparam FIND_SAMPLES_TOLERANCE = 3 * CIC_RATE;
 
 reg signed [7 : 0] sample_cnt_mismatch;
 wire end_of_symbol_ = sample_cnt == (FFT_LEN + current_CP_len - 1);
@@ -367,7 +367,7 @@ always @(posedge clk_i) begin
                     if (s_axis_in_tvalid) begin
                         if ((sample_cnt == FFT_LEN + current_CP_len - FIND_SAMPLES_TOLERANCE) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
                             if (reconnect_mode == RECONNECT_MODE_DISC)  state <= RESET_DETECTOR;
-                            else                                        find_SSB <= 1;  // go into find state one SC before the symbol ends
+                            else                                        find_SSB <= 1;  // go into find state FIND_SAMPLES_TOLERANCE SCs before the symbol ends
                         end
                     end                    
                 end
