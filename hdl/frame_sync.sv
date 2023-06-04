@@ -353,7 +353,7 @@ always @(posedge clk_i) begin
                         find_SSB <= '0;
                     end
 
-                    if (sample_cnt > FIND_SAMPLES_TOLERANCE) begin
+                    if (sample_cnt == FIND_SAMPLES_TOLERANCE) begin
                         // could not find SSB, connection is lost 
                         // go back to search mode (state 0)
                         $display("frame_sync: could not find SSB, connection is lost!");
