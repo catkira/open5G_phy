@@ -413,10 +413,6 @@ CFO_calc_i(
 localparam [1 : 0]  SEARCH = 0;
 localparam [1 : 0]  FIND   = 1;
 localparam [1 : 0]  PAUSE  = 2;
-localparam SSB_INTERVAL = $rtoi(1920000 * 0.02);
-localparam TRACK_TOLERANCE = 100;
-localparam CORRELATOR_DELAY = 160;
-reg [$clog2(SSB_INTERVAL + TRACK_TOLERANCE) - 1 : 0] sample_cnt;
 reg N_id_2_valid;
 
 reg [1 : 0] CFO_state;
