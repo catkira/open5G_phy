@@ -251,9 +251,11 @@ endfunction
 //
 // TODO:  - add timeout to WAIT_FOR_IBAR state
 //        - make SYNCED and WAIT_FOR_IBAR substates of a single state and reduce duplicate code
-reg [$clog2(FFT_LEN + MAX_CP_LEN) - 1 : 0] sample_cnt;
-reg find_SSB;
 
+// + 1 because it needs to count beyond FFT_LEN + MAX_CP_LEN in case SSB is late
+reg [$clog2(FFT_LEN + MAX_CP_LEN) - 1 + 1 : 0] sample_cnt;
+
+reg find_SSB;
 localparam SYMS_BTWN_SSB = SUBFRAMES_PER_FRAME * SYM_PER_SF;
 reg [$clog2(SYMS_BTWN_SSB + 100) - 1 : 0] syms_since_last_SSB;
 
@@ -264,16 +266,16 @@ localparam [1 : 0] SYNCED = 2;
 localparam [1 : 0] RESET_DETECTOR = 3;
 localparam CIC_RATE = 2 ** (NFFT - 7);
 
-// 2 samples at 1.92 MSPS
-// because PSS detector has precision +- 1 sample at 1.92 MSPS
-localparam FIND_SAMPLES_TOLERANCE = 2 * CIC_RATE;
+// 3 samples at 1.92 MSPS
+// because PSS detector has precision +- 2 sample at 1.92 MSPS
+localparam FIND_SAMPLES_TOLERANCE = 3 * CIC_RATE;
 
 reg signed [7 : 0] sample_cnt_mismatch;
 wire end_of_symbol_ = sample_cnt == (FFT_LEN + current_CP_len - 1);
 wire end_of_symbol = (end_of_symbol_ && !find_SSB) || (find_SSB && N_id_2_valid_i);
 wire end_of_subframe = end_of_symbol && (sym_cnt == SYM_PER_SF - 1);
 wire end_of_frame = end_of_subframe && (subframe_number == SUBFRAMES_PER_FRAME - 1);
-wire [$clog2(FFT_LEN + MAX_CP_LEN) - 1 : 0] sample_cnt_next = end_of_symbol ? '0 : sample_cnt + 1;
+wire [$clog2(FFT_LEN + MAX_CP_LEN) - 1 + 1 : 0] sample_cnt_next = end_of_symbol ? '0 : sample_cnt + 1;
 wire [SYMBOL_NUMBER_WIDTH - 1 : 0] sym_cnt_next = end_of_symbol ? (end_of_subframe ? 0 : sym_cnt + 1) : sym_cnt;
 wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_number_next = end_of_subframe ? (end_of_frame ? 0 : subframe_number + 1) : subframe_number;
 wire [SFN_WIDTH - 1 : 0] sfn_next = end_of_frame ? (sfn == SFN_MAX - 1 ? 0 : sfn + 1) : sfn;
@@ -332,28 +334,29 @@ always @(posedge clk_i) begin
 
                 if (find_SSB) begin
                     if (N_id_2_valid_i) begin
-                        // expected sample_cnt for the next SSB is the last sample of the previous symbol, if actual sample_cnt deviates +-1, perform realignment
+                        // expected sample_cnt for the next SSB is the last sample of the previous symbol, if actual sample_cnt deviates +-1,
+                        // perform realignment by sending SSB_start_o to FFT_demod
                         $display("frame_sync: SSB at sfn = %d, subframe = %d, symbol = %d, sample = %d", sfn, subframe_number, sym_cnt, sample_cnt);
                         $display("frame_sync: is_SSB_location = %d", is_SSB_location(sfn_next, subframe_number_next, sym_cnt_next, sample_cnt_next, 0, current_CP_len, 0));
                         if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
                             sample_cnt_mismatch <= 0;
                             // SSB arrives as expected, no STO correction needed
                             $display("frame_sync: SSB is on time");
-                        end else if (sample_cnt <= FIND_SAMPLES_TOLERANCE) begin
-                            sample_cnt_mismatch <= sample_cnt + 1;
+                        end else if (sample_cnt > (FFT_LEN + current_CP_len - 1)) begin
+                            sample_cnt_mismatch <= sample_cnt - (FFT_LEN + current_CP_len - 1);
                             // SSB arrives too late
                             // correct this STO by outputting symbol_start and SSB_start a bit later
                             $display("frame_sync: SSB is %d samples too late", sample_cnt);
-                        end else if (sample_cnt >= (FFT_LEN + current_CP_len - 1 - FIND_SAMPLES_TOLERANCE)) begin
+                        end else if (sample_cnt < (FFT_LEN + current_CP_len - 1)) begin
                             sample_cnt_mismatch <= sample_cnt - (FFT_LEN + current_CP_len - 1);
                             // SSB arrives too early
                             // correct this STO by outputting symbol_start and SSB_start a bit earlier
-                            $display("frame_sync: SSB is %d samples too early", (FFT_LEN + current_CP_len) - sample_cnt);
+                            $display("frame_sync: SSB is %d samples too early", (FFT_LEN + current_CP_len - 1) - sample_cnt);
                         end
                         find_SSB <= '0;
                     end
 
-                    if (sample_cnt == 3) begin
+                    if (sample_cnt > (FFT_LEN + current_CP_len - 1 + FIND_SAMPLES_TOLERANCE)) begin
                         // could not find SSB, connection is lost 
                         // go back to search mode (state 0)
                         $display("frame_sync: could not find SSB, connection is lost!");
@@ -367,7 +370,7 @@ always @(posedge clk_i) begin
                     if (s_axis_in_tvalid) begin
                         if ((sample_cnt == FFT_LEN + current_CP_len - FIND_SAMPLES_TOLERANCE) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
                             if (reconnect_mode == RECONNECT_MODE_DISC)  state <= RESET_DETECTOR;
-                            else                                        find_SSB <= 1;  // go into find state one SC before the symbol ends
+                            else                                        find_SSB <= 1;  // go into find state FIND_SAMPLES_TOLERANCE SCs before the symbol ends
                         end
                     end                    
                 end
