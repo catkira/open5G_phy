@@ -29,6 +29,7 @@ module frame_sync #(
     input                                           N_id_2_valid_i,
     input              [2 : 0]                      ibar_SSB_i,
     input                                           ibar_SSB_valid_i,
+    input                                           rgf_overflow_i,
 
     output  reg        [1 : 0]                      PSS_detector_mode_o,
     output  reg        [1 : 0]                      requested_N_id_2_o,

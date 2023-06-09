@@ -532,6 +532,7 @@ wire sample_id_fifo_valid_in;
 wire reset_fft_n;
 wire [1 : 0] fs_N_id_2;
 wire fs_N_id_2_valid;
+wire rgf_overflow;
 
 frame_sync #(
     .IN_DW(IN_DW),
@@ -548,6 +549,7 @@ frame_sync_i
     .ibar_SSB_valid_i(ibar_SSB_valid),
     .s_axis_in_tdata(pss_out_data),
     .s_axis_in_tvalid(pss_out_valid),
+    .rgf_overflow_i(rgf_overflow),
 
     .clear_detector_no(clear_detector_n),
     .PSS_detector_mode_o(PSS_detector_mode),
@@ -675,7 +677,6 @@ BWB_extractor_i(
     .SSS_valid_o(SSS_valid_o)
 );
 
-wire rgs_overflow;
 ressource_grid_framer #(
     .IQ_WIDTH(FFT_OUT_DW),
     .BLK_EXP_LEN(BLK_EXP_LEN)
@@ -697,7 +698,7 @@ ressource_grid_framer_i(
     .m_axis_fifo_tvalid(m_axis_out_tvalid),
     .m_axis_fifo_tlast(m_axis_out_tlast),
     .m_axis_fifo_tready(m_axis_out_tready),
-    .overflow_o(rgs_overflow)
+    .overflow_o(rgf_overflow)
 );
 
 SSS_detector #(

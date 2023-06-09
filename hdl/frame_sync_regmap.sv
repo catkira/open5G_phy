@@ -59,6 +59,7 @@ module frame_sync_regmap #(
     input           [31 : 0]                    clks_btwn_SSBs_i,
     input           [31 : 0]                    num_disconnects_i,
     input           [1 : 0]                     reconnect_mode_i,
+    input                                       rgf_overflow_i,
 
     output                                      reconnect_mode_write_o,
     output          [1 : 0]                     reconnect_mode_o
@@ -88,7 +89,7 @@ always @(posedge clk_i) begin
                 9'h004: rdata <= 32'h69696969;
                 9'h005: rdata <= {30'd0, fs_state_i};
                 9'h006: rdata <= {30'd0, reconnect_mode_i};
-                9'h007: rdata <= '0;
+                9'h007: rdata <= {31'd0, rgf_overflow_i};
                 9'h008: rdata <= '0;
                 9'h009: rdata <= {24'd0, sample_cnt_mismatch_i};
                 9'h00A: rdata <= {16'd0, missed_SSBs_i};

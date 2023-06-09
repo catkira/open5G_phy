@@ -87,8 +87,8 @@ output_fifo_i(
 );
 
 always @(posedge clk_i) begin
-    if (!reset_ni)  overflow_o <= '0;
-    else            overflow_o <= !m_axis_fifo_tready && m_axis_fifo_tvalid;
+    if (!reset_ni)          overflow_o <= '0;
+    else if (!overflow_o)   overflow_o <= !m_axis_fifo_tready && m_axis_fifo_tvalid;
 end
 
 reg [2 : 0] state;
