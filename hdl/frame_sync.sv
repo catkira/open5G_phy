@@ -457,6 +457,7 @@ frame_sync_regmap_i(
     .clks_btwn_SSBs_i(clks_since_SSB_f),
     .num_disconnects_i(num_disconnects),
     .reconnect_mode_i(reconnect_mode),
+    .rgf_overflow_i(rgf_overflow_i),
 
     .reconnect_mode_o(reconnect_mode_regmap),
     .reconnect_mode_write_o(reconnect_mode_write),
