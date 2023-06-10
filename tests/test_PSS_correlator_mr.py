@@ -126,7 +126,7 @@ async def simple_test(dut):
         if dut.m_axis_out_tvalid == 1:
             # print(f'{rx_counter}: rx hdl {dut.m_axis_out_tdata.value}')
             received[rx_cnt] = dut.m_axis_out_tdata.value.integer
-            C0.append(_twos_comp(dut.C0_o.value.integer & (2 ** (C_DW // 2) - 1),C_DW // 2) \
+            C0.append(_twos_comp(dut.C0_o.value.integer & (2 ** (C_DW // 2) - 1), C_DW // 2) \
                     + 1j * _twos_comp((dut.C0_o.value.integer >> (C_DW // 2)) & (2 ** (C_DW // 2) - 1), C_DW // 2))
             C1.append(_twos_comp(dut.C1_o.value.integer & (2 ** (C_DW // 2) - 1), C_DW // 2) \
                     + 1j * _twos_comp((dut.C1_o.value.integer >> (C_DW // 2)) & (2 ** (C_DW // 2) - 1), C_DW // 2))
