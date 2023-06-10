@@ -111,7 +111,7 @@ async def simple_test(dut):
             peak_data[i] = 1
         ax2.plot(peak_data)
         plt.show()
-    assert 429 in received
+    assert 430 in received
 
 # bit growth inside PSS_correlator is a lot, be careful to not make OUT_DW too small !
 @pytest.mark.parametrize("ALGO", [0, 1])

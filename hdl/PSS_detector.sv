@@ -377,7 +377,7 @@ always @(posedge clk_i) begin
         C1_f[0] <= '0;
         C1_f[1] <= '0;
         C1_f[2] <= '0;
-    end else begin
+    end else if (correlator_0_tvalid) begin
         C0_f[0] <= C0[0];
         C0_f[1] <= C0[1];
         C0_f[2] <= C0[2];

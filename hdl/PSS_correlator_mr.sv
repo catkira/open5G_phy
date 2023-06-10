@@ -37,6 +37,7 @@ localparam REQUIRED_OUT_DW = IN_OP_DW + TAP_OP_DW + 1 + $clog2(PSS_LEN);
 
 localparam PSS_LEN_USED = PSS_LEN;
 localparam REQ_MULTS = (PSS_LEN_USED % MULT_REUSE) != 0 ? PSS_LEN_USED / MULT_REUSE + 1 : PSS_LEN_USED / MULT_REUSE;
+initial $display("PSS_correlator_mr: REQ_MULTS = %d", REQ_MULTS);
 
 wire signed [IN_OP_DW - 1 : 0] axis_in_re, axis_in_im;
 assign axis_in_re = s_axis_in_tdata[IN_DW / 2 - 1 -: IN_OP_DW];
@@ -48,13 +49,10 @@ reg signed [TAP_OP_DW - 1 : 0] tap_re, tap_im;
 reg signed [IN_DW - 1 : 0] in [0 : PSS_LEN - 1];
 
 reg valid;
-reg signed [REQUIRED_OUT_DW - 1 : 0] sum_im, sum_re;
-reg signed [REQUIRED_OUT_DW - 1 : 0] C0_im, C0_re, C1_im, C1_re; // partial sums, used for CFO estimation
 initial begin
     if (REQUIRED_OUT_DW > OUT_DW) $display("truncating output from %d to %d bits", REQUIRED_OUT_DW, OUT_DW);
 end
 
-reg unsigned [REQUIRED_OUT_DW - 1: 0] filter_result;
 wire signed [REQUIRED_OUT_DW - 1 : 0] mult_out_re [0 : REQ_MULTS - 1];
 wire signed [REQUIRED_OUT_DW - 1: 0] mult_out_im [0 : REQ_MULTS - 1];
 
@@ -257,20 +255,22 @@ always @(posedge clk_i) begin
 end
 
 // global output process
-always @(posedge clk_i) begin // cannot use $display inside always_ff with iverilog
-    if (!reset_ni) begin
-        sum_valid <= '0;
-        valid <= '0;
-        C0_im = '0;
-        C1_im = '0;
-        C0_re = '0;
-        C1_re = '0;
-        C0_f <= '0;
-        C1_f <= '0;
-    end
-    else begin
-        valid <= s_axis_in_tvalid;
-        if (mult[0].ready) begin
+if (REQ_MULTS > 2) begin
+    reg signed [REQUIRED_OUT_DW - 1 : 0] sum_im, sum_re;
+    reg signed [REQUIRED_OUT_DW - 1 : 0] C0_im, C0_re, C1_im, C1_re; // partial sums, used for CFO estimation
+    always @(posedge clk_i) begin // cannot use $display inside always_ff with iverilog
+        if (!reset_ni) begin
+            sum_valid <= '0;
+            valid <= '0;
+            C0_im = '0;
+            C1_im = '0;
+            C0_re = '0;
+            C1_re = '0;
+            C0_f <= '0;
+            C1_f <= '0;
+        end
+        else begin
+            valid <= s_axis_in_tvalid;
             sum_re = '0;
             sum_im = '0;
             C0_im = '0;
@@ -292,34 +292,66 @@ always @(posedge clk_i) begin // cannot use $display inside always_ff with iveri
             C1_f <= {C1_im, C1_re};
             sum_im_f <= sum_im;
             sum_re_f <= sum_re;
-            sum_valid <= 1;
-        end else begin
-            sum_valid <= '0;
+            sum_valid <= mult[0].ready;
         end
     end
+end else if (REQ_MULTS == 2) begin
+    always @(posedge clk_i) begin
+        if (!reset_ni) begin
+            C0_f <= '0;
+            C1_f <= '0;
+            sum_valid <= '0;
+            valid <= '0;
+        end else begin
+            valid <= s_axis_in_tvalid;
+            C0_f <= {mult_out_im[0], mult_out_re[0]};
+            C1_f <= {mult_out_im[1], mult_out_re[1]};
+            sum_re_f <= mult_out_re[0] + mult_out_re[1];
+            sum_im_f <= mult_out_im[0] + mult_out_im[1];
+            sum_valid <= mult[0].ready;
+        end
+    end
+end else begin
+    initial $display("MULT_REUSE > 64 is not supported!");
+    initial $finish();
 end
 
+
 // output pipeline
+reg                                         sum_valid_ff;
+reg             [C_DW - 1 : 0]              C0_ff, C1_ff;
+reg             [REQUIRED_OUT_DW - 1 : 0]   filter_result, filter_result_tmp1, filter_result_tmp2;
+reg             [REQUIRED_OUT_DW - 1 : 0]   sum_im_abs, sum_re_abs;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         m_axis_out_tvalid <= '0;
         m_axis_out_tdata <= '0;
         C0_o <= '0;
         C1_o <= '0;
+        sum_valid_ff <= '0;
     end else begin
+        // stage 0
         // https://openofdm.readthedocs.io/en/latest/verilog.html
-        if (abs(sum_im_f) > abs(sum_re_f))  filter_result = abs(sum_im_f) + (abs(sum_re_f) >> 2);
-        else                                filter_result = abs(sum_re_f) + (abs(sum_im_f) >> 2);
+        filter_result_tmp1 <= abs(sum_im_f) + (abs(sum_re_f) >> 2);
+        filter_result_tmp2 <= abs(sum_re_f) + (abs(sum_im_f) >> 2);
+        sum_im_abs <= abs(sum_im_f);
+        sum_re_abs <= abs(sum_re_f);
 
+        C0_ff <= C0_f;
+        C1_ff <= C1_f;
+        sum_valid_ff <= sum_valid;
+
+        // stage 1
+        filter_result = (sum_im_abs > sum_re_abs) ? filter_result_tmp1 : filter_result_tmp2;
         if (REQUIRED_OUT_DW >= OUT_DW) begin
             m_axis_out_tdata <= enable_i ? filter_result[REQUIRED_OUT_DW - 1 -: OUT_DW] : '0;
         end else begin
             // m_axis_out_tdata <= {{(OUT_DW - REQUIRED_OUT_DW){1'b0}}, filter_result};   // do zero padding
             m_axis_out_tdata <= enable_i ? {{(OUTPUT_PAD_BITS){1'b0}}, filter_result} : '0;
         end 
-        m_axis_out_tvalid <= sum_valid;
-        C0_o <= C0_f;
-        C1_o <= C1_f;
+        m_axis_out_tvalid <= sum_valid_ff;
+        C0_o <= C0_ff;
+        C1_o <= C1_ff;
     end
 end
 
