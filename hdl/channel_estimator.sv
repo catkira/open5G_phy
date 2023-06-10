@@ -95,8 +95,8 @@ for (ii = 0; ii < 8; ii = ii + 1) begin : LFSR_1
                 // $display("cinit = %x", c_init);
             end
             if (state_PBCH_DMRS == 3) begin
-                if (PBCH_DMRS_cnt[0] == 0) PBCH_DMRS[ii][PBCH_DMRS_cnt >> 1][1] = (lfsr_out_0 ^ out);
-                else                       PBCH_DMRS[ii][PBCH_DMRS_cnt >> 1][0] = (lfsr_out_0 ^ out);
+                if (PBCH_DMRS_cnt[0] == 0) PBCH_DMRS[ii][PBCH_DMRS_cnt >> 1][1] <= (lfsr_out_0 ^ out);
+                else                       PBCH_DMRS[ii][PBCH_DMRS_cnt >> 1][0] <= (lfsr_out_0 ^ out);
 
                 // if ((ii == 1) && !PBCH_DMRS_cnt[0] && (PBCH_DMRS_cnt > 1)) begin
                 //     $display("dmrs[%d] = %b", (PBCH_DMRS_cnt >> 1) - 1,  PBCH_DMRS[ii][(PBCH_DMRS_cnt >> 1) - 1]);
@@ -152,7 +152,7 @@ always @(posedge clk_i) begin
             3: begin // store PBCH DMRS in 4 separate processes (see generate for loop above)
                 // PBCH_DMRS can be used for channel estimation starting from now
                 // assuming that the usage starts at the lowest index
-                PBCH_DMRS_ready <= 1;
+                if (PBCH_DMRS_cnt == 1)  PBCH_DMRS_ready <= 1;
                 if (PBCH_DMRS_cnt == (2*PBCH_DMRS_LEN - 1)) begin
                     state_PBCH_DMRS <= 4;
                 end
@@ -406,6 +406,7 @@ reg [IN_DW - 1 : 0]            corr_data_fifo_in_data;
 reg                            corr_data_fifo_in_valid;
 reg [BLK_EXP_LEN + 1 : 0]      corr_data_fifo_in_tuser;
 reg                            corr_data_fifo_in_last;
+reg [1 : 0]                    PBCH_DMRS_pilot;
 
 wire in_fifo_ready = angle_FIFO_valid && in_fifo_valid && (SC_cnt != SYMBOL_LEN) && (state_corrector != WAIT_FOR_INPUTS);
 wire angle_fifo_ready = angle_FIFO_valid && in_fifo_valid && (SC_cnt != SYMBOL_LEN) && (state_corrector != WAIT_FOR_INPUTS);
@@ -425,6 +426,7 @@ always @(posedge clk_i) begin
         corr_data_fifo_in_last <= '0;
         start_idx <= '0;
         ibar_SSB_buf <= '0;
+        PBCH_DMRS_pilot <= '0;
         // in_fifo_ready <= '0;
         // angle_FIFO_ready <= '0;        
     end else begin
@@ -451,6 +453,7 @@ always @(posedge clk_i) begin
                         remaining_syms <= SYMS_PER_PBCH - 1;  
                         symbol_type <= SYMBOL_TYPE_PBCH;
                         state_corrector <= CALC_CORRECTION;
+                        PBCH_DMRS_pilot <= PBCH_DMRS[ibar_SSB_detected][0];
                         ibar_SSB_buf <= ibar_SSB_detected;
                     end else if (in_fifo_user[0] == 0) begin
                         // $display("calculate_phase: data symbol");
@@ -479,7 +482,7 @@ always @(posedge clk_i) begin
                         // we are at a pilot location, calculate correction factor
                         // one corr_angle has to be used for 4 corr_data, because pilots are every 4th SC
                         // use simple piecewise const. corr. angle for now, it can be improved with linear interpolation later                            
-                        case(PBCH_DMRS[ibar_SSB_buf][pilot_SC_idx])
+                        case(PBCH_DMRS_pilot)
                             2'b00 : pilot_angle = DEG45;
                             2'b01 : pilot_angle = -DEG45;
                             2'b10 : pilot_angle = DEG135;
@@ -499,6 +502,7 @@ always @(posedge clk_i) begin
                             corr_data_fifo_in_valid <= 0;                            
                             if (SSB_cnt == 0)  $display("pilot at SC %d, rx angle = %f deg, ideal angle = %f, delta = %f", SC_cnt,
                                 $itor(angle_FIFO_data) / DEG45 * 45, $itor(pilot_angle) / DEG45 * 45, ($itor(angle_FIFO_data - pilot_angle)) / DEG45 * 45);
+                            PBCH_DMRS_pilot <= PBCH_DMRS[ibar_SSB_buf][pilot_SC_idx + 1]; // pre-load for better timing
                             pilot_SC_idx <= pilot_SC_idx + 1;
                         end
                     end else begin
