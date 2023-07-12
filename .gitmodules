@@ -6,7 +6,7 @@
 	url = https://github.com/catkira/LFSR
 [submodule "submodules/FFT"]
 	path = submodules/FFT
-	url = https://github.com/catkira/FFT.git
+	url = git@github.com:catkira/FFT.git
 [submodule "submodules/DDS"]
 	path = submodules/DDS
 	url = https://github.com/catkira/DDS.git
