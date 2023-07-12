@@ -280,9 +280,10 @@ wire do_manual_ta = ((sym_cnt == SYM_PER_SF - 1) && ((sample_cnt == (FFT_LEN + c
 wire end_of_symbol_ta_manual = (timing_advance_mode == TA_MODE_MANUAL) && 
     (do_manual_ta || (end_of_symbol_ && (!timing_advance_queued || (sym_cnt != SYM_PER_SF - 1))));
 
-wire end_of_symbol_ta_auto = (timing_advance_mode == TA_MODE_AUTO) && find_SSB && N_id_2_valid_i;
-wire end_of_symbol = (end_of_symbol_ && !find_SSB && (timing_advance_mode == TA_MODE_AUTO)) || end_of_symbol_ta_auto || end_of_symbol_ta_manual;
+wire end_of_symbol_ta_auto = (timing_advance_mode == TA_MODE_AUTO) && 
+    ((find_SSB && N_id_2_valid_i) || (end_of_symbol_ && !find_SSB &&));
 
+wire end_of_symbol = end_of_symbol_ta_auto || end_of_symbol_ta_manual;
 wire end_of_subframe = end_of_symbol && (sym_cnt == SYM_PER_SF - 1);
 wire end_of_frame = end_of_subframe && (subframe_number == SUBFRAMES_PER_FRAME - 1);
 wire [$clog2(FFT_LEN + MAX_CP_LEN) - 1 + 1 : 0] sample_cnt_next = end_of_symbol ? '0 : sample_cnt + 1;
