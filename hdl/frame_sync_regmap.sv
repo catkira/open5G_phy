@@ -100,6 +100,7 @@ always @(posedge clk_i) begin
                 9'h00C: rdata <= clks_btwn_SSBs_i;
                 9'h00D: rdata <= num_disconnects_i;
                 9'h00E: rdata <= '0;
+                9'h011: rdata <= {31'd0, timing_advance_mode_o};
                 default: rdata <= '0;
             endcase
         end

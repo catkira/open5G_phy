@@ -276,9 +276,11 @@ wire end_of_symbol_ = sample_cnt == (FFT_LEN + current_CP_len - 1);
 
 // manual timing_advance can happend at the end of a subframe
 reg signed [31 : 0] timing_advance;
-wire end_of_symbol_ta_manual = (timing_advance_mode == TA_MODE_MANUAL) && timing_advance_queued && (sym_cnt == SYM_PER_SF - 1) && (sample_cnt == (FFT_LEN + current_CP_len - 1) + timing_advance);
+wire end_of_symbol_ta_manual = (timing_advance_mode == TA_MODE_MANUAL) && 
+    (((sym_cnt == SYM_PER_SF - 1) && ((sample_cnt == (FFT_LEN + current_CP_len - 1) + timing_advance) && timing_advance_queued)) 
+        || (end_of_symbol_ && (!timing_advance_queued || (sym_cnt != SYM_PER_SF - 1))));
 
-wire end_of_symbol_ta_auto = find_SSB && N_id_2_valid_i;
+wire end_of_symbol_ta_auto = (timing_advance_mode == TA_MODE_AUTO) && find_SSB && N_id_2_valid_i;
 wire end_of_symbol = (end_of_symbol_ && !find_SSB && (timing_advance_mode == TA_MODE_AUTO)) || end_of_symbol_ta_auto || end_of_symbol_ta_manual;
 
 wire end_of_subframe = end_of_symbol && (sym_cnt == SYM_PER_SF - 1);
@@ -303,7 +305,7 @@ always @(posedge clk_i) begin
     end else if(timing_advance_write) begin
         timing_advance <= timing_advance_regmap;
         timing_advance_queued <= 1;
-    end else if(end_of_symbol_ta_manual)
+    end else if(end_of_symbol_ta_manual && (sym_cnt == SYM_PER_SF - 1))
         timing_advance_queued <= '0;
 end
 
