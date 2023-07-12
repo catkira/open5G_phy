@@ -273,7 +273,14 @@ localparam FIND_SAMPLES_TOLERANCE = 3 * CIC_RATE;
 
 reg signed [7 : 0] sample_cnt_mismatch;
 wire end_of_symbol_ = sample_cnt == (FFT_LEN + current_CP_len - 1);
-wire end_of_symbol = (end_of_symbol_ && !find_SSB) || (find_SSB && N_id_2_valid_i);
+
+// manual timing_advance can happend at the end of a subframe
+reg signed [31 : 0] timing_advance;
+wire end_of_symbol_ta_manual = (timing_advance_mode == TA_MODE_MANUAL) && timing_advance_queued && (sym_cnt == SYM_PER_SF - 1) && (sample_cnt == (FFT_LEN + current_CP_len - 1) + timing_advance);
+
+wire end_of_symbol_ta_auto = find_SSB && N_id_2_valid_i;
+wire end_of_symbol = (end_of_symbol_ && !find_SSB && (timing_advance_mode == TA_MODE_AUTO)) || end_of_symbol_ta_auto || end_of_symbol_ta_manual;
+
 wire end_of_subframe = end_of_symbol && (sym_cnt == SYM_PER_SF - 1);
 wire end_of_frame = end_of_subframe && (subframe_number == SUBFRAMES_PER_FRAME - 1);
 wire [$clog2(FFT_LEN + MAX_CP_LEN) - 1 + 1 : 0] sample_cnt_next = end_of_symbol ? '0 : sample_cnt + 1;
@@ -282,6 +289,23 @@ wire [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_number_next = end_of_subframe ? (e
 wire [SFN_WIDTH - 1 : 0] sfn_next = end_of_frame ? (sfn == SFN_MAX - 1 ? 0 : sfn + 1) : sfn;
 assign clear_detector_no = !(state == RESET_DETECTOR);
 reg [31 : 0] num_disconnects;
+
+localparam TA_MODE_AUTO = 0;
+localparam TA_MODE_MANUAL = 1;
+wire timing_advance_mode;
+wire timing_advance_write;
+wire signed [31 : 0] timing_advance_regmap;
+reg timing_advance_queued;
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        timing_advance <= 0;
+        timing_advance_queued <= '0;
+    end else if(timing_advance_write) begin
+        timing_advance <= timing_advance_regmap;
+        timing_advance_queued <= 1;
+    end else if(end_of_symbol_ta_manual)
+        timing_advance_queued <= '0;
+end
 
 always @(posedge clk_i) begin
     if (!reset_ni) begin
@@ -370,8 +394,8 @@ always @(posedge clk_i) begin
                     end
                     if (s_axis_in_tvalid) begin
                         if ((sample_cnt == FFT_LEN + current_CP_len - FIND_SAMPLES_TOLERANCE) && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1))) begin
-                            if (reconnect_mode == RECONNECT_MODE_DISC)  state <= RESET_DETECTOR;
-                            else                                        find_SSB <= 1;  // go into find state FIND_SAMPLES_TOLERANCE SCs before the symbol ends
+                            if (reconnect_mode == RECONNECT_MODE_DISC)      state <= RESET_DETECTOR;
+                            else if (timing_advance_mode == TA_MODE_AUTO)   find_SSB <= 1;  // go into find state FIND_SAMPLES_TOLERANCE SCs before the symbol ends
                         end
                     end                    
                 end
@@ -390,8 +414,9 @@ always @(posedge clk_i) begin
                         if ((sym_cnt_next == 0) || (sym_cnt_next == 7))     current_CP_len <= CP1_LEN;
                         else                                                current_CP_len <= CP2_LEN;
                         
-                        if (find_SSB && N_id_2_valid_i) syms_since_last_SSB <= '0;
-                        else                            syms_since_last_SSB <= syms_since_last_SSB + 1;
+                        if ((find_SSB && N_id_2_valid_i) || 
+                            (timing_advance_mode == TA_MODE_MANUAL && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1)))) syms_since_last_SSB <= '0;
+                        else                                                    syms_since_last_SSB <= syms_since_last_SSB + 1;
                     end
                     sample_cnt <= sample_cnt_next;
                     sym_cnt <= sym_cnt_next;
@@ -461,6 +486,9 @@ frame_sync_regmap_i(
 
     .reconnect_mode_o(reconnect_mode_regmap),
     .reconnect_mode_write_o(reconnect_mode_write),
+    .timing_advance_write_o(timing_advance_write),
+    .timing_advance_o(timing_advance_regmap),
+    .timing_advance_mode_o(timing_advance_mode),
 
     .s_axi_if_awaddr(s_axi_awaddr),
     .s_axi_if_awvalid(s_axi_awvalid),
