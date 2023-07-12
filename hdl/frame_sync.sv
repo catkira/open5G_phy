@@ -276,9 +276,9 @@ wire end_of_symbol_ = sample_cnt == (FFT_LEN + current_CP_len - 1);
 
 // manual timing_advance can happend at the end of a subframe
 reg signed [31 : 0] timing_advance;
+wire do_manual_ta = ((sym_cnt == SYM_PER_SF - 1) && ((sample_cnt == (FFT_LEN + current_CP_len - 1) + timing_advance) && timing_advance_queued));
 wire end_of_symbol_ta_manual = (timing_advance_mode == TA_MODE_MANUAL) && 
-    (((sym_cnt == SYM_PER_SF - 1) && ((sample_cnt == (FFT_LEN + current_CP_len - 1) + timing_advance) && timing_advance_queued)) 
-        || (end_of_symbol_ && (!timing_advance_queued || (sym_cnt != SYM_PER_SF - 1))));
+    (do_manual_ta || (end_of_symbol_ && (!timing_advance_queued || (sym_cnt != SYM_PER_SF - 1))));
 
 wire end_of_symbol_ta_auto = (timing_advance_mode == TA_MODE_AUTO) && find_SSB && N_id_2_valid_i;
 wire end_of_symbol = (end_of_symbol_ && !find_SSB && (timing_advance_mode == TA_MODE_AUTO)) || end_of_symbol_ta_auto || end_of_symbol_ta_manual;
@@ -403,6 +403,7 @@ always @(posedge clk_i) begin
                 end
 
                 if (N_id_2_valid_i && find_SSB) SSB_start_o <= '1;
+                else if (do_manual_ta && end_of_symbol) SSB_start_o <= '1;
                 else                            SSB_start_o <= '0;
 
                 out_valid <= s_axis_in_tvalid;
