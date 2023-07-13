@@ -281,7 +281,7 @@ wire end_of_symbol_ta_manual = (timing_advance_mode == TA_MODE_MANUAL) &&
     (do_manual_ta || (end_of_symbol_ && (!timing_advance_queued || (sym_cnt != SYM_PER_SF - 1))));
 
 wire end_of_symbol_ta_auto = (timing_advance_mode == TA_MODE_AUTO) && 
-    ((find_SSB && N_id_2_valid_i) || (end_of_symbol_ && !find_SSB &&));
+    ((find_SSB && N_id_2_valid_i) || (end_of_symbol_ && !find_SSB));
 
 wire end_of_symbol = end_of_symbol_ta_auto || end_of_symbol_ta_manual;
 wire end_of_subframe = end_of_symbol && (sym_cnt == SYM_PER_SF - 1);
