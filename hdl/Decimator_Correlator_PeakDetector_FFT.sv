@@ -100,7 +100,6 @@ reg [IN_DW - 1 : 0]     fs_out_tdata;
 reg [USER_WIDTH - 1 : 0] fs_out_tuser;
 reg fs_out_tvalid;
 reg fs_out_SSB_start;
-reg fs_out_symbol_start;
 wire fs_out_tlast;
 
 frame_sync #(
@@ -125,7 +124,6 @@ frame_sync_i
     .m_axis_out_tuser(fs_out_tuser),
     .m_axis_out_tlast(fs_out_tlast),
     .m_axis_out_tvalid(fs_out_tvalid),
-    .symbol_start_o(fs_out_symbol_start),
     .SSB_start_o(fs_out_SSB_start)
 );
 
