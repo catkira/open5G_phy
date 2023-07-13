@@ -1,5 +1,7 @@
 [![Verify](https://github.com/catkira/open5G_rx/actions/workflows/verify.yml/badge.svg)](https://github.com/catkira/open5G_rx/actions/workflows/verify.yml)
 
+Note: This documentation and code is out-dated.
+
 # Overview
 This is a customizable synthesizable 5G NR lower PHY written in Verilog intended to be used in a UE (user equipment). It can run on an [AntSDR e310]([https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/adalm-pluto.html](https://de.aliexpress.com/item/1005003181244737.html)), which has a Xilinx® Zynq Z-7020 with only 220 DSP slices and 85K logic cells, at 7.68 MSPS (512-FFT), 15.36 MSPS (1024-FFT) is probably also possible but not yet tested. In this configuration 25 PRBs (physical ressource blocks) can be used, which results in a so called '5 MHz' 5G channel (the usable bandwidth is actually 4.5 MHz) which could be made 5G-NR RedCap compliant.
 <br>
