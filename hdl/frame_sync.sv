@@ -434,6 +434,43 @@ always @(posedge clk_i) begin
     end
 end
 
+// ----------------------------------------------------------------
+// This process sets symbol_start_o to 1 at the beginning of every symbol,
+// but only when the FSM above is in SYNCED state
+reg symbol_state;
+reg symbol_start;
+always @(posedge clk_i) begin
+    if (!reset_ni) begin
+        symbol_start <= '0;
+        symbol_state <= '0;
+    end else begin
+        case (symbol_state)
+            0: begin
+                // first symbol of SSB can arrive a bit earlier or later,
+                // therefore need a special check for this case
+                if (find_SSB) begin
+                    if ((state != WAIT_FOR_SSB) && N_id_2_valid_i) begin
+                        symbol_state <= 1;
+                        symbol_start <= 1;
+                    end
+                end else begin
+                    if ((state != WAIT_FOR_SSB) && (sample_cnt == 0) && (s_axis_in_tvalid)) begin
+                        symbol_state <= 1;
+                        symbol_start <= 1;
+                    end
+                end
+            end
+            1: begin
+                symbol_start <= '0;
+                if ((sample_cnt == 1) || (state == WAIT_FOR_SSB)) symbol_state <= '0;
+            end
+        endcase
+    end
+end
+
+// store sample_id into FIFO at the beginning of each symbol
+assign sample_id_valid = symbol_start;
+
 frame_sync_regmap #(
     .ID(0),
     .ADDRESS_WIDTH(AXI_ADDRESS_WIDTH)
