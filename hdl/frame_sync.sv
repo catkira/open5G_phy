@@ -275,7 +275,7 @@ wire end_of_symbol_ = sample_cnt == (FFT_LEN + current_CP_len - 1);
 
 // manual timing_advance can happend at the end of a subframe
 reg signed [31 : 0] timing_advance;
-wire do_manual_ta = ((sym_cnt == SYM_PER_SF - 1) && ((sample_cnt == FFT_LEN + current_CP_len - 1 + timing_advance) && timing_advance_queued));
+wire do_manual_ta = ((sym_cnt == SYM_PER_SF - 1) && ((sample_cnt == FFT_LEN + current_CP_len - 1 - timing_advance) && timing_advance_queued));
 wire end_of_symbol_ta_manual = (timing_advance_mode == TA_MODE_MANUAL) && 
     (do_manual_ta || (end_of_symbol_ && (!timing_advance_queued || (sym_cnt != SYM_PER_SF - 1))));
 
@@ -305,7 +305,8 @@ always @(posedge clk_i) begin
     end else if(timing_advance_write) begin
         timing_advance <= timing_advance_regmap;
         timing_advance_queued <= 1;
-    end else if(end_of_symbol_ta_manual && do_manual_ta)
+    end else if((sym_cnt == 0) && (sample_cnt == 100)) 
+        // clear timing_advance_queued somewhere in the middle of the next sample after the correction event
         timing_advance_queued <= '0;
 end
 
