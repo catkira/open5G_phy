@@ -42,7 +42,6 @@ module frame_sync #(
     output  reg        [USER_WIDTH - 1 : 0]         m_axis_out_tuser,
     output  reg                                     m_axis_out_tlast,
     output  reg                                     m_axis_out_tvalid,
-    output  reg                                     symbol_start_o,
     output  reg                                     SSB_start_o,
     output  reg                                     reset_fft_no,
     output  reg        [1 : 0]                      N_id_2_o,
@@ -276,7 +275,7 @@ wire end_of_symbol_ = sample_cnt == (FFT_LEN + current_CP_len - 1);
 
 // manual timing_advance can happend at the end of a subframe
 reg signed [31 : 0] timing_advance;
-wire do_manual_ta = ((sym_cnt == SYM_PER_SF - 1) && ((sample_cnt == (FFT_LEN + current_CP_len - 1) + timing_advance) && timing_advance_queued));
+wire do_manual_ta = ((sym_cnt == SYM_PER_SF - 1) && ((sample_cnt == FFT_LEN + current_CP_len - 1 + timing_advance) && timing_advance_queued));
 wire end_of_symbol_ta_manual = (timing_advance_mode == TA_MODE_MANUAL) && 
     (do_manual_ta || (end_of_symbol_ && (!timing_advance_queued || (sym_cnt != SYM_PER_SF - 1))));
 
@@ -306,7 +305,7 @@ always @(posedge clk_i) begin
     end else if(timing_advance_write) begin
         timing_advance <= timing_advance_regmap;
         timing_advance_queued <= 1;
-    end else if(end_of_symbol_ta_manual && (sym_cnt == SYM_PER_SF - 1))
+    end else if(end_of_symbol_ta_manual && do_manual_ta)
         timing_advance_queued <= '0;
 end
 
@@ -435,42 +434,6 @@ always @(posedge clk_i) begin
     end
 end
 
-// ----------------------------------------------------------------
-// This process sets symbol_start_o to 1 at the beginning of every symbol,
-// but only when the FSM above is in SYNCED state
-reg symbol_state;
-always @(posedge clk_i) begin
-    if (!reset_ni) begin
-        symbol_start_o <= '0;
-        symbol_state <= '0;
-    end else begin
-        case (symbol_state)
-            0: begin
-                // first symbol of SSB can arrive a bit earlier or later,
-                // therefore need a special check for this case
-                if (find_SSB) begin
-                    if ((state != WAIT_FOR_SSB) && N_id_2_valid_i) begin
-                        symbol_state <= 1;
-                        symbol_start_o <= 1;
-                    end
-                end else begin
-                    if ((state != WAIT_FOR_SSB) && (sample_cnt == 0) && (s_axis_in_tvalid)) begin
-                        symbol_state <= 1;
-                        symbol_start_o <= 1;
-                    end
-                end
-            end
-            1: begin
-                symbol_start_o <= '0;
-                if ((sample_cnt == 1) || (state == WAIT_FOR_SSB)) symbol_state <= '0;
-            end
-        endcase
-    end
-end
-
-// store sample_id into FIFO at the beginning of each symbol
-assign sample_id_valid = symbol_start_o;
-
 frame_sync_regmap #(
     .ID(0),
     .ADDRESS_WIDTH(AXI_ADDRESS_WIDTH)
@@ -493,6 +456,8 @@ frame_sync_regmap_i(
     .timing_advance_write_o(timing_advance_write),
     .timing_advance_o(timing_advance_regmap),
     .timing_advance_mode_o(timing_advance_mode),
+    .timing_advance_i(timing_advance),
+    .timing_advance_queued_i(timing_advance_queued),
 
     .s_axi_if_awaddr(s_axi_awaddr),
     .s_axi_if_awvalid(s_axi_awvalid),
