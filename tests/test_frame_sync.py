@@ -127,8 +127,6 @@ async def stream_tb(dut):
         if pos == SSB_POS[1] + 2:
             assert dut.SSB_start_o.value == 1
 
-        if dut.symbol_start_o.value == 1:
-            print('symbol_start')
         if dut.SSB_start_o.value == 1:
             print(f'SSB_start at pos = {pos}')
         clk_cnt += 1

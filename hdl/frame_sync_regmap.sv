@@ -60,9 +60,14 @@ module frame_sync_regmap #(
     input           [31 : 0]                    num_disconnects_i,
     input           [1 : 0]                     reconnect_mode_i,
     input                                       rgf_overflow_i,
+    input           [31 : 0]                    timing_advance_i,
+    input                                       timing_advance_queued_i,
 
     output                                      reconnect_mode_write_o,
-    output          [1 : 0]                     reconnect_mode_o
+    output          [1 : 0]                     reconnect_mode_o,
+    output                                      timing_advance_write_o,
+    output          [31 : 0]                    timing_advance_o,
+    output  reg                                 timing_advance_mode_o
 );
 
 localparam PCORE_VERSION = 'h00010061; // 1.0.a
@@ -97,6 +102,9 @@ always @(posedge clk_i) begin
                 9'h00C: rdata <= clks_btwn_SSBs_i;
                 9'h00D: rdata <= num_disconnects_i;
                 9'h00E: rdata <= '0;
+                9'h010: rdata <= timing_advance_i;
+                9'h011: rdata <= {31'd0, timing_advance_mode_o};
+                9'h012: rdata <= timing_advance_queued_i;
                 default: rdata <= '0;
             endcase
         end
@@ -115,11 +123,15 @@ end
 
 assign reconnect_mode_write_o = wreq && (waddr == 9'h006);
 assign reconnect_mode_o = wdata[1 : 0];
+assign timing_advance_write_o = wreq && (waddr == 9'h010);
+assign timing_advance_o = wdata;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
+        timing_advance_mode_o <= '0;
     end else begin
         if (wreq) begin
             case (waddr)
+                9'h011: timing_advance_mode_o <= wdata[0];
                 default: begin end
             endcase
         end
