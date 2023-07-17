@@ -298,6 +298,7 @@ wire timing_advance_mode;
 wire timing_advance_write;
 wire signed [31 : 0] timing_advance_regmap;
 reg timing_advance_queued;
+wire [7: 0] sym_cnt_offset;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         timing_advance <= 0;
@@ -415,8 +416,10 @@ always @(posedge clk_i) begin
                     out_last <= sample_cnt == (FFT_LEN + current_CP_len - 2);
 
                     if (end_of_symbol) begin
-                        if ((sym_cnt_next == 0) || (sym_cnt_next == 7))     current_CP_len <= CP1_LEN;
-                        else                                                current_CP_len <= CP2_LEN;
+                        if (((sym_cnt_next + sym_cnt_offset) % 14  == 0) || ((sym_cnt_next + sym_cnt_offset) % 14 == 7))
+                            current_CP_len <= CP1_LEN;
+                        else
+                            current_CP_len <= CP2_LEN;
                         
                         if ((find_SSB && N_id_2_valid_i) || 
                             (timing_advance_mode == TA_MODE_MANUAL && (syms_since_last_SSB == (SYMS_BTWN_SSB - 1)))) syms_since_last_SSB <= '0;
@@ -488,14 +491,15 @@ frame_sync_regmap_i(
     .num_disconnects_i(num_disconnects),
     .reconnect_mode_i(reconnect_mode),
     .rgf_overflow_i(rgf_overflow_i),
+    .timing_advance_i(timing_advance),
+    .timing_advance_queued_i(timing_advance_queued),
 
     .reconnect_mode_o(reconnect_mode_regmap),
     .reconnect_mode_write_o(reconnect_mode_write),
     .timing_advance_write_o(timing_advance_write),
     .timing_advance_o(timing_advance_regmap),
     .timing_advance_mode_o(timing_advance_mode),
-    .timing_advance_i(timing_advance),
-    .timing_advance_queued_i(timing_advance_queued),
+    .sym_cnt_offset_o(sym_cnt_offset),
 
     .s_axi_if_awaddr(s_axi_awaddr),
     .s_axi_if_awvalid(s_axi_awvalid),

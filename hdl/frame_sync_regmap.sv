@@ -67,7 +67,8 @@ module frame_sync_regmap #(
     output          [1 : 0]                     reconnect_mode_o,
     output                                      timing_advance_write_o,
     output          [31 : 0]                    timing_advance_o,
-    output  reg                                 timing_advance_mode_o
+    output  reg                                 timing_advance_mode_o,
+    output  reg     [7 : 0]                     sym_cnt_offset_o
 );
 
 localparam PCORE_VERSION = 'h00010061; // 1.0.a
@@ -105,6 +106,7 @@ always @(posedge clk_i) begin
                 9'h010: rdata <= timing_advance_i;
                 9'h011: rdata <= {31'd0, timing_advance_mode_o};
                 9'h012: rdata <= timing_advance_queued_i;
+                9'h013: rdata <= sym_cnt_offset_o;
                 default: rdata <= '0;
             endcase
         end
@@ -128,10 +130,12 @@ assign timing_advance_o = wdata;
 always @(posedge clk_i) begin
     if (!reset_ni) begin
         timing_advance_mode_o <= '0;
+        sym_cnt_offset_o <= '0;
     end else begin
         if (wreq) begin
             case (waddr)
                 9'h011: timing_advance_mode_o <= wdata[0];
+                9'h013: sym_cnt_offset_o <= wdata;
                 default: begin end
             endcase
         end
