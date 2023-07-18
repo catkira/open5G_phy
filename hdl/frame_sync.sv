@@ -210,37 +210,6 @@ always @(posedge clk_i) begin
     end
 end
 
-// This function is only used for debugging for now
-// assumes SSB pattern case A (TS 38.213)
-function is_SSB_location;
-    input [SFN_WIDTH - 1 : 0] sfn;
-    input [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe;
-    input [SYMBOL_NUMBER_WIDTH - 1 : 0] sym;
-    input [$clog2(FFT_LEN + MAX_CP_LEN) - 1 : 0] sample_cnt;
-    input [2 : 0] ibar_SSB;
-    input [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len;
-    input [3 : 0] sample_ahead;
-    begin
-        if ((sample_cnt + sample_ahead) % (FFT_LEN + current_CP_len) != 0) is_SSB_location = 0;
-        else begin
-            case (ibar_SSB)
-                0 : begin
-                    is_SSB_location = (sample_cnt == 0) && (sym == 2) && (subframe == 0);
-                end
-                1 : begin
-                    is_SSB_location = (sample_cnt == 0) && (sym == 8) && (subframe == 0);
-                end
-                2 : begin
-                    is_SSB_location = (sample_cnt == 0) && (sym == 2) && (subframe == 1);
-                end
-                3 : begin
-                    is_SSB_location = (sample_cnt == 0) && (sym == 8) && (subframe == 1);
-                end
-            endcase
-        end
-    end
-endfunction
-
 // ---------------------------------------------------------------------------------------------------//
 // FSM for keeping track of current subframe number and symbol number within a subframe 
 // and sending the current CP length to the FFT_demod core
@@ -366,7 +335,6 @@ always @(posedge clk_i) begin
                         // expected sample_cnt for the next SSB is the last sample of the previous symbol, if actual sample_cnt deviates +-1,
                         // perform realignment by sending SSB_start_o to FFT_demod
                         $display("frame_sync: SSB at sfn = %d, subframe = %d, symbol = %d, sample = %d", sfn, subframe_number, sym_cnt, sample_cnt);
-                        $display("frame_sync: is_SSB_location = %d", is_SSB_location(sfn_next, subframe_number_next, sym_cnt_next, sample_cnt_next, 0, current_CP_len, 0));
                         if (sample_cnt == (FFT_LEN + current_CP_len - 1)) begin
                             sample_cnt_mismatch <= 0;
                             // SSB arrives as expected, no STO correction needed
