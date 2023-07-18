@@ -28,6 +28,7 @@ module receiver
     parameter VARIABLE_NOISE_LIMIT = 1,
     parameter INITIAL_DETECTION_SHIFT = 4,
     parameter INITIAL_CFO_MODE = 0,
+    parameter HAS_CFO_COR = 1,
 
     localparam BLK_EXP_LEN = 8,
     localparam FFT_LEN = 2 ** NFFT,
@@ -336,84 +337,93 @@ sample_id_cdc_i(
     .m_axis_out_tempty()
 );
 
-reg signed [DDS_PHASE_DW - 1 : 0]   CFO_DDS_inc, CFO_DDS_inc_f;
-reg                                 CFO_valid;
-wire [DDS_OUT_DW - 1 : 0]           DDS_out;
-wire DDS_out_valid;
-reg [DDS_PHASE_DW - 1 : 0]          DDS_phase;
-reg                                 DDS_phase_valid;
 
-always @(posedge clk_i) begin
-    if (!reset_ni) begin
-        DDS_phase <= '0;
-        DDS_phase_valid <= '0;
-        CFO_DDS_inc_f <= '0;
-    end 
-    else begin
-        DDS_phase_valid <= 1;
-        if (CFO_mode == 0) begin
-            if (CFO_valid) begin
-                // CFO_DDS_inc_f <= '0; // deactive CFO correction for debugging
-                CFO_DDS_inc_f <= CFO_DDS_inc_f - CFO_DDS_inc;  // incoming CFO_DDS_inc are relative to last one !
-            end
-            if(FIFO_out_tvalid) begin
-                DDS_phase <= DDS_phase + CFO_DDS_inc_f;
-            end
-        end else begin
-            // manual CFO mode
-            CFO_DDS_inc_f <= '0;
+reg                                 CFO_valid;
+reg signed [DDS_PHASE_DW - 1 : 0]   CFO_DDS_inc;
+if (HAS_CFO_COR) begin
+    reg signed [DDS_PHASE_DW - 1 : 0]   CFO_DDS_inc_f;
+    wire [DDS_OUT_DW - 1 : 0]           DDS_out;
+    wire DDS_out_valid;
+    reg [DDS_PHASE_DW - 1 : 0]          DDS_phase;
+    reg                                 DDS_phase_valid;
+
+    always @(posedge clk_i) begin
+        if (!reset_ni) begin
             DDS_phase <= '0;
+            DDS_phase_valid <= '0;
+            CFO_DDS_inc_f <= '0;
+        end 
+        else begin
+            DDS_phase_valid <= 1;
+            if (CFO_mode == 0) begin
+                if (CFO_valid) begin
+                    // CFO_DDS_inc_f <= '0; // deactive CFO correction for debugging
+                    CFO_DDS_inc_f <= CFO_DDS_inc_f - CFO_DDS_inc;  // incoming CFO_DDS_inc are relative to last one !
+                end
+                if(FIFO_out_tvalid) begin
+                    DDS_phase <= DDS_phase + CFO_DDS_inc_f;
+                end
+            end else begin
+                // manual CFO mode
+                CFO_DDS_inc_f <= '0;
+                DDS_phase <= '0;
+            end
         end
     end
+
+    dds #(
+        .PHASE_DW(DDS_PHASE_DW),
+        .OUT_DW(DDS_OUT_DW/2),
+        .USE_TAYLOR(1),
+        .LUT_DW(16),
+        .SIN_COS(1),
+        .NEGATIVE_SINE(0),
+        .NEGATIVE_COSINE(0),
+        .USE_LUT_FILE(0)
+    )
+    dds_i(
+        .clk(clk_i),
+        .reset_n(reset_ni),
+
+        .s_axis_phase_tdata(DDS_phase),
+        .s_axis_phase_tvalid(DDS_phase_valid),
+
+        .m_axis_out_tdata(DDS_out),
+        .m_axis_out_tvalid(DDS_out_valid),
+
+        .m_axis_out_sin_tdata(),
+        .m_axis_out_sin_tvalid(),
+        .m_axis_out_cos_tdata(),
+        .m_axis_out_cos_tvalid()
+    );
+
+    complex_multiplier #(
+        .OPERAND_WIDTH_A(DDS_OUT_DW/2),
+        .OPERAND_WIDTH_B(IN_DW/2),
+        .OPERAND_WIDTH_OUT(COMPL_MULT_OUT_DW/2),
+        .BLOCKING(0),
+        .GROWTH_BITS(-2),  // input is rotating vector with length 2^(IN_DW/2 - 1), therefore bit growth is 2 bits less than worst case
+                        // TODO: WARNING, this can create an overflow if the DDS is not perfect (outputs vector with length > 1)
+        .BYTE_ALIGNED(0)
+    )
+    complex_multiplier_i(
+        .aclk(clk_i),
+        .aresetn(reset_ni),
+
+        .s_axis_a_tdata(DDS_out),
+        .s_axis_a_tvalid(DDS_out_valid),
+        .s_axis_b_tdata(FIFO_out_tdata),
+        .s_axis_b_tvalid(FIFO_out_tvalid),
+
+        .m_axis_dout_tdata(mult_out_tdata),
+        .m_axis_dout_tvalid(mult_out_tvalid)
+    );
+end else begin
+    always_comb begin
+        mult_out_tdata <= FIFO_out_tdata;
+        mult_out_tvalid <= FIFO_out_tvalid;
+    end
 end
-
-dds #(
-    .PHASE_DW(DDS_PHASE_DW),
-    .OUT_DW(DDS_OUT_DW/2),
-    .USE_TAYLOR(1),
-    .LUT_DW(16),
-    .SIN_COS(1),
-    .NEGATIVE_SINE(0),
-    .NEGATIVE_COSINE(0),
-    .USE_LUT_FILE(0)
-)
-dds_i(
-    .clk(clk_i),
-    .reset_n(reset_ni),
-
-    .s_axis_phase_tdata(DDS_phase),
-    .s_axis_phase_tvalid(DDS_phase_valid),
-
-    .m_axis_out_tdata(DDS_out),
-    .m_axis_out_tvalid(DDS_out_valid),
-
-    .m_axis_out_sin_tdata(),
-    .m_axis_out_sin_tvalid(),
-    .m_axis_out_cos_tdata(),
-    .m_axis_out_cos_tvalid()
-);
-
-complex_multiplier #(
-    .OPERAND_WIDTH_A(DDS_OUT_DW/2),
-    .OPERAND_WIDTH_B(IN_DW/2),
-    .OPERAND_WIDTH_OUT(COMPL_MULT_OUT_DW/2),
-    .BLOCKING(0),
-    .GROWTH_BITS(-2),  // input is rotating vector with length 2^(IN_DW/2 - 1), therefore bit growth is 2 bits less than worst case
-                       // TODO: WARNING, this can create an overflow if the DDS is not perfect (outputs vector with length > 1)
-    .BYTE_ALIGNED(0)
-)
-complex_multiplier_i(
-    .aclk(clk_i),
-    .aresetn(reset_ni),
-
-    .s_axis_a_tdata(DDS_out),
-    .s_axis_a_tvalid(DDS_out_valid),
-    .s_axis_b_tdata(FIFO_out_tdata),
-    .s_axis_b_tvalid(FIFO_out_tvalid),
-
-    .m_axis_dout_tdata(mult_out_tdata),
-    .m_axis_dout_tvalid(mult_out_tvalid)
-);
 
 assign m_axis_PSS_out_tdata = pss_out_data;
 assign m_axis_PSS_out_tvalid = pss_out_valid;
@@ -450,7 +460,8 @@ PSS_detector #(
     .VARIABLE_NOISE_LIMIT(VARIABLE_NOISE_LIMIT),
     .INITIAL_DETECTION_SHIFT(INITIAL_DETECTION_SHIFT),
     .INITIAL_CFO_MODE(INITIAL_CFO_MODE),
-    .CIC_RATE(CIC_RATE)
+    .CIC_RATE(CIC_RATE),
+    .HAS_CFO_CALC(HAS_CFO_COR)
 )
 PSS_detector_i(
     .clk_i(clk_i),

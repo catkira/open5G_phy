@@ -483,7 +483,7 @@ async def simple_test(dut):
 @pytest.mark.parametrize('INITIAL_CFO_MODE', [0])
 @pytest.mark.parametrize('RND_JITTER', [0])
 def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, LLR_DW, NFFT, MULT_REUSE,
-         INITIAL_DETECTION_SHIFT, INITIAL_CFO_MODE, RND_JITTER, FILE = '30720KSPS_dl_signal'):
+         INITIAL_DETECTION_SHIFT, INITIAL_CFO_MODE, RND_JITTER, FILE = '30720KSPS_dl_signal', HAS_CFO_COR = 0):
     dut = 'receiver'
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -578,6 +578,9 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
     sim_build = os.path.join('sim_build/', folder)
     os.environ['TEST_FILE'] = FILE
 
+    # the following parameters don't appear in the filename
+    parameters['HAS_CFO_COR'] = HAS_CFO_COR
+
     # prepare FFT_demod taps
     FFT_LEN = 2 ** NFFT
     CP_LEN = int(18 * FFT_LEN / 256)  # TODO: only CP2 supported so far! another lut for CP1 symbols is needed or use same CP_ADVANCE for CP1.
@@ -626,33 +629,40 @@ def test(IN_DW, OUT_DW, TAP_DW, WINDOW_LEN, CFO, HALF_CP_ADVANCE, USE_TAP_FILE, 
 @pytest.mark.parametrize('HALF_CP_ADVANCE', [0, 1])
 @pytest.mark.parametrize('MULT_REUSE', [4])
 @pytest.mark.parametrize('RND_JITTER', [0])  # disable RND_JITTER for now
-def test_NFFT8_3840KSPS_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
+@pytest.mark.parametrize('HAS_CFO_COR', [0])
+def test_NFFT8_3840KSPS_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER, HAS_CFO_COR):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
-         NFFT = 8, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
+        NFFT = 8, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER,
+        FILE = FILE, HAS_CFO_COR = HAS_CFO_COR)
 
 @pytest.mark.parametrize('FILE', ['30720KSPS_dl_signal'])
 @pytest.mark.parametrize('HALF_CP_ADVANCE', [1])
 @pytest.mark.parametrize('MULT_REUSE', [4])
 @pytest.mark.parametrize('RND_JITTER', [0])
-def test_NFFT9_7680KSPS_ideal(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
+@pytest.mark.parametrize('HAS_CFO_COR', [0])
+def test_NFFT9_7680KSPS_ideal(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER, HAS_CFO_COR):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
-         NFFT = 9, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
+        NFFT = 9, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER,
+        FILE = FILE, HAS_CFO_COR = HAS_CFO_COR)
     
 @pytest.mark.parametrize('FILE', ['763450KHz_7680KSPS_low_gain'])
 @pytest.mark.parametrize('HALF_CP_ADVANCE', [1])
 @pytest.mark.parametrize('MULT_REUSE', [4])
 @pytest.mark.parametrize('RND_JITTER', [0])
-def test_NFFT9_7680KSPS_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER):
+@pytest.mark.parametrize('HAS_CFO_COR', [0])
+def test_NFFT9_7680KSPS_recording(FILE, HALF_CP_ADVANCE, MULT_REUSE, RND_JITTER, HAS_CFO_COR):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = HALF_CP_ADVANCE, USE_TAP_FILE = 1, LLR_DW = 8,
-         NFFT = 9, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE)
+        NFFT = 9, MULT_REUSE = MULT_REUSE, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = RND_JITTER, FILE = FILE,
+        HAS_CFO_COR = HAS_CFO_COR)
 
 if __name__ == '__main__':
     os.environ['SIM'] = 'verilator'
     os.environ['PLOTS'] = '1'
     os.environ['WAVES'] = '1'
-    if False:
+    if True:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 1, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 9, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0, FILE = '763450KHz_7680KSPS_low_gain')
+            NFFT = 9, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, INITIAL_CFO_MODE = 1, RND_JITTER = 0,
+            FILE = '763450KHz_7680KSPS_low_gain', HAS_CFO_COR = 0)
     else:
         test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, WINDOW_LEN = 8, CFO = 0, HALF_CP_ADVANCE = 0, USE_TAP_FILE = 1, LLR_DW = 8,
-             NFFT = 8, MULT_REUSE = 1, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)
+            NFFT = 8, MULT_REUSE = 1, INITIAL_DETECTION_SHIFT = 4, INITIAL_CFO_MODE = 1, RND_JITTER = 0)

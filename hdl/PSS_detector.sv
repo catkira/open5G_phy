@@ -27,6 +27,7 @@ module PSS_detector
     parameter INITIAL_DETECTION_SHIFT = 3,
     parameter INITIAL_CFO_MODE = 0,
     parameter CIC_RATE = 2,
+    parameter HAS_CFO_CALC = 1,
 
     localparam SAMPLE_RATE = 1920000,
     localparam AXI_ADDRESS_WIDTH = 11
@@ -393,32 +394,32 @@ reg CFO_calc_valid_in;
 reg CFO_calc_valid_out;
 reg signed [CFO_DW - 1 : 0] CFO_angle;
 reg signed [DDS_DW - 1 : 0] CFO_DDS_inc;
-CFO_calc #(
-    .C_DW(C_DW),
-    .CFO_DW(CFO_DW),
-    .DDS_DW(DDS_DW)
-)
-CFO_calc_i(
-    .clk_i(clk_i),
-    .reset_ni(reset_int_n),
-    .C0_i(C0_in),
-    .C1_i(C1_in),
-    .valid_i(CFO_calc_valid_in),
+if (HAS_CFO_CALC) begin
+    CFO_calc #(
+        .C_DW(C_DW),
+        .CFO_DW(CFO_DW),
+        .DDS_DW(DDS_DW)
+    )
+    CFO_calc_i(
+        .clk_i(clk_i),
+        .reset_ni(reset_int_n),
+        .C0_i(C0_in),
+        .C1_i(C1_in),
+        .valid_i(CFO_calc_valid_in),
 
-    .CFO_angle_o(CFO_angle),
-    .CFO_DDS_inc_o(CFO_DDS_inc),
-    .valid_o(CFO_calc_valid_out)
-);
+        .CFO_angle_o(CFO_angle),
+        .CFO_DDS_inc_o(CFO_DDS_inc),
+        .valid_o(CFO_calc_valid_out)
+    );
+end else begin
+    always_comb begin
+        CFO_calc_valid_out <= '0;
+        CFO_DDS_inc <= '0;
+        CFO_angle <= '0;
+    end
+end
 
-localparam [1 : 0]  SEARCH = 0;
-localparam [1 : 0]  FIND   = 1;
-localparam [1 : 0]  PAUSE  = 2;
 reg N_id_2_valid;
-
-reg [1 : 0] CFO_state;
-localparam [1 : 0] WAIT_FOR_PEAK = 0;
-localparam [1 : 0] DISABLE_CFO_IN = 1;
-localparam [1 : 0] WAIT_FOR_CFO = 2;
 
 //-------------------------------------------------------------------------------
 // FSM to control CFO_calc
@@ -427,39 +428,51 @@ localparam [1 : 0] WAIT_FOR_CFO = 2;
 // 
 // TODO: signal a valid N_id_2 only of the calculated CFO is below a certain threshold,
 // i.e. +- 100 Hz, if it is above, wait for next SSB with corrected CFO
-always @(posedge clk_i) begin
-    if (!reset_int_n) begin
-        CFO_state <= WAIT_FOR_PEAK;
-        CFO_angle_o <= '0;
-        CFO_DDS_inc_o <= '0;
+if (HAS_CFO_CALC) begin
+    reg [1 : 0] CFO_state;
+    localparam [1 : 0] WAIT_FOR_PEAK = 0;
+    localparam [1 : 0] DISABLE_CFO_IN = 1;
+    localparam [1 : 0] WAIT_FOR_CFO = 2;
+    always @(posedge clk_i) begin
+        if (!reset_int_n) begin
+            CFO_state <= WAIT_FOR_PEAK;
+            CFO_angle_o <= '0;
+            CFO_DDS_inc_o <= '0;
+            CFO_valid_o <= '0;
+        end else begin
+            case (CFO_state)
+                WAIT_FOR_PEAK : begin
+                    CFO_valid_o <= '0;
+                    if (N_id_2_valid) begin
+                        C0_in <= C0_f[N_id_2_o];
+                        C1_in <= C1_f[N_id_2_o];
+                        CFO_calc_valid_in <= 1;
+                        CFO_state <= DISABLE_CFO_IN;
+                    end
+                end
+                DISABLE_CFO_IN : begin
+                    CFO_calc_valid_in <= '0;
+                    CFO_state <= WAIT_FOR_CFO;
+                end
+                WAIT_FOR_CFO : begin
+                    if (CFO_calc_valid_out) begin
+                        $display("PSS_detector: detected CFO angle is %f deg", $itor(CFO_angle) / $itor((2**(CFO_DW - 1) - 1)) * $itor(180));
+                        $display("PSS_detector: detected CFO frequency is %f Hz", $itor(CFO_angle) * SAMPLE_RATE / 64 / (2**(CFO_DW - 1) - 1));
+                        $display("PSS detector: detected CFO DDS_inc is %d", CFO_DDS_inc);
+                        CFO_state <= WAIT_FOR_PEAK;
+                        CFO_angle_o <= cfo_mode == CFO_MODE_AUTO ? CFO_angle : '0;
+                        CFO_DDS_inc_o <= cfo_mode == CFO_MODE_AUTO ? CFO_DDS_inc : '0;
+                        CFO_valid_o <= 1 && (cfo_mode == CFO_MODE_AUTO);
+                    end
+                end
+            endcase
+        end
+    end
+end else begin
+    always_comb begin
         CFO_valid_o <= '0;
-    end else begin
-        case (CFO_state)
-            WAIT_FOR_PEAK : begin
-                CFO_valid_o <= '0;
-                if (N_id_2_valid) begin
-                    C0_in <= C0_f[N_id_2_o];
-                    C1_in <= C1_f[N_id_2_o];
-                    CFO_calc_valid_in <= 1;
-                    CFO_state <= DISABLE_CFO_IN;
-                end
-            end
-            DISABLE_CFO_IN : begin
-                CFO_calc_valid_in <= '0;
-                CFO_state <= WAIT_FOR_CFO;
-            end
-            WAIT_FOR_CFO : begin
-                if (CFO_calc_valid_out) begin
-                    $display("PSS_detector: detected CFO angle is %f deg", $itor(CFO_angle) / $itor((2**(CFO_DW - 1) - 1)) * $itor(180));
-                    $display("PSS_detector: detected CFO frequency is %f Hz", $itor(CFO_angle) * SAMPLE_RATE / 64 / (2**(CFO_DW - 1) - 1));
-                    $display("PSS detector: detected CFO DDS_inc is %d", CFO_DDS_inc);
-                    CFO_state <= WAIT_FOR_PEAK;
-                    CFO_angle_o <= cfo_mode == CFO_MODE_AUTO ? CFO_angle : '0;
-                    CFO_DDS_inc_o <= cfo_mode == CFO_MODE_AUTO ? CFO_DDS_inc : '0;
-                    CFO_valid_o <= 1 && (cfo_mode == CFO_MODE_AUTO);
-                end
-            end
-        endcase
+        CFO_DDS_inc_o <= '0;
+        CFO_angle_o <= '0;
     end
 end
 
@@ -473,6 +486,9 @@ end
 //
 // If USE_MODE is 0, the FSM is permanently in SEARCH mode
 wire [1 : 0] mode_select;
+localparam [1 : 0]  SEARCH = 0;
+localparam [1 : 0]  FIND   = 1;
+localparam [1 : 0]  PAUSE  = 2;
 assign mode_select = USE_MODE ? mode_i : SEARCH;
 reg [1 : 0] N_id_2;
 
