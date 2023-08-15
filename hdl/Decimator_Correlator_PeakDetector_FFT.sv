@@ -22,7 +22,14 @@ module Decimator_Correlator_PeakDetector_FFT
     localparam FFT_OUT_DW = 32,
     localparam FFT_LEN = 2 ** NFFT,
     localparam CIC_RATE = FFT_LEN / 128,
-    localparam MAX_CP_LEN = 20 * FFT_LEN / 256
+    localparam MAX_CP_LEN = 20 * FFT_LEN / 256,
+    localparam SFN_MAX = 1023,
+    localparam SUBFRAMES_PER_FRAME = 20,
+    localparam SYM_PER_SF = 14,
+    localparam SFN_WIDTH = $clog2(SFN_MAX),
+    localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1),
+    localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1),
+    localparam OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1
 )
 (
     input                                       clk_i,
@@ -34,6 +41,8 @@ module Decimator_Correlator_PeakDetector_FFT
     output                                      SSS_valid_o,
     output                 [FFT_OUT_DW-1:0]     m_axis_out_tdata,
     output                                      m_axis_out_tvalid,
+    output                                      m_axis_out_tlast,
+    output                 [OUT_USER_WIDTH-1:0] m_axis_out_tuser,
     
     // debug outputs
     output  reg                                 peak_detected_debug_o,
@@ -42,6 +51,7 @@ module Decimator_Correlator_PeakDetector_FFT
     output  wire            [15:0]              sync_wait_counter_debug_o,
     output  reg                                 fft_demod_PBCH_start_o,
     output  reg                                 fft_demod_SSS_start_o,
+    output  reg                                 fft_demod_tlast_o,
     output                  [IN_DW-1:0]         m_axis_PSS_out_tdata,
     output                                      m_axis_PSS_out_tvalid
 );
@@ -88,12 +98,6 @@ wire fft_sync;
 assign fft_result_debug_o = fft_result;
 assign fft_sync_debug_o = fft_sync;
 
-localparam SFN_MAX = 1023;
-localparam SUBFRAMES_PER_FRAME = 20;
-localparam SYM_PER_SF = 14;
-localparam SFN_WIDTH = $clog2(SFN_MAX);
-localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1);
-localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1);
 localparam USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + $clog2(MAX_CP_LEN);
 
 reg [IN_DW - 1 : 0]     fs_out_tdata;
@@ -170,9 +174,9 @@ BWP_extractor_i(
     .s_axis_in_tlast(fft_demod_out_tlast),
 
     .m_axis_out_tdata(m_axis_out_tdata),
-    .m_axis_out_tuser(),
+    .m_axis_out_tuser(m_axis_out_tuser),
     .m_axis_out_tvalid(m_axis_out_tvalid),
-    .m_axis_out_tlast(),
+    .m_axis_out_tlast(m_axis_out_tlast),
     .PBCH_valid_o(PBCH_valid_o),
     .SSS_valid_o(SSS_valid_o)
 );

@@ -26,6 +26,19 @@ def _twos_comp(val, bits):
         val = val - (1 << bits)
     return int(val)
 
+def phase_comp(sym, f_c, NFFT, sym_idx):
+    assert NFFT >= 8
+    f_s = 3840000 * (NFFT - 7)
+    sample_pos = 0
+    for i in range(sym_idx):
+        CP_LEN = (20 if (i % 14) in [0, 7] else 18) * (NFFT - 7)
+        sample_pos += CP_LEN * (NFFT - 7)
+        sample_pos += 2**NFFT
+    CP_LEN = (20 if (sym_idx % 14) in [0, 7] else 18) * (NFFT - 7)
+    sample_pos += CP_LEN * (NFFT - 7)
+    sym_comp = np.array(sym) * np.exp(1j * 2 * np.pi * f_c / f_s * sample_pos)
+    return sym_comp
+
 class TB(object):
     def __init__(self, dut):
         self.dut = dut
@@ -71,6 +84,8 @@ async def simple_test(dut):
     if os.environ['TEST_FILE'] == '30720KSPS_dl_signal':
         expected_N_id_1 = 69
         expected_N_id_2 = 2
+        expected_rx_syms = 100
+        f_c = 0
         waveform /= max(waveform.real.max(), waveform.imag.max())
         dec_factor = int((2048 * fs // 30720000) // (2 ** tb.NFFT))
         assert dec_factor != 0, f'NFFT = {tb.NFFT} and fs = {fs} is not possible!'
@@ -85,6 +100,8 @@ async def simple_test(dut):
     elif os.environ['TEST_FILE'] == '772850KHz_3840KSPS_low_gain':
         expected_N_id_1 = 291
         expected_N_id_2 = 0
+        expected_rx_syms = 100
+        f_c = 772850000
         delta_f = -4e3
         waveform *= 2**19 # exported files from sdrangel are scaled like this
         waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs*np.arange(waveform.shape[0])))
@@ -94,6 +111,8 @@ async def simple_test(dut):
     elif os.environ['TEST_FILE'] == '1876954_7680KSPS_srsRAN_Project_gnb_short_2':
         expected_N_id_1 = 0
         expected_N_id_2 = 1
+        expected_rx_syms = 25 * 12 * 14 * 2 # 2 subframes
+        f_c = 1876954000
         delta_f = 0
         waveform *= 2**19 # exported files from sdrangel are scaled like this
         waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs*np.arange(waveform.shape[0])))
@@ -130,12 +149,16 @@ async def simple_test(dut):
     EXTRA_IDLE_CLKS = 0 if PSS_IDLE_CLKS >= tb.MULT_REUSE else tb.MULT_REUSE // PSS_IDLE_CLKS - 1 # insert additional valid 0 cycles if needed
     print(f'additional idle cycles per sample: {EXTRA_IDLE_CLKS}')
     clk_div = 0
-    MAX_CLK_CNT = 100000 * FFT_LEN // 256 * (1 + EXTRA_IDLE_CLKS)
+    if os.environ['TEST_FILE'] == '1876954_7680KSPS_srsRAN_Project_gnb_short_2':
+        MAX_CLK_CNT = 1000000 * FFT_LEN // 256 * (1 + EXTRA_IDLE_CLKS)
+    else:
+        MAX_CLK_CNT = 100000 * FFT_LEN // 256 * (1 + EXTRA_IDLE_CLKS)
     peaks = []
 
     tx_cnt = 0
     sample_cnt = 0
-    while (len(received_SSS) < SSS_LEN) and (clk_cnt < MAX_CLK_CNT):
+    rx_syms = []
+    while (((len(received_SSS) < SSS_LEN) or (len(rx_syms) < expected_rx_syms)) and (clk_cnt < MAX_CLK_CNT)):
         await RisingEdge(dut.clk_i)
         if (clk_div == 0 or EXTRA_IDLE_CLKS == 0):
             data = (((int(waveform[tx_cnt].imag)  & ((2 ** (tb.IN_DW // 2)) - 1)) << (tb.IN_DW // 2)) \
@@ -171,9 +194,16 @@ async def simple_test(dut):
 
         if dut.SSS_valid_o.value.integer == 1:
             # print(f"rx SSS[{len(received_SSS):3d}]")
-            received_SSS.append(_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
-                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2))
+            sym = _twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2) \
+                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+            received_SSS.append(sym)
 
+        if dut.m_axis_out_tvalid.value.integer == 1:
+            sym = _twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2) \
+                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+            rx_syms.append(sym)
+
+    
     assert clk_cnt < MAX_CLK_CNT, "timeout, did not receive enough data"
     assert len(received_SSS) == SSS_LEN
 
@@ -186,6 +216,11 @@ async def simple_test(dut):
     ideal_SSS_sym = tb.fft_dbs(ideal_SSS_sym, FFT_OUT_DW / 2)
     ideal_SSS_sym *= np.exp(1j * (2 * np.pi * (CP_LEN - CP_ADVANCE) / FFT_LEN * np.arange(FFT_LEN) + np.pi * (CP_LEN - CP_ADVANCE)))
     ideal_SSS = ideal_SSS_sym[SSS_START:][:SSS_LEN]
+
+    # phase compensation for SSS symbol
+    received_SSS = phase_comp(received_SSS, f_c, NFFT, 4) # SSS is always at symbol number 4 within a slot assuming ssb_idx == 0
+    ideal_SSS = phase_comp(ideal_SSS, f_c, NFFT, 4)
+
     if 'PLOTS' in os.environ and os.environ['PLOTS'] == '1':
         ax = plt.subplot(4, 2, 1)
         ax.plot(np.abs(ideal_SSS_sym))
@@ -226,6 +261,19 @@ async def simple_test(dut):
         axs[1, 1].plot(np.real(received_PBCH_ideal), np.imag(received_PBCH_ideal), '.')
         axs[1, 1].set_title('hdl PBCH')
         axs[1, 1].set_title('model PBCH')
+        plt.show()
+
+    rx_syms = np.array(rx_syms)
+    print(f'received {len(rx_syms)} ressource elements')
+    if ('PLOTS' in os.environ and os.environ['PLOTS'] == '1') and (os.environ['TEST_FILE'] == '1876954_7680KSPS_srsRAN_Project_gnb_short_2'):
+        _, axs = plt.subplots(1, 3, figsize=(15, 5))
+        SC_PER_SYM = 25 * 12 # assume NFFT = 9
+        sym = rx_syms[SC_PER_SYM*0 : SC_PER_SYM*1]
+        axs[0].plot(np.real(sym), np.imag(sym), '.')
+        sym = rx_syms[SC_PER_SYM*1 : SC_PER_SYM*17]
+        axs[1].plot(np.real(sym), np.imag(sym), '.')
+        sym = rx_syms[SC_PER_SYM*17 : SC_PER_SYM*28]
+        axs[2].plot(np.real(sym), np.imag(sym), '.')
         plt.show()
 
     # peak_pos = np.argmax(received[:np.round(fs * 0.02).astype(int)]) # max peak within first 20 ms
