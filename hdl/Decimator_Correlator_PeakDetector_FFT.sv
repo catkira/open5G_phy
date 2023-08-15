@@ -29,6 +29,7 @@ module Decimator_Correlator_PeakDetector_FFT
     localparam SFN_WIDTH = $clog2(SFN_MAX),
     localparam SUBFRAME_NUMBER_WIDTH = $clog2(SUBFRAMES_PER_FRAME - 1),
     localparam SYMBOL_NUMBER_WIDTH = $clog2(SYM_PER_SF - 1),
+    localparam BLK_EXP_LEN = 8,
     localparam OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN + 1
 )
 (
@@ -131,7 +132,6 @@ frame_sync_i
     .SSB_start_o(fs_out_SSB_start)
 );
 
-localparam BLK_EXP_LEN = 8;
 localparam FFT_DEMOD_OUT_USER_WIDTH = SFN_WIDTH + SUBFRAME_NUMBER_WIDTH + SYMBOL_NUMBER_WIDTH + BLK_EXP_LEN;
 wire [FFT_OUT_DW - 1 : 0] fft_demod_out_tdata;
 wire [FFT_DEMOD_OUT_USER_WIDTH - 1 : 0] fft_demod_out_tuser;

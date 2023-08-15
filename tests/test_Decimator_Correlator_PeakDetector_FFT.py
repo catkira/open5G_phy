@@ -111,6 +111,7 @@ async def simple_test(dut):
     elif os.environ['TEST_FILE'] == '1876954_7680KSPS_srsRAN_Project_gnb_short_2':
         expected_N_id_1 = 0
         expected_N_id_2 = 1
+        sym_offset = 2
         expected_rx_syms = 25 * 12 * 14 * 2 # 2 subframes
         f_c = 1876954000
         delta_f = 0
@@ -199,8 +200,10 @@ async def simple_test(dut):
             received_SSS.append(sym)
 
         if dut.m_axis_out_tvalid.value.integer == 1:
-            sym = _twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2) \
-                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)
+            blk_exp_len = 8
+            blk_exp = (dut.m_axis_out_tuser.value.integer >> 1) & (2 ** blk_exp_len - 1)
+            sym = (_twos_comp(dut.m_axis_out_tdata.value.integer & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2) \
+                + 1j * _twos_comp((dut.m_axis_out_tdata.value.integer>>(FFT_OUT_DW//2)) & (2**(FFT_OUT_DW//2) - 1), FFT_OUT_DW//2)) / (2 ** blk_exp)
             rx_syms.append(sym)
 
     
@@ -266,14 +269,21 @@ async def simple_test(dut):
     rx_syms = np.array(rx_syms)
     print(f'received {len(rx_syms)} ressource elements')
     if ('PLOTS' in os.environ and os.environ['PLOTS'] == '1') and (os.environ['TEST_FILE'] == '1876954_7680KSPS_srsRAN_Project_gnb_short_2'):
-        _, axs = plt.subplots(1, 3, figsize=(15, 5))
         SC_PER_SYM = 25 * 12 # assume NFFT = 9
-        sym = rx_syms[SC_PER_SYM*0 : SC_PER_SYM*1]
-        axs[0].plot(np.real(sym), np.imag(sym), '.')
-        sym = rx_syms[SC_PER_SYM*1 : SC_PER_SYM*17]
-        axs[1].plot(np.real(sym), np.imag(sym), '.')
-        sym = rx_syms[SC_PER_SYM*17 : SC_PER_SYM*28]
-        axs[2].plot(np.real(sym), np.imag(sym), '.')
+        assert len(rx_syms) % SC_PER_SYM == 0
+        rx_syms = np.append(np.zeros(SC_PER_SYM * sym_offset), rx_syms)
+        rx_syms = np.reshape(rx_syms, (SC_PER_SYM, len(rx_syms) // SC_PER_SYM), order='F')
+        fig, axs = plt.subplots(2, 14, figsize=(35, 7))
+        for slot in range(2):
+            for sym_idx in range(14):
+                sym = rx_syms[:, slot*14 + sym_idx]
+                phase_comp(sym, f_c, NFFT, sym_idx)
+                axs[slot, sym_idx].plot(np.real(sym), np.imag(sym), '.')
+                axs[slot, sym_idx].set_xlim(-25, 25)
+                axs[slot, sym_idx].set_ylim(-25, 25)
+                axs[slot, sym_idx].set_xticks([])
+                axs[slot, sym_idx].set_yticks([])
+        fig.tight_layout()
         plt.show()
 
     # peak_pos = np.argmax(received[:np.round(fs * 0.02).astype(int)]) # max peak within first 20 ms
