@@ -68,7 +68,7 @@ reg [IN_DW - 1 : 0] in_data_f;
 reg in_valid_f;
 reg [OUT_DW - 1 : 0] out_data_f;
 localparam SSB_LEN = 4;
-reg [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len;
+wire [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len = s_axis_in_tuser[$clog2(MAX_CP_LEN) - 1 : 0];
 reg [$clog2(MAX_CP_LEN) - 1: 0] CP_cnt;
 reg [$clog2(FFT_LEN) : 0] in_cnt;
 localparam SYMS_BTWN_SSB = 14 * 20;
@@ -80,8 +80,7 @@ always @(posedge clk_i) begin
     if (!reset_ni) begin
         state_in <= STATE_IN_SKIP_CP;
         in_cnt <= '0;
-        current_CP_len <= CP2;
-        CP_cnt <= HALF_CP_ADVANCE ? CP2 / 2 : 0;
+        CP_cnt <= 0;
         meta_FIFO_valid_in <= '0;
         in_data_f <= '0;
         in_valid_f <= '0;
@@ -91,11 +90,11 @@ always @(posedge clk_i) begin
                 if (SSB_start_i) begin // jump backward if SSB arrives late
                     // if (CP_cnt != (HALF_CP_ADVANCE ? current_CP_len >> 1 : 0)) $display("FFT_demod: jump backward");
                     // else                          $display("FFT_demod: SSB_start on time");
-                    if (s_axis_in_tvalid)    CP_cnt <= HALF_CP_ADVANCE ? (current_CP_len >> 1) + 1 : 1;
-                    else                     CP_cnt <= HALF_CP_ADVANCE ? current_CP_len >> 1 : 0;
+                    if (s_axis_in_tvalid)    CP_cnt <= 1;
+                    else                     CP_cnt <= '0;
                 end else if (s_axis_in_tvalid) begin
                     in_cnt <= '0;
-                    if (CP_cnt == (current_CP_len - 1)) begin
+                    if (CP_cnt == (HALF_CP_ADVANCE ? current_CP_len - (CP2 >> 1) - 1 : current_CP_len - 1)) begin
                         state_in <= STATE_IN_PROCESS_SYMBOL;
                         CP_cnt <= '0;
                     end else begin
@@ -112,10 +111,10 @@ always @(posedge clk_i) begin
                         in_cnt <= in_cnt + 1;
                     end else if (s_axis_in_tlast) begin
                         state_in <= STATE_IN_SKIP_CP;
-                        CP_cnt <= HALF_CP_ADVANCE ? current_CP_len >> 1 : 0;
+                        CP_cnt <= '0;
                     end else begin
                         state_in <= STATE_IN_SKIP_END;
-                        CP_cnt <= HALF_CP_ADVANCE ? current_CP_len >> 1 : 0;
+                        CP_cnt <= '0;
                     end
                 end
             end
@@ -130,7 +129,6 @@ always @(posedge clk_i) begin
         endcase
 
         if (s_axis_in_tvalid) begin
-            current_CP_len <= s_axis_in_tuser[$clog2(MAX_CP_LEN) - 1 : 0];
             in_data_f <= s_axis_in_tdata;
         end
         in_valid_f <= s_axis_in_tvalid;
