@@ -384,7 +384,7 @@ always @(posedge clk_i) begin
                     out_last <= sample_cnt == (FFT_LEN + current_CP_len - 2);
 
                     if (end_of_symbol) begin
-                        if (((sym_cnt_next + sym_cnt_offset) % 14  == 0) || ((sym_cnt_next + sym_cnt_offset) % 14 == 7))
+                        if (((sym_cnt_next + sym_cnt_offset) % SYM_PER_SF  == 0) || ((sym_cnt_next + sym_cnt_offset) % SYM_PER_SF == 7))
                             current_CP_len <= CP1_LEN;
                         else
                             current_CP_len <= CP2_LEN;
