@@ -91,6 +91,15 @@ async def simple_test(dut):
         # waveform /= max(waveform.real.max(), waveform.imag.max())
         # waveform *= (2 ** (tb.IN_DW // 2 - 1) - 1)
         waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
+    elif os.environ['TEST_FILE'] == '1876954_7680KSPS_srsRAN_Project_gnb_short_2':
+        expected_N_id_1 = 0
+        expected_N_id_2 = 1
+        delta_f = 0
+        waveform *= 2**19 # exported files from sdrangel are scaled like this
+        waveform = waveform * np.exp(-1j*(2*np.pi*delta_f/fs*np.arange(waveform.shape[0])))
+        # waveform /= max(waveform.real.max(), waveform.imag.max())
+        # waveform *= (2 ** (tb.IN_DW // 2 - 1) - 1)
+        waveform = waveform.real.astype(int) + 1j*waveform.imag.astype(int)
     else:
         file_string = os.environ['TEST_FILE']
         assert False, f'test file {file_string} is not supported'
@@ -121,7 +130,7 @@ async def simple_test(dut):
     EXTRA_IDLE_CLKS = 0 if PSS_IDLE_CLKS >= tb.MULT_REUSE else tb.MULT_REUSE // PSS_IDLE_CLKS - 1 # insert additional valid 0 cycles if needed
     print(f'additional idle cycles per sample: {EXTRA_IDLE_CLKS}')
     clk_div = 0
-    MAX_CLK_CNT = 10000 * FFT_LEN // 256 * (1 + EXTRA_IDLE_CLKS)
+    MAX_CLK_CNT = 100000 * FFT_LEN // 256 * (1 + EXTRA_IDLE_CLKS)
     peaks = []
 
     tx_cnt = 0
@@ -394,8 +403,13 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
 def test_recording(FILE):
     test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = FILE)
 
+@pytest.mark.parametrize("FILE", ["1876954_7680KSPS_srsRAN_Project_gnb_short_2"])
+def test_recording_2(FILE):
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 9, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = FILE)
+
 if __name__ == '__main__':
     os.environ['PLOTS'] = "1"
     # os.environ['SIM'] = 'verilator'
     # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '772850KHz_3840KSPS_low_gain')
-    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 64, INITIAL_DETECTION_SHIFT = 4)
+    # test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 1, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 8, USE_TAP_FILE = 1, MULT_REUSE = 64, INITIAL_DETECTION_SHIFT = 4)
+    test(IN_DW = 32, OUT_DW = 32, TAP_DW = 32, ALGO = 0, WINDOW_LEN = 8, HALF_CP_ADVANCE = 1, NFFT = 9, USE_TAP_FILE = 1, MULT_REUSE = 0, INITIAL_DETECTION_SHIFT = 3, FILE = '1876954_7680KSPS_srsRAN_Project_gnb_short_2')
