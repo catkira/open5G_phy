@@ -81,7 +81,7 @@ reg [$clog2(MAX_CP_LEN) - 1: 0] CP_len;
 reg [SFN_WIDTH - 1 : 0] sfn;
 reg [SUBFRAME_NUMBER_WIDTH - 1 : 0] subframe_number;
 reg [SYMBOL_NUMBER_WIDTH - 1 : 0] sym_cnt;
-reg [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len;
+reg [$clog2(MAX_CP_LEN) - 1 : 0] current_CP_len, current_CP_len_f;
 reg [IN_DW - 1 : 0] s_axis_in_tdata_f;
 reg out_valid;
 reg out_last;
@@ -118,6 +118,9 @@ always @(posedge clk_i) begin
     else ibar_SSB <= ibar_SSB_valid_i ? ibar_SSB_i : ibar_SSB;
 end
 
+always @(posedge clk_i)
+    if (!reset_ni) current_CP_len_f <= '0;
+    else current_CP_len_f <= current_CP_len;
 
 // ---------------------------------------------------------------------------------------------------//
 // FSM for controlling reconnect_mode
@@ -240,11 +243,11 @@ localparam CIC_RATE = 2 ** (NFFT - 7);
 localparam FIND_SAMPLES_TOLERANCE = 3 * CIC_RATE;
 
 reg signed [7 : 0] sample_cnt_mismatch;
-wire end_of_symbol_ = sample_cnt == (FFT_LEN + current_CP_len - 1);
+wire end_of_symbol_ = sample_cnt == (FFT_LEN + current_CP_len_f - 1);
 
 // manual timing_advance can happend at the end of a subframe
 reg signed [31 : 0] timing_advance;
-wire do_manual_ta = ((sym_cnt == SYM_PER_SF - 1) && ((sample_cnt == FFT_LEN + current_CP_len - 1 - timing_advance) && timing_advance_queued));
+wire do_manual_ta = ((sym_cnt == SYM_PER_SF - 1) && ((sample_cnt == FFT_LEN + current_CP_len_f - 1 - timing_advance) && timing_advance_queued));
 wire end_of_symbol_ta_manual = (timing_advance_mode == TA_MODE_MANUAL) && 
     (do_manual_ta || (end_of_symbol_ && (!timing_advance_queued || (sym_cnt != SYM_PER_SF - 1))));
 
