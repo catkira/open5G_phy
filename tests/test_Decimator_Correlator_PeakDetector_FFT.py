@@ -407,7 +407,6 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
     parameters['USE_TAP_FILE'] = USE_TAP_FILE
     parameters['MULT_REUSE'] = MULT_REUSE
     parameters['MULT_REUSE_FFT'] = MULT_REUSE_FFT
-    parameters['CLK_FREQ'] = CLK_FREQ
     parameters['INITIAL_DETECTION_SHIFT'] = INITIAL_DETECTION_SHIFT
     parameters_no_taps = parameters.copy()
     folder = 'Decimator_to_FFT_' + '_'.join(('{}={}'.format(*i) for i in parameters_no_taps.items())) + '_' + FILE
