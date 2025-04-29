@@ -1,7 +1,9 @@
 [![Verify](https://github.com/catkira/open5G_rx/actions/workflows/verify.yml/badge.svg)](https://github.com/catkira/open5G_rx/actions/workflows/verify.yml)
 
+
+# Important
 <b>
-Note: This documentation and code is out-dated and not supported anymore. The missing FFT submodule dependency has been fixed. All CI tests pass. Client tools like open5G_tools are not available anymore since they were not GPL licensed.
+This documentation and code is out-dated and not supported anymore. The missing FFT submodule dependency has been fixed. All CI tests pass. Client tools like open5G_tools are not available anymore since they were not GPL licensed.
 </b>
   
 # Overview
