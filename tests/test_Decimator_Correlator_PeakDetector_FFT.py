@@ -343,7 +343,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
 
-    unisim_dir = os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/unisims')
+    unisim_dir = os.path.join(rtl_dir, '../submodules/XilinxUnisimLibrary/verilog/src/unisims')
     verilog_sources = [
         os.path.join(rtl_dir, f'{dut}.sv'),
         os.path.join(rtl_dir, 'div.sv'),
@@ -381,7 +381,7 @@ def test(IN_DW, OUT_DW, TAP_DW, ALGO, WINDOW_LEN, HALF_CP_ADVANCE, NFFT, USE_TAP
         os.path.join(rtl_dir, 'BWP_extractor.sv')
     ]
     if os.environ.get('SIM') != 'verilator':
-        verilog_sources.append(os.path.join(rtl_dir, '../submodules/FFT/submodules/XilinxUnisimLibrary/verilog/src/glbl.v'))
+        verilog_sources.append(os.path.join(rtl_dir, '../submodules/XilinxUnisimLibrary/verilog/src/glbl.v'))
     includes = [
         os.path.join(rtl_dir, 'CIC'),
         os.path.join(rtl_dir, 'fft-core')

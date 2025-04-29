@@ -19,3 +19,6 @@
 [submodule "submodules/verilog-axi"]
 	path = submodules/verilog-axi
 	url = https://github.com/alexforencich/verilog-axi.git
+[submodule "submodules/XilinxUnisimLibrary"]
+	path = submodules/XilinxUnisimLibrary
+	url = https://github.com/Xilinx/XilinxUnisimLibrary.git
