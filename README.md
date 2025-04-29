@@ -1,7 +1,9 @@
 [![Verify](https://github.com/catkira/open5G_rx/actions/workflows/verify.yml/badge.svg)](https://github.com/catkira/open5G_rx/actions/workflows/verify.yml)
 
-Note: This documentation and code is out-dated.
-
+<b>
+Note: This documentation and code is out-dated and not supported anymore. The missing FFT submodule dependency has been fixed. All CI tests pass. Client tools like open5G_tools are not available anymore since they were not GPL licensed.
+</b>
+  
 # Overview
 This is a customizable synthesizable 5G NR lower PHY written in Verilog intended to be used in a UE (user equipment). It can run on an [AntSDR e310]([https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/adalm-pluto.html](https://de.aliexpress.com/item/1005003181244737.html)), which has a Xilinx® Zynq Z-7020 with only 220 DSP slices and 85K logic cells, with a 5 MHz channel at 7.68 MSPS (512-FFT), 15.36 MSPS (1024-FFT) or 30.72 MSPS (2084-FFT) is also possible but not yet tested. In this 5 MHz configuration, 25 PRBs (physical ressource blocks) can be used. This will become a 5G NR standard compliant mode once 5G-NR RedCap will get standardized.
 <br>
@@ -28,32 +30,6 @@ Implemented so far:<br>
 
 ![Overview diagram](doc/overview.jpg)
 (details such as timestamp logic are not shown in this diagram)
-
-<b>TODO:</b>
-* implement tx
-* (optional) implement amplitude correction in PBCH channel estimator
-* (optional) refactor PBCH DMRS generation and PBCH DMRS detection into separate cores
-* (optional) optimize PSS correlator further like described [here](https://ieeexplore.ieee.org/document/8641097) or [here](https://ieeexplore.ieee.org/document/9312170)
-
-# Getting Started
-- install Vivado + Vitis 2022.2
-- clone [https://github.com/catkira/adi-hdl](https://github.com/catkira/plutosdr-fw) with branch antsdr_5G and do 'git submodule update --recursive --init'
-- run 'source setup_env_2022.2.sh'
-- run 'make'
-- copy content from 'build_sdimg' onto a SD-card and insert it into the AntSDR e310
-- clone https://github.com/catkira/open5G_tools and run the gui_client
-- use SDRangel to tune on to a 5G-NR SA channel (the FPGA code still containts all the original PlutoSDR cores, so it can be used like a normal PlutoSDR)
-
-# Ressource usage
-* CFO correction            :  3 DSP slices
-* Decimator                 :  0 DSP slices
-* PSS correlator            :  6 DSP slices (with MULT_REUSE=64)
-* Peak detector             :  0 DSP slices
-* FFT demodulator           :  (3 \* NFFT or 1 \* NFFT) DSP slices
-* SSS detector              :  0 DSP slices
-* Channel estimator         :  3 DSP slices
-* Ressource Grid Framer     :  0 DSP slices
-* AXI-DMAC                  :  0 DSP slices
 
 # Tests
 Testbenches are written in Python using cocotb. For simulation both iverilog and Verilator are used. Iverilog is used for short tests whereas Verilator is used for tests with larger data throughput.
